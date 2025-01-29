@@ -1,9 +1,9 @@
 microservice-chart:
-  namespace: "<namespace>" # TODO
+  namespace: "fdrtoeventhub"
   nameOverride: ""
   fullnameOverride: ""
   image:
-    repository: pagopaucommonacr.azurecr.io/pagopa<project-name>  # TODO
+    repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
     tag: "0.0.1"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
@@ -29,8 +29,8 @@ microservice-chart:
     port: 80
   ingress:
     create: true
-    host: "weuuat.<namespace>.internal.uat.platform.pagopa.it"  # TODO
-    path: /pagopa-<project-name>-service/(.*) # TODO
+    host: "weuuat.fdrtoeventhub.internal.uat.platform.pagopa.it"
+    path: /pagopa-fdr-to-event-hub-service/(.*)
   serviceAccount:
     create: false
     annotations: {}
@@ -61,12 +61,20 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-    WEBSITE_SITE_NAME: "pagopa<project-name>" # required to show cloud role name in application insights # TODO
+    WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
+    BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
+    BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
+    EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
+    EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
   envSecret:
-    APPLICATIONINSIGHTS_CONNECTION_STRING: 'ai-d-connection-string' # TODO set in kv
+    APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
+    FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
+    EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
+    EVENT_HUB_FLOWTX_CONNECTION_STRING: "fdr-qi-flows-tx-connection-string"
+    AzureWebJobsStorage: "fdr-sa-connection-string"
   keyvault:
-    name: "pagopa-u-<namespace>-kv" # TODO
+    name: "pagopa-u-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
   tolerations: []

@@ -54,7 +54,7 @@
 			<version>${jackson.dataformat.xml.version}</version>
 		</dependency>
 
-		<!-- support for "Java 8 date time api" -->
+		<!-- Jackson: support for "Java 8 date time api" -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-jsr310</artifactId>
@@ -77,14 +77,14 @@
 
 		<!-- Test -->
 		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter</artifactId>
-			<version>5.11.4</version>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>5.15.2</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>
-			<artifactId>mockito-core</artifactId>
+			<artifactId>mockito-junit-jupiter</artifactId>
 			<version>5.15.2</version>
 			<scope>test</scope>
 		</dependency>

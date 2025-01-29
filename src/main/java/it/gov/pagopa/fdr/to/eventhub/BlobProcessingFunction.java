@@ -2,35 +2,33 @@ package it.gov.pagopa.fdr.to.eventhub;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
-import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
 
+import com.azure.core.amqp.AmqpRetryMode;
+import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.messaging.eventhubs.EventData;
 import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.StorageAccount;
 
-import it.gov.pagopa.fdr.to.eventhub.exception.XmlParsingException;
+import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
@@ -43,13 +41,23 @@ public class BlobProcessingFunction {
 	private final String fdr3Container = System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
 	private final EventHubProducerClient eventHubClientFlowTx;
 	private final EventHubProducerClient eventHubClientReportedIUV;
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	public BlobProcessingFunction() { 
-		this.eventHubClientFlowTx = new EventHubClientBuilder().connectionString(System.getenv("EVENT_HUB_FLOWTX_CONNECTION_STRING"),
-				System.getenv("EVENT_HUB_FLOWTX_NAME")) .buildProducerClient();
-		this.eventHubClientReportedIUV = new EventHubClientBuilder().connectionString(System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"),
-				System.getenv("EVENT_HUB_REPORTEDIUV_NAME")) .buildProducerClient(); 
+		this.eventHubClientFlowTx = new EventHubClientBuilder()
+		        .connectionString(System.getenv("EVENT_HUB_FLOWTX_CONNECTION_STRING"), System.getenv("EVENT_HUB_FLOWTX_NAME"))
+		        .retryOptions(new AmqpRetryOptions()
+		                .setMaxRetries(3) // Maximum number of attempts
+		                .setDelay(Duration.ofSeconds(2)) // Delay between attempts
+		                .setMode(AmqpRetryMode.EXPONENTIAL)) // Backoff strategy
+		        .buildProducerClient();
+
+		this.eventHubClientReportedIUV = new EventHubClientBuilder()
+		        .connectionString(System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"), System.getenv("EVENT_HUB_REPORTEDIUV_NAME"))
+		        .retryOptions(new AmqpRetryOptions()
+		                .setMaxRetries(3)
+		                .setDelay(Duration.ofSeconds(2))
+		                .setMode(AmqpRetryMode.EXPONENTIAL))
+		        .buildProducerClient();
 	}
 
 	// Constructor to inject the Event Hub clients
@@ -60,20 +68,25 @@ public class BlobProcessingFunction {
 	}
 
 	@FunctionName("ProcessFDR1BlobFiles")
-	//@StorageAccount("AzureWebJobsStorage")
 	public void processFDR1BlobFiles(
 			@BlobTrigger(name = "Fdr1BlobTrigger", dataType = "binary", path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}", connection = "FDR_SA_CONNECTION_STRING") byte[] content,
 			@BindingName("blobName") String blobName,
 			@BindingName("Metadata") Map<String, String> blobMetadata,
 			final ExecutionContext context) {
 		
+		// checks for the presence of the necessary metadata
+		validateBlobMetadata(blobMetadata);
+		
+		// verify that the file is present and that it is a compressed file
+		boolean isValidGzipFile = isGzip(content);
+		
 		context.getLogger().info(() -> String.format("Triggered for Blob container: %s, name: %s, size: %d bytes", fdr1Container, blobName, content.length));
 
 		try {
-			String decompressedContent = isGzip(content) ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
+			String decompressedContent = isValidGzipFile ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
 			FlussoRendicontazione flusso = parseXml(decompressedContent);
 			flusso.setMetadata(blobMetadata);
-			processXmlBlobAndSendToEventHub(flusso);
+			processXmlBlobAndSendToEventHub(flusso, context);
 			
 		} catch (Exception e) {
 			context.getLogger().severe(() -> String.format("Error processing Blob '%s/%s': %s", fdr1Container, blobName, e.getMessage()));
@@ -86,11 +99,17 @@ public class BlobProcessingFunction {
 			@BindingName("blobName") String blobName,
 			@BindingName("Metadata") Map<String, String> blobMetadata,
 			final ExecutionContext context) {
+		
+		// checks for the presence of the necessary metadata
+		validateBlobMetadata(blobMetadata);
+		
+		// verify that the file is present and that it is a compressed file
+		boolean isValidGzipFile = isGzip(content);
 
 		context.getLogger().info(() -> String.format("Triggered for Blob container: %s, name: %s, size: %d bytes", fdr3Container, blobName, content.length));
 
 		try {
-			String decompressedContent = isGzip(content) ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
+			String decompressedContent = isValidGzipFile ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
 			// TODO future needs
 		} catch (Exception e) {
 			context.getLogger().severe(() -> String.format("Error processing Blob '%s/%s': %s", fdr3Container, blobName, e.getMessage()));
@@ -98,7 +117,18 @@ public class BlobProcessingFunction {
 	}
 	
 	private boolean isGzip(byte[] content) {
+		if (content == null || content.length == 0) {
+	        throw new IllegalArgumentException("Invalid input data for decompression: empty file");
+	    }
 	    return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
+	}
+	
+	private void validateBlobMetadata(Map<String, String> blobMetadata) {
+	    if (blobMetadata == null || blobMetadata.isEmpty() || 
+	        !blobMetadata.containsKey("sessionId") || 
+	        !blobMetadata.containsKey("insertedTimestamp")) {
+	        throw new IllegalArgumentException("Invalid blob metadata: sessionId or insertedTimestamp is missing.");
+	    }
 	}
 
 	private String decompressGzip(byte[] compressedContent) throws Exception {
@@ -117,28 +147,43 @@ public class BlobProcessingFunction {
 
 	
 	
-	private FlussoRendicontazione parseXml(String xmlContent) throws Exception {
+	private FlussoRendicontazione parseXml(String xmlContent) throws ParserConfigurationException, SAXException, IOException  {
 		// using a SAX parser for performance reason
 		return FDR1XmlSAXParser.parseXmlContent(xmlContent);
 	}
 
 
-	private void processXmlBlobAndSendToEventHub(FlussoRendicontazione flussoRendicontazione) throws Exception {
-		// Convert FlussoRendicontazione to event models
-		FlowTxEventModel flowEvent = FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-		List<ReportedIUVEventModel> reportedIUVEventList = FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
+	private void processXmlBlobAndSendToEventHub(FlussoRendicontazione flussoRendicontazione, ExecutionContext context) throws EventHubException {
+		try {
+	        // Convert FlussoRendicontazione to event models
+	        FlowTxEventModel flowEvent = FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+	        List<ReportedIUVEventModel> reportedIUVEventList = FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
 
-		// Serialize the objects to JSON
-		String flowEventJson = objectMapper.registerModule(new JavaTimeModule()).writeValueAsString(flowEvent);
-		String reportedIUVEventJson = objectMapper.registerModule(new JavaTimeModule()).writeValueAsString(reportedIUVEventList);
+	        // Serialize the objects to JSON
+	        JsonMapper objectMapper = JsonMapper.builder()
+	                .addModule(new JavaTimeModule())
+	                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+	                .build();
+	        String flowEventJson = objectMapper.writeValueAsString(flowEvent);
+	        String reportedIUVEventJson = objectMapper.writeValueAsString(reportedIUVEventList);
 
-		// Create EventData objects
-		EventData flowEventData = new EventData(flowEventJson);
-		EventData reportedIUVEventData = new EventData(reportedIUVEventJson);
+	        // Create EventData objects
+	        EventData flowEventData = new EventData(flowEventJson);
+	        EventData reportedIUVEventData = new EventData(reportedIUVEventJson);
+
+	        // Send data to Event Hub
+	        eventHubClientFlowTx.send(Arrays.asList(flowEventData));
+	        eventHubClientReportedIUV.send(Arrays.asList(reportedIUVEventData));
+	    } catch (Exception e) {
+	        // Log the exception with context
+	        String errorMessage = String.format("Error processing or sending data to event hub: %s. Details: %s",
+	                flussoRendicontazione, e.getMessage());
+	        context.getLogger().severe(() -> errorMessage);
+
+	        // Rethrow custom exception with context
+	        throw new EventHubException(errorMessage, e);
+	    }
 		
-		// TODO da ripristinare
-		//eventHubClientFlowTx.send(Arrays.asList(flowEventData));
-		//eventHubClientReportedIUV.send(Arrays.asList(reportedIUVEventData));
 	}
 
 }
