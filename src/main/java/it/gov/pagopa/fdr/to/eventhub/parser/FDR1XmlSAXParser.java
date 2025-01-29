@@ -160,7 +160,7 @@ class FlussoRiversamentoHandler extends DefaultHandler {
 		switch (qName) {
 		case "istitutoMittente", "istitutoRicevente":
 			currentIstituto = new Istituto();
-			break;
+		break;
 		case "datiSingoliPagamenti":
 			currentDatiPagamento = new DatiSingoloPagamento();
 			insideDatiSingoliPagamenti = true;
@@ -179,33 +179,33 @@ class FlussoRiversamentoHandler extends DefaultHandler {
 	public void endElement(String uri, String localName, String qName) throws SAXException {
 		String content = value.toString().trim();
 
-		if (flussoRiversamento != null) {
-			switch (qName) {
-			case "versioneOggetto":
-				flussoRiversamento.setVersioneOggetto(content);
-				break;
-			case "identificativoFlusso":
-				flussoRiversamento.setIdentificativoFlusso(content);
-				break;
-			case "dataOraFlusso":
-				flussoRiversamento.setDataOraFlusso(content);
-				break;
-			case "identificativoUnivocoRegolamento":
-				flussoRiversamento.setIdentificativoUnivocoRegolamento(content);
-				break;
-			case "dataRegolamento":
-				flussoRiversamento.setDataRegolamento(content);
-				break;
-			case "numeroTotalePagamenti":
-				flussoRiversamento.setNumeroTotalePagamenti(Integer.parseInt(content));
-				break;
-			case "importoTotalePagamenti":
-				flussoRiversamento.setImportoTotalePagamenti(Double.parseDouble(content));
-				break;
-			default:
-				break;
-			}
+
+		switch (qName) {
+		case "versioneOggetto":
+			flussoRiversamento.setVersioneOggetto(content);
+			break;
+		case "identificativoFlusso":
+			flussoRiversamento.setIdentificativoFlusso(content);
+			break;
+		case "dataOraFlusso":
+			flussoRiversamento.setDataOraFlusso(content);
+			break;
+		case "identificativoUnivocoRegolamento":
+			flussoRiversamento.setIdentificativoUnivocoRegolamento(content);
+			break;
+		case "dataRegolamento":
+			flussoRiversamento.setDataRegolamento(content);
+			break;
+		case "numeroTotalePagamenti":
+			flussoRiversamento.setNumeroTotalePagamenti(Integer.parseInt(content));
+			break;
+		case "importoTotalePagamenti":
+			flussoRiversamento.setImportoTotalePagamenti(Double.parseDouble(content));
+			break;
+		default:
+			break;
 		}
+
 
 		if (currentIstituto != null) {
 			switch (qName) {
@@ -217,7 +217,7 @@ class FlussoRiversamentoHandler extends DefaultHandler {
 				break;
 			case "denominazioneMittente", "denominazioneRicevente":
 				currentIstituto.setDenominazione(content);
-				break;
+			break;
 			case "istitutoMittente":
 				flussoRiversamento.setIstitutoMittente(currentIstituto);
 				currentIstituto = null;
