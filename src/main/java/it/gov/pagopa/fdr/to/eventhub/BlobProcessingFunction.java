@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -171,9 +172,9 @@ public class BlobProcessingFunction {
 	        EventData flowEventData = new EventData(flowEventJson);
 	        EventData reportedIUVEventData = new EventData(reportedIUVEventJson);
 
-	        // Send data to Event Hub
-	        eventHubClientFlowTx.send(Arrays.asList(flowEventData));
-	        eventHubClientReportedIUV.send(Arrays.asList(reportedIUVEventData));
+	        // Send data to Event Hub: using concrete ArrayList to ensure it's a valid Iterable for test check
+	        eventHubClientFlowTx.send(new ArrayList<>(Arrays.asList(flowEventData)));
+	        eventHubClientReportedIUV.send(new ArrayList<>(Arrays.asList(reportedIUVEventData)));
 	    } catch (Exception e) {
 	        // Log the exception with context
 	        String errorMessage = String.format("Error processing or sending data to event hub: %s. Details: %s",
