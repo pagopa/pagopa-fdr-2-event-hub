@@ -69,7 +69,7 @@ class BlobProcessingFunctionTest {
     @Test
     void testBlobTriggerProcessing() throws Exception {
     	when(context.getLogger()).thenReturn(mockLogger); 
-        String sampleXml = SampleContentFileUtil.getSampleXml;
+        String sampleXml = SampleContentFileUtil.getSampleXml();
         byte[] compressedData = createGzipCompressedData(sampleXml);
         Map<String, String> metadata = new HashMap<>();
         metadata.put("sessionId", "1234");
