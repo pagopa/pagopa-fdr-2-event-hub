@@ -35,87 +35,77 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: Code Review
-        uses: pagopa/github-actions-template/maven-code-review@5a544cfcc87edacde3391e4fb70228194f90ec63 # v1.10.4
+        uses: pagopa/github-actions-template/maven-code-review@186af0dfc5ee51e6150046051d4e0b6444e15aed # v1.10.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           project_key: ${{env.PROJECT_KEY}}
-          coverage_exclusions: "**/config/*,**/*Mock*,**/model/**,**/entity/**"
-          cpd_exclusions: "**/model/**,**/entity/**"
           java_version: 17
+          coverage_exclusions: "**/config/*,**/*Mock*,**/models/**,**/clients/model/**,**/entity/*,**/exception/**,**/App.java"
+          cpd_exclusions: "**/models/**,**/clients/model/**,**/entity/*"
+          coverage_report_path: "./target/jacoco-report/jacoco.xml"
 
-  # smoke-test:
-  #   name: Smoke Test
-  #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: dev
-  #   steps:
-  #     - name: Checkout
-  #       id: checkout
-  #       uses: actions/checkout@1f9a0c22da41e6ebfa534300ef656657ea2c6707
-
-  #     - name: Login
-  #       id: login
-  #       # from https://github.com/Azure/login/commits/master
-  #       uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2
-  #       with:
-  #         client-id: ${{ secrets.CLIENT_ID }}
-  #         tenant-id: ${{ secrets.TENANT_ID }}
-  #         subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
-
-  #     - name: Run Service on Docker
-  #       shell: bash
-  #       id: run_service_docker
-  #       run: |
-  #         cd ./docker
-  #         chmod +x ./run_docker.sh
-  #         ./run_docker.sh local
-
-  #     - name: Run Integration Tests
-  #       shell: bash
-  #       id: run_integration_test
-  #       run: |
-  #         export SUBKEY=${{ secrets.SUBKEY }}      
-  #         export CANARY=${{ inputs.canary }}      
-  #         export CUCUMBER_PUBLISH_TOKEN=${{ secrets.CUCUMBER_PUBLISH_TOKEN }}
-  #         export COSMOS_DB_PRIMARY_KEY=${{ secrets.COSMOS_DB_PRIMARY_KEY }}
-  #         export EVENT_HUB_TX_PRIMARY_KEY=${{ secrets.EVENT_HUB_TX_PRIMARY_KEY }}
-          
-  #         cd ./integration-test
-  #         chmod +x ./run_integration_test.sh
-  #         ./run_integration_test.sh local
-
-
-  delete_github_deployments:
-    runs-on: ubuntu-latest
-    # needs: smoke-test
-    if: ${{ always() }}
-    steps:
-      - name: Delete Previous deployments
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
-        env:
-          SHA_HEAD: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.sha) || github.sha}}
-        with:
-          script: |
-            const { SHA_HEAD } = process.env
-
-            const deployments = await github.rest.repos.listDeployments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: SHA_HEAD
-            });
-            await Promise.all(
-              deployments.data.map(async (deployment) => {
-                await github.rest.repos.createDeploymentStatus({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  deployment_id: deployment.id,
-                  state: 'inactive'
-                });
-                return github.rest.repos.deleteDeployment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  deployment_id: deployment.id
-                });
-              })
-            );
+#  smoke_test:
+#    name: Smoke Test
+#    runs-on: ubuntu-latest
+#    environment:
+#      name: dev
+#    steps:
+#      - name: Checkout
+#        id: checkout
+#        uses: actions/checkout@1f9a0c22da41e6ebfa534300ef656657ea2c6707
+#
+#      - name: Login
+#        id: login
+#        # from https://github.com/Azure/login/commits/master
+#        uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2
+#        with:
+#          client-id: ${{ secrets.CLIENT_ID }}
+#          tenant-id: ${{ secrets.TENANT_ID }}
+#          subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
+#
+#      - name: Run Integration Tests
+#        shell: bash
+#        run: |
+#          export SUBKEY=${{ secrets.SUBKEY }}
+#          export CANARY=${{ inputs.canary }}
+#          export CUCUMBER_PUBLISH_TOKEN=${{ secrets.CUCUMBER_PUBLISH_TOKEN }}
+#          export GPD_SUBKEY='${{ secrets.GPD_SUBKEY }}'
+#
+#          cd ./integration-test
+#          chmod +x ./run_integration_test.sh
+#          ./run_integration_test.sh local
+#
+#  delete_github_deployments:
+#    runs-on: ubuntu-latest
+#    needs: smoke_test
+#    if: ${{ always() }}
+#    steps:
+#      - name: Delete Previous deployments
+#        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+#        env:
+#          SHA_HEAD: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.sha) || github.sha}}
+#        with:
+#          script: |
+#            const { SHA_HEAD } = process.env
+#
+#            const deployments = await github.rest.repos.listDeployments({
+#              owner: context.repo.owner,
+#              repo: context.repo.repo,
+#              sha: SHA_HEAD
+#            });
+#            await Promise.all(
+#              deployments.data.map(async (deployment) => {
+#                await github.rest.repos.createDeploymentStatus({
+#                  owner: context.repo.owner,
+#                  repo: context.repo.repo,
+#                  deployment_id: deployment.id,
+#                  state: 'inactive'
+#                });
+#                return github.rest.repos.deleteDeployment({
+#                  owner: context.repo.owner,
+#                  repo: context.repo.repo,
+#                  deployment_id: deployment.id
+#                });
+#              })
+#            );

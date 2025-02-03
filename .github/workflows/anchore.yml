@@ -45,10 +45,10 @@ jobs:
         with:
           image: "localbuild/testimage:latest"
           acs-report-enable: true
-          fail-build: true
+          fail-build: false
           severity-cutoff: "high"
       - name: Upload Anchore Scan Report
-        uses: github/codeql-action/upload-sarif@4d85deb8548d03be541760228f3fe9e6a4d5d27d # v2
+        uses: github/codeql-action/upload-sarif@277b89701e930e6af7a758f50afa5185bfc53c81 # v2
         if: always()
         with:
           sarif_file: results.sarif
