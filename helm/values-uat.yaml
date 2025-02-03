@@ -1,5 +1,5 @@
 microservice-chart:
-  namespace: "fdrtoeventhub"
+  namespace: "fdr"
   nameOverride: ""
   fullnameOverride: ""
   image:
@@ -46,12 +46,12 @@ microservice-chart:
       memory: "512Mi"
       cpu: "0.25"
     limits:
-      memory: "512Mi"
-      cpu: "0.25"
+      memory: "768Mi"
+      cpu: "0.40"
   autoscaling:
     enable: true
-    minReplica: 3
-    maxReplica: 10
+    minReplica: 1
+    maxReplica: 1
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
