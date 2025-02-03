@@ -22,13 +22,19 @@ data "azurerm_key_vault" "key_vault" {
   resource_group_name = "pagopa-${var.env_short}-sec-rg"
 }
 
+data "azurerm_user_assigned_identity" "identity_cd_01"{
+  name = "${local.prefix}-${var.env_short}-${local.domain}-job-01-github-cd-identity"
+  resource_group_name = "${local.prefix}-${var.env_short}-identity-rg"
+}
+
+# data "azurerm_user_assigned_identity" "identity_pr_01" {
+#   name                = "${local.prefix}-${var.env_short}-${local.domain}-01-pr-github-cd-identity"
+#   resource_group_name = "${local.prefix}-${var.env_short}-identity-rg"
+# }
+
 data "azurerm_key_vault" "domain_key_vault" {
   name                = "pagopa-${var.env_short}-${local.domain}-kv"
   resource_group_name = "pagopa-${var.env_short}-${local.domain}-sec-rg"
-}
-
-data "azurerm_resource_group" "apim_resource_group" {
-  name = "${local.product}-api-rg"
 }
 
 data "azurerm_key_vault_secret" "key_vault_sonar" {
@@ -46,7 +52,8 @@ data "azurerm_key_vault_secret" "key_vault_cucumber_token" {
   key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
-data "azurerm_key_vault_secret" "key_vault_integration_test_subkey" {
-  name         = "integration-test-subkey"
-  key_vault_id = data.azurerm_key_vault.key_vault.id
-}
+# data "azurerm_user_assigned_identity" "workload_identity_clientid" {
+#   name                = "ebollo-workload-identity"
+#   resource_group_name = "pagopa-${var.env_short}-${var.env}-aks-rg"
+# }
+

@@ -17,8 +17,8 @@ locals {
   }
 
   container_app_environment = {
-    name           = "${local.prefix}-${var.env_short}-${local.location_short}-github-runner-cae",
-    resource_group = "${local.prefix}-${var.env_short}-${local.location_short}-github-runner-rg",
+    name           = "${local.prefix}-${var.env_short}-${local.location_short}-core-tools-cae",
+    resource_group = "${local.prefix}-${var.env_short}-${local.location_short}-core-tools-rg",
   }
 }
 
@@ -35,7 +35,7 @@ variable "prefix" {
   default = "pagopa"
   validation {
     condition = (
-      length(var.prefix) <= 6
+    length(var.prefix) <= 6
     )
     error_message = "Max length is 6 chars."
   }
