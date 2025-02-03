@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 @Builder
 public class IstitutoRicevente {
-	private String tipoIdentificativoUnivoco;
-    private String codiceIdentificativoUnivoco;
-    private String denominazione;
+  private String tipoIdentificativoUnivoco;
+  private String codiceIdentificativoUnivoco;
+  private String denominazione;
 }
