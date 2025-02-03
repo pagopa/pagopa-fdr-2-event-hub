@@ -5,7 +5,9 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class SampleContentFileUtil {
 
-	public static String getSampleXml = "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"
+	public static String getSampleXml = "";
+	/*
+			+ "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"
 			+ "<soap:Body>"
 			+ "<ns5:nodoInviaFlussoRendicontazione xmlns:ns2=\"http://www.digitpa.gov.it/schemas/2011/Pagamenti/\"    xmlns:ns3=\"http://PuntoAccessoPSP.spcoop.gov.it/BarCode_GS1_128_Modified\"    xmlns:ns4=\"http://PuntoAccessoPSP.spcoop.gov.it/QrCode\"    xmlns:ns5=\"http://ws.pagamenti.telematici.gov/\">    "
 			+ "<identificativoPSP>60000000001</identificativoPSP>    "
@@ -20,5 +22,5 @@ public class SampleContentFileUtil {
 			+ "</xmlRendicontazione>"
 			+ "</ns5:nodoInviaFlussoRendicontazione>"
 			+ "</soap:Body>"
-			+ "</soap:Envelope>";
+			+ "</soap:Envelope>";*/
 }
