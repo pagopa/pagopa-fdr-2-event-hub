@@ -29,7 +29,7 @@ microservice-chart:
     port: 80
   ingress:
     create: true
-    host: "weudev.fdrtoeventhub.internal.dev.platform.pagopa.it"
+    host: "weudev.fdr.internal.dev.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
   serviceAccount:
     create: false
@@ -79,3 +79,5 @@ microservice-chart:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+  canaryDelivery:
+    create: false
