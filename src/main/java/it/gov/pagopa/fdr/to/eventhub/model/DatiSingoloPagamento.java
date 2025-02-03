@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatiSingoloPagamento {
-	private String identificativoUnivocoVersamento;
-    private String identificativoUnivocoRiscossione;
-    private String indiceDatiSingoloPagamento;
-    private double singoloImportoPagato;
-    private int codiceEsitoSingoloPagamento;
-    private String dataEsitoSingoloPagamento;
+  private String identificativoUnivocoVersamento;
+  private String identificativoUnivocoRiscossione;
+  private String indiceDatiSingoloPagamento;
+  private double singoloImportoPagato;
+  private int codiceEsitoSingoloPagamento;
+  private String dataEsitoSingoloPagamento;
 }
