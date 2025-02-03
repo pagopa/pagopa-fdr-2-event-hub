@@ -112,7 +112,7 @@ class BlobProcessingFunctionTest {
     }
     
     @Test
-    void testValidateBlobMetadata_NullMetadata() throws Exception {
+	void testValidateBlobMetadata_NullMetadata() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
             () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", null, context));
         
@@ -120,7 +120,7 @@ class BlobProcessingFunctionTest {
     }
 
     @Test
-    void testValidateBlobMetadata_EmptyMetadata() throws Exception {
+	void testValidateBlobMetadata_EmptyMetadata() {
         Map<String, String> emptyMetadata = new HashMap<>();
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
             () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", emptyMetadata, context));
@@ -129,7 +129,7 @@ class BlobProcessingFunctionTest {
     }
 
     @Test
-    void testValidateBlobMetadata_MissingKeys() throws Exception {    	
+	void testValidateBlobMetadata_MissingKeys() {
         Map<String, String> invalidMetadata = new HashMap<>();
         invalidMetadata.put("sessionId", "1234");
         // "insertedTimestamp" key is missing
