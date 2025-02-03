@@ -15,14 +15,19 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.version>17</java.version>
-		<azure.functions.maven.plugin.version>1.37.0</azure.functions.maven.plugin.version>
-		<azure.functions.java.library.version>3.1.0</azure.functions.java.library.version>
-		<azure.messaging.eventhubs.version>5.20.0</azure.messaging.eventhubs.version>
-		<functionAppName>com.microsoft.azure-20220215182005862</functionAppName>
+		<azure.functions.maven.plugin.version>1.37.0
+		</azure.functions.maven.plugin.version>
+		<azure.functions.java.library.version>3.1.0
+		</azure.functions.java.library.version>
+		<azure.messaging.eventhubs.version>5.20.0
+		</azure.messaging.eventhubs.version>
+		<functionAppName>com.microsoft.azure-20220215182005862
+		</functionAppName>
 		<jackson.version>2.18.2</jackson.version>
 		<modelmapper.version>3.2.2</modelmapper.version>
 		<lombok.version>1.18.36</lombok.version>
 		<junit.version>5.9.3</junit.version>
+		<google.java.format.version>1.25.2</google.java.format.version>
 	</properties>
 
 	<dependencies>
@@ -70,6 +75,12 @@
 			<artifactId>lombok</artifactId>
 			<version>${lombok.version}</version>
 			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.google.googlejavaformat</groupId>
+			<artifactId>google-java-format</artifactId>
+			<version>${google.java.format.version}</version>
 		</dependency>
 
 		<!-- Test (JUnit 5) -->
@@ -185,6 +196,33 @@
 							<sources>
 								<source>target/generated</source>
 							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>format-code</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<exec executable="java">
+									<arg value="-cp" />
+									<arg
+										value="${project.build.directory}/classes:${project.build.directory}/dependency/*" />
+									<arg value="com.google.googlejavaformat.java.Main" />
+									<arg value="--replace" />
+									<arg value="${project.basedir}/src/main/java/**/*.java" />
+									<arg value="${project.basedir}/src/test/java/**/*.java" />
+								</exec>
+							</target>
 						</configuration>
 					</execution>
 				</executions>
