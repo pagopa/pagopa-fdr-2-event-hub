@@ -22,6 +22,12 @@ data "azurerm_key_vault" "key_vault" {
   resource_group_name = "pagopa-${var.env_short}-sec-rg"
 }
 
+
+data "azurerm_user_assigned_identity" "identity_cd" {
+  name                = "${local.product}-${local.domain}-01-github-cd-identity"
+  resource_group_name = "${local.product}-identity-rg"
+}
+
 data "azurerm_user_assigned_identity" "identity_cd_01"{
   name = "${local.prefix}-${var.env_short}-${local.domain}-job-01-github-cd-identity"
   resource_group_name = "${local.prefix}-${var.env_short}-identity-rg"
