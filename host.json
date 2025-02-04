@@ -22,8 +22,8 @@
     "logLevel": {
       "default": "None",
       "Host.Results": "Error",
-      "Function.BizEventEnrichmentProcessor": "Information",
-      "Function.EventHubBizEventProcessor": "Information",
+      "Function.ProcessFDR1BlobFiles": "Information",
+      "Function.ProcessFDR3BlobFiles": "Information",
       "Host.Aggregator": "Error"
     },
     "applicationInsights": {
