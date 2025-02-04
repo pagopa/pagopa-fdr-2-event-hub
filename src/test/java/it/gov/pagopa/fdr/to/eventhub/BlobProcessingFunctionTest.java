@@ -60,6 +60,7 @@ class BlobProcessingFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
 
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
@@ -72,6 +73,7 @@ class BlobProcessingFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
     assertThrows(
         IllegalArgumentException.class,
         () -> function.processFDR1BlobFiles(null, "sampleBlob", metadata, context));
@@ -84,6 +86,7 @@ class BlobProcessingFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
     function.processFDR1BlobFiles(
         invalidData.getBytes(StandardCharsets.UTF_8), "sampleBlob", metadata, context);
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
@@ -96,6 +99,7 @@ class BlobProcessingFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
     byte[] compressedData = createGzipCompressedData("");
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
@@ -145,5 +149,29 @@ class BlobProcessingFunctionTest {
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
         exception.getMessage());
+  }
+
+  @Test
+  void testValidateBlobMetadata_ElaborateFalse() {
+    when(context.getLogger()).thenReturn(mockLogger);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "false");
+
+    function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context);
+
+    verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
+    verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
+
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
+
+    boolean logContainsExpectedMessage =
+        logCaptor.getAllValues().stream()
+            .map(Supplier::get)
+            .anyMatch(log -> log.contains("Skipping processing for Blob container"));
+    assert logContainsExpectedMessage
+        : "The log does not contain the expected message for 'elaborate' false";
   }
 }

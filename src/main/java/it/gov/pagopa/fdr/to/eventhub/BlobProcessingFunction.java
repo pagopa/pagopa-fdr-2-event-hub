@@ -34,6 +34,7 @@ import org.xml.sax.SAXException;
 
 public class BlobProcessingFunction {
 
+  private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   private final String fdr3Container =
@@ -88,7 +89,16 @@ public class BlobProcessingFunction {
       final ExecutionContext context) {
 
     // checks for the presence of the necessary metadata
-    validateBlobMetadata(blobMetadata);
+    if (!validateBlobMetadata(blobMetadata)) {
+      context
+          .getLogger()
+          .info(
+              () ->
+                  String.format(
+                      "Skipping processing for Blob container: %s, name: %s, size: %d bytes",
+                      fdr1Container, blobName, content.length));
+      return; // Skip execution
+    }
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = isGzip(content);
@@ -132,7 +142,16 @@ public class BlobProcessingFunction {
       final ExecutionContext context) {
 
     // checks for the presence of the necessary metadata
-    validateBlobMetadata(blobMetadata);
+    if (!validateBlobMetadata(blobMetadata)) {
+      context
+          .getLogger()
+          .info(
+              () ->
+                  String.format(
+                      "Skipping processing for Blob container: %s, name: %s, size: %d bytes",
+                      fdr3Container, blobName, content.length));
+      return; // Skip execution
+    }
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = isGzip(content);
@@ -167,7 +186,7 @@ public class BlobProcessingFunction {
     return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
   }
 
-  private void validateBlobMetadata(Map<String, String> blobMetadata) {
+  private boolean validateBlobMetadata(Map<String, String> blobMetadata) {
     if (blobMetadata == null
         || blobMetadata.isEmpty()
         || !blobMetadata.containsKey("sessionId")
@@ -175,6 +194,7 @@ public class BlobProcessingFunction {
       throw new IllegalArgumentException(
           "Invalid blob metadata: sessionId or insertedTimestamp is missing.");
     }
+    return !("false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
   private String decompressGzip(byte[] compressedContent) throws IOException {
@@ -219,7 +239,21 @@ public class BlobProcessingFunction {
 
       // Create EventData objects
       EventData flowEventData = new EventData(flowEventJson);
+      flowEventData
+          .getProperties()
+          .put(
+              SERVICE_IDENTIFIER,
+              flussoRendicontazione.getMetadata().get(SERVICE_IDENTIFIER) != null
+                  ? flussoRendicontazione.getMetadata().get(SERVICE_IDENTIFIER)
+                  : "NA");
       EventData reportedIUVEventData = new EventData(reportedIUVEventJson);
+      reportedIUVEventData
+          .getProperties()
+          .put(
+              SERVICE_IDENTIFIER,
+              flussoRendicontazione.getMetadata().get(SERVICE_IDENTIFIER) != null
+                  ? flussoRendicontazione.getMetadata().get(SERVICE_IDENTIFIER)
+                  : "NA");
 
       // Send data to Event Hub: using concrete ArrayList to ensure it's a valid Iterable for test
       // check
