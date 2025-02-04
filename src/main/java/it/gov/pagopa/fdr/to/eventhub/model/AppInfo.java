@@ -2,7 +2,6 @@ package it.gov.pagopa.fdr.to.eventhub.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,7 +16,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AppInfo {
 
-    private String name;
-    private String version;
-    private String environment;
+  private String name;
+  private String version;
+  private String environment;
 }
