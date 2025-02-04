@@ -47,11 +47,11 @@ microservice-chart:
       cpu: "0.25"
     limits:
       memory: "1Gi"
-      cpu: "0.40"
+      cpu: "0.50"
   autoscaling:
     enable: true
-    minReplica: 3
-    maxReplica: 6
+    minReplica: 2
+    maxReplica: 5
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
@@ -59,8 +59,14 @@ microservice-chart:
         metadata:
           # Required
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
-          value: "75"
+          value: "80"
+      - type: memory
+        metadata:
+          # Required
+          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+          value: "80"
   envConfig:
+    JAVA_OPTS: "-XX:MaxHeapSize=768m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
