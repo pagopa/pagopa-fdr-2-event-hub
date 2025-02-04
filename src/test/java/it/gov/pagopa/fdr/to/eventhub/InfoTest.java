@@ -7,12 +7,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import it.gov.pagopa.fdr.to.eventhub.model.AppInfo;
+import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
+import java.io.InputStream;
 import java.util.Optional;
 import java.util.logging.Logger;
 import lombok.SneakyThrows;
@@ -58,14 +61,21 @@ class InfoTest {
   @SneakyThrows
   @Test
   void getInfoOk() {
-
-    // Mocking service creation
     Logger logger = Logger.getLogger("example-test-logger");
-    String path =
-        "/META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/pom.properties";
+
+    InputStream mockInputStream = SampleContentFileUtil.getSamplePomProperties();
+
+    // Spy on the infoFunction
+    Info infoSpy = spy(infoFunction);
+
+    // Mocking method directly on the spy
+    doReturn(mockInputStream).when(infoSpy).loadResource(anyString());
 
     // Execute function
-    AppInfo response = infoFunction.getInfo(logger, path);
+    AppInfo response =
+        infoSpy.getInfo(
+            logger,
+            "META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/pom.properties");
 
     // Checking assertions
     assertNotNull(response.getName());
