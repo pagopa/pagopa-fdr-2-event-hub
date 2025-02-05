@@ -5,11 +5,18 @@
     "version": "[4.0.0, 5.0.0)"
   },
   "extensions": {
+    "blobs": {
+      "maxPollingInterval": "00:00:10",     
+      "maxDequeueCount": 5,                
+      "batchSize": 1,                      
+      "prefetchCount": 10,                 
+      "visibilityTimeout": "00:01:00"      
+    },
     "queues": {
-      "maxPollingInterval": "00:01:00",
-      "visibilityTimeout": "00:00:10",
+      "maxPollingInterval": "00:00:10",
+      "visibilityTimeout": "00:01:00",
       "batchSize": 1,
-      "maxDequeueCount": 3
+      "maxDequeueCount": 5
     },
     "http": {
       "routePrefix": ""

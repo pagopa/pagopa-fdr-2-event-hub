@@ -8,6 +8,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -16,18 +19,12 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.microsoft.azure.functions.ExecutionContext;
-
-import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 
 @ExtendWith(MockitoExtension.class)
 class BlobProcessingFunctionTest {
@@ -112,31 +109,29 @@ class BlobProcessingFunctionTest {
     verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
   }
 
-	@Test
-	void testProcessBlobWithMalformedXml() throws Exception {
-		when(context.getLogger()).thenReturn(mockLogger);
-		Map<String, String> metadata = new HashMap<>();
-		metadata.put("sessionId", "1234");
-		metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
-		metadata.put("elaborate", "true");
-		byte[] compressedData = createGzipCompressedData(
-				"<xml>malformed</xml>");
-		function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata,
-				context);
+  @Test
+  void testProcessBlobWithMalformedXml() throws Exception {
+    when(context.getLogger()).thenReturn(mockLogger);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+    byte[] compressedData = createGzipCompressedData("<xml>malformed</xml>");
+    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
-		verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
-		verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
+    verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
+    verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
 
-		ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor
-				.forClass(Supplier.class);
-		verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
 
-		boolean logContainsExpectedMessage = logCaptor.getAllValues().stream()
-				.map(Supplier::get)
-				.anyMatch(log -> log.contains("Error processing Blob"));
-		assert logContainsExpectedMessage
-				: "The log does not contain the expected message for expetion during malformed XML file";
-	}
+    boolean logContainsExpectedMessage =
+        logCaptor.getAllValues().stream()
+            .map(Supplier::get)
+            .anyMatch(log -> log.contains("Error processing Blob"));
+    assert logContainsExpectedMessage
+        : "The log does not contain the expected message for expetion during malformed XML file";
+  }
 
   @Test
   void testValidateBlobMetadata_NullMetadata() {
