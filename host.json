@@ -5,13 +5,11 @@
     "version": "[4.0.0, 5.0.0)"
   },
   "extensions": {
-    "eventHubs": {
-      "maxEventBatchSize" : 128,
-      "batchCheckpointFrequency" : 5,
-      "prefetchCount" : 512,
-      "initialOffsetOptions" : {
-          "type" : "fromStart"
-      }
+    "queues": {
+      "maxPollingInterval": "00:01:00",
+      "visibilityTimeout": "00:00:10",
+      "batchSize": 1,
+      "maxDequeueCount": 3
     },
     "http": {
       "routePrefix": ""

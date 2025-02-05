@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
@@ -25,6 +27,11 @@ public class FDR1XmlSAXParser {
 
   public static FlussoRendicontazione parseXmlContent(String xmlContent)
       throws ParserConfigurationException, SAXException, IOException {
+
+    if (xmlContent == null || xmlContent.isBlank()) {
+      throw new XmlParsingException("The XML content is empty or null");
+    }
+
     SAXParserFactory factory = SAXParserFactory.newInstance();
     factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
     factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -32,86 +39,55 @@ public class FDR1XmlSAXParser {
 
     SAXParser parser = factory.newSAXParser();
     AtomicReference<FlussoRendicontazione> flusso = new AtomicReference<>();
-    Consumer<FlussoRendicontazione> updater = flusso::set;
 
-    DefaultHandler handler =
+    parser.parse(
+        new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8)),
         new DefaultHandler() {
-          private StringBuilder value = new StringBuilder();
+          private final StringBuilder value = new StringBuilder();
+          private final Map<String, String> dati = new HashMap<>();
           private String flussoRiversamentoBase64;
-          private String identificativoPSP;
-          private String identificativoIntermediarioPSP;
-          private String identificativoCanale;
-          private String password;
-          private String identificativoDominio;
-          private String identificativoFlusso;
-          private String dataOraFlusso;
 
           @Override
           public void startElement(
-              String uri, String localName, String qName, Attributes attributes)
-              throws SAXException {
+              String uri, String localName, String qName, Attributes attributes) {
             value.setLength(0);
           }
 
           @Override
-          public void characters(char[] ch, int start, int length) throws SAXException {
+          public void characters(char[] ch, int start, int length) {
             value.append(ch, start, length);
           }
 
           @Override
-          public void endElement(String uri, String localName, String qName) throws SAXException {
+          public void endElement(String uri, String localName, String qName)
+              throws XmlParsingException {
             String content = value.toString().trim();
-
-            switch (qName) {
-              case "identificativoPSP":
-                identificativoPSP = content;
-                break;
-              case "identificativoIntermediarioPSP":
-                identificativoIntermediarioPSP = content;
-                break;
-              case "identificativoCanale":
-                identificativoCanale = content;
-                break;
-              case "password":
-                password = content;
-                break;
-              case "identificativoDominio":
-                identificativoDominio = content;
-                break;
-              case "identificativoFlusso":
-                identificativoFlusso = content;
-                break;
-              case "dataOraFlusso":
-                dataOraFlusso = content;
-                break;
-              case "xmlRendicontazione":
-                flussoRiversamentoBase64 = content;
-                break;
-              case "ns5:nodoInviaFlussoRendicontazione":
-                FlussoRiversamento flussoRiversamento =
-                    decodeAndParseFlussoRiversamento(flussoRiversamentoBase64);
-
-                updater.accept(
-                    FlussoRendicontazione.builder()
-                        .identificativoPSP(identificativoPSP)
-                        .identificativoIntermediarioPSP(identificativoIntermediarioPSP)
-                        .identificativoCanale(identificativoCanale)
-                        .password(password)
-                        .identificativoDominio(identificativoDominio)
-                        .identificativoFlusso(identificativoFlusso)
-                        .dataOraFlusso(dataOraFlusso)
-                        .flussoRiversamento(flussoRiversamento)
-                        .build());
-                break;
-              default:
-                break;
+            // Removes the namespace if present
+            String tagName = qName.contains(":") ? qName.substring(qName.indexOf(":") + 1) : qName;
+            if ("xmlRendicontazione".equals(tagName)) {
+              flussoRiversamentoBase64 = content;
+            } else if ("nodoInviaFlussoRendicontazione".equals(tagName)) {
+              flusso.set(
+                  FlussoRendicontazione.builder()
+                      .identificativoPSP(dati.get("identificativoPSP"))
+                      .identificativoIntermediarioPSP(dati.get("identificativoIntermediarioPSP"))
+                      .identificativoCanale(dati.get("identificativoCanale"))
+                      .password(dati.get("password"))
+                      .identificativoDominio(dati.get("identificativoDominio"))
+                      .identificativoFlusso(dati.get("identificativoFlusso"))
+                      .dataOraFlusso(dati.get("dataOraFlusso"))
+                      .flussoRiversamento(
+                          decodeAndParseFlussoRiversamento(flussoRiversamentoBase64))
+                      .build());
+            } else {
+              dati.put(tagName, content);
             }
           }
-        };
+        });
 
-    parser.parse(new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8)), handler);
-
-    return flusso.get();
+    return Optional.ofNullable(flusso.get())
+        .orElseThrow(
+            () -> new XmlParsingException("Parsing failed: check the XML content of the file"));
   }
 
   private static FlussoRiversamento decodeAndParseFlussoRiversamento(String base64Content)
@@ -146,17 +122,29 @@ public class FDR1XmlSAXParser {
 
 class FlussoRiversamentoHandler extends DefaultHandler {
   private FlussoRiversamento flussoRiversamento;
-  private Istituto currentIstituto;
-  private DatiSingoloPagamento currentDatiPagamento;
+  private Map<String, String> flussoDati;
+  private Map<String, String> currentIstituto;
+  private Map<String, String> currentDatiPagamento;
   private StringBuilder value = new StringBuilder();
   private boolean insideDatiSingoliPagamenti = false;
 
   public FlussoRiversamentoHandler() {
     this.flussoRiversamento = new FlussoRiversamento();
     this.flussoRiversamento.setDatiSingoliPagamenti(new ArrayList<>());
+    this.flussoDati = new HashMap<>();
   }
 
   public FlussoRiversamento getFlussoRiversamento() {
+    flussoRiversamento.setVersioneOggetto(flussoDati.get("versioneOggetto"));
+    flussoRiversamento.setIdentificativoFlusso(flussoDati.get("identificativoFlusso"));
+    flussoRiversamento.setDataOraFlusso(flussoDati.get("dataOraFlusso"));
+    flussoRiversamento.setIdentificativoUnivocoRegolamento(
+        flussoDati.get("identificativoUnivocoRegolamento"));
+    flussoRiversamento.setDataRegolamento(flussoDati.get("dataRegolamento"));
+    flussoRiversamento.setNumeroTotalePagamenti(
+        Integer.parseInt(flussoDati.get("numeroTotalePagamenti")));
+    flussoRiversamento.setImportoTotalePagamenti(
+        Double.parseDouble(flussoDati.get("importoTotalePagamenti")));
     return flussoRiversamento;
   }
 
@@ -164,17 +152,13 @@ class FlussoRiversamentoHandler extends DefaultHandler {
   public void startElement(String uri, String localName, String qName, Attributes attributes)
       throws SAXException {
     value.setLength(0);
+    String tagName = normalizeTag(qName);
 
-    switch (qName) {
-      case "istitutoMittente", "istitutoRicevente":
-        currentIstituto = new Istituto();
-        break;
-      case "datiSingoliPagamenti":
-        currentDatiPagamento = new DatiSingoloPagamento();
-        insideDatiSingoliPagamenti = true;
-        break;
-      default:
-        break;
+    if ("istitutoMittente".equals(tagName) || "istitutoRicevente".equals(tagName)) {
+      currentIstituto = new HashMap<>();
+    } else if ("datiSingoliPagamenti".equals(tagName)) {
+      currentDatiPagamento = new HashMap<>();
+      insideDatiSingoliPagamenti = true;
     }
   }
 
@@ -186,85 +170,52 @@ class FlussoRiversamentoHandler extends DefaultHandler {
   @Override
   public void endElement(String uri, String localName, String qName) throws SAXException {
     String content = value.toString().trim();
-
-    switch (qName) {
-      case "versioneOggetto":
-        flussoRiversamento.setVersioneOggetto(content);
-        break;
-      case "identificativoFlusso":
-        flussoRiversamento.setIdentificativoFlusso(content);
-        break;
-      case "dataOraFlusso":
-        flussoRiversamento.setDataOraFlusso(content);
-        break;
-      case "identificativoUnivocoRegolamento":
-        flussoRiversamento.setIdentificativoUnivocoRegolamento(content);
-        break;
-      case "dataRegolamento":
-        flussoRiversamento.setDataRegolamento(content);
-        break;
-      case "numeroTotalePagamenti":
-        flussoRiversamento.setNumeroTotalePagamenti(Integer.parseInt(content));
-        break;
-      case "importoTotalePagamenti":
-        flussoRiversamento.setImportoTotalePagamenti(Double.parseDouble(content));
-        break;
-      default:
-        break;
-    }
+    String tagName = normalizeTag(qName);
 
     if (currentIstituto != null) {
-      switch (qName) {
-        case "tipoIdentificativoUnivoco":
-          currentIstituto.setTipoIdentificativoUnivoco(content);
-          break;
-        case "codiceIdentificativoUnivoco":
-          currentIstituto.setCodiceIdentificativoUnivoco(content);
-          break;
-        case "denominazioneMittente", "denominazioneRicevente":
-          currentIstituto.setDenominazione(content);
-          break;
-        case "istitutoMittente":
-          flussoRiversamento.setIstitutoMittente(currentIstituto);
-          currentIstituto = null;
-          break;
-        case "istitutoRicevente":
-          flussoRiversamento.setIstitutoRicevente(currentIstituto);
-          currentIstituto = null;
-          break;
-        default:
-          break;
+      currentIstituto.put(tagName, content);
+      if ("istitutoMittente".equals(tagName)) {
+        flussoRiversamento.setIstitutoMittente(mapToIstituto(currentIstituto));
+        currentIstituto = null;
+      } else if ("istitutoRicevente".equals(tagName)) {
+        flussoRiversamento.setIstitutoRicevente(mapToIstituto(currentIstituto));
+        currentIstituto = null;
       }
+    } else if (insideDatiSingoliPagamenti && currentDatiPagamento != null) {
+      currentDatiPagamento.put(tagName, content);
+      if ("datiSingoliPagamenti".equals(tagName)) {
+        flussoRiversamento
+            .getDatiSingoliPagamenti()
+            .add(mapToDatiSingoloPagamento(currentDatiPagamento));
+        currentDatiPagamento = null;
+        insideDatiSingoliPagamenti = false;
+      }
+    } else {
+      flussoDati.put(tagName, content);
     }
+  }
 
-    if (insideDatiSingoliPagamenti && currentDatiPagamento != null) {
-      switch (qName) {
-        case "identificativoUnivocoVersamento":
-          currentDatiPagamento.setIdentificativoUnivocoVersamento(content);
-          break;
-        case "identificativoUnivocoRiscossione":
-          currentDatiPagamento.setIdentificativoUnivocoRiscossione(content);
-          break;
-        case "indiceDatiSingoloPagamento":
-          currentDatiPagamento.setIndiceDatiSingoloPagamento(content);
-          break;
-        case "singoloImportoPagato":
-          currentDatiPagamento.setSingoloImportoPagato(Double.parseDouble(content));
-          break;
-        case "codiceEsitoSingoloPagamento":
-          currentDatiPagamento.setCodiceEsitoSingoloPagamento(Integer.parseInt(content));
-          break;
-        case "dataEsitoSingoloPagamento":
-          currentDatiPagamento.setDataEsitoSingoloPagamento(content);
-          break;
-        case "datiSingoliPagamenti":
-          flussoRiversamento.getDatiSingoliPagamenti().add(currentDatiPagamento);
-          currentDatiPagamento = null;
-          insideDatiSingoliPagamenti = false;
-          break;
-        default:
-          break;
-      }
-    }
+  private String normalizeTag(String qName) {
+    // Removes the namespace if present
+    return qName.contains(":") ? qName.substring(qName.indexOf(":") + 1) : qName;
+  }
+
+  private Istituto mapToIstituto(Map<String, String> dati) {
+    return new Istituto(
+        dati.get("tipoIdentificativoUnivoco"),
+        dati.get("codiceIdentificativoUnivoco"),
+        dati.get("denominazioneMittente") != null
+            ? dati.get("denominazioneMittente")
+            : dati.get("denominazioneRicevente"));
+  }
+
+  private DatiSingoloPagamento mapToDatiSingoloPagamento(Map<String, String> dati) {
+    return new DatiSingoloPagamento(
+        dati.get("identificativoUnivocoVersamento"),
+        dati.get("identificativoUnivocoRiscossione"),
+        dati.get("indiceDatiSingoloPagamento"),
+        Double.parseDouble(dati.get("singoloImportoPagato")),
+        Integer.parseInt(dati.get("codiceEsitoSingoloPagamento")),
+        dati.get("dataEsitoSingoloPagamento"));
   }
 }
