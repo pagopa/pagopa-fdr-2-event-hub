@@ -6,17 +6,14 @@
   },
   "extensions": {
     "blobs": {
-      "maxPollingInterval": "00:00:10",     
-      "maxDequeueCount": 5,                
-      "batchSize": 1,                      
-      "prefetchCount": 10,                 
-      "visibilityTimeout": "00:01:00"      
+      "maxDegreeOfParallelism": 4,
+      "poisonBlobThreshold": 2
     },
     "queues": {
-      "maxPollingInterval": "00:00:10",
-      "visibilityTimeout": "00:01:00",
+      "maxPollingInterval": "00:00:20",
+      "visibilityTimeout": "00:05:00",
       "batchSize": 1,
-      "maxDequeueCount": 5
+      "maxDequeueCount": 3
     },
     "http": {
       "routePrefix": ""
