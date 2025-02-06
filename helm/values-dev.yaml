@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: ""
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "0.0.1-12-PAGOPA-2602-fdr-to-event-hub"
+    tag: "0.0.1-13-PAGOPA-2602-fdr-to-event-hub"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   livenessProbe:
