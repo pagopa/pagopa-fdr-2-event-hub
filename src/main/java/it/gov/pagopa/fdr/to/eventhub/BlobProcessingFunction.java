@@ -25,16 +25,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
 
 public class BlobProcessingFunction {
 
+  private static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
@@ -96,7 +100,7 @@ public class BlobProcessingFunction {
           .info(
               () ->
                   String.format(
-                      "Skipping processing for Blob container: %s, name: %s, size: %d bytes",
+                      "[FDR1] Skipping processing for Blob container: %s, name: %s, size: %d bytes",
                       fdr1Container, blobName, content.length));
       return; // Skip execution
     }
@@ -109,15 +113,43 @@ public class BlobProcessingFunction {
         .info(
             () ->
                 String.format(
-                    "Triggered for Blob container: %s, name: %s, size: %d bytes",
-                    fdr1Container, blobName, content.length));
+                    "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size: %d bytes",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
+                    fdr1Container,
+                    blobName,
+                    content.length));
 
     try {
       String decompressedContent =
           isValidGzipFile ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
       FlussoRendicontazione flusso = parseXml(decompressedContent);
+
+      context
+          .getLogger()
+          .info(
+              () ->
+                  String.format(
+                      "[FDR1] Parsed Finished at: %s for Blob container: %s, name: %s, size: %d"
+                          + " bytes",
+                      LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
+                      fdr1Container,
+                      blobName,
+                      content.length));
+
       flusso.setMetadata(blobMetadata);
       processXmlBlobAndSendToEventHub(flusso, context);
+
+      context
+          .getLogger()
+          .info(
+              () ->
+                  String.format(
+                      "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size: %d"
+                          + " bytes",
+                      LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
+                      fdr1Container,
+                      blobName,
+                      content.length));
 
     } catch (Exception e) {
       context
@@ -125,7 +157,7 @@ public class BlobProcessingFunction {
           .severe(
               () ->
                   String.format(
-                      "Error processing Blob '%s/%s': %s",
+                      "[FDR1] Error processing Blob '%s/%s': %s",
                       fdr1Container, blobName, e.getMessage()));
     }
   }
@@ -241,16 +273,20 @@ public class BlobProcessingFunction {
       // Break the list into smaller batches to avoid overshooting limit
       List<String> reportedIUVEventJsonChunks = splitIntoChunks(reportedIUVEventList, objectMapper);
 
+      context
+          .getLogger()
+          .info(
+              () ->
+                  String.format(
+                      "Chunk splitting process completed at: %s for flow ID: %s. Total number of"
+                          + " chunks: %d",
+                      LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
+                      flussoRendicontazione.getIdentificativoFlusso(),
+                      reportedIUVEventJsonChunks.size()));
+
       sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione);
 
       for (String chunk : reportedIUVEventJsonChunks) {
-        context
-            .getLogger()
-            .info(
-                () ->
-                    "Event size: "
-                        + (chunk.getBytes(StandardCharsets.UTF_8).length / 1024)
-                        + " KB");
         sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione);
       }
 
@@ -271,27 +307,37 @@ public class BlobProcessingFunction {
   private List<String> splitIntoChunks(
       List<ReportedIUVEventModel> eventList, JsonMapper objectMapper)
       throws JsonProcessingException {
+
     List<String> chunks = new ArrayList<>();
     List<ReportedIUVEventModel> tempBatch = new ArrayList<>();
     final int MAX_CHUNK_SIZE_BYTES = 900 * 1024; // 900 KB for security
 
+    StringBuilder currentJsonBatch = new StringBuilder();
+    AtomicInteger currentBatchSize = new AtomicInteger(0);
+
     for (ReportedIUVEventModel event : eventList) {
       tempBatch.add(event);
-      String jsonChunk = objectMapper.writeValueAsString(tempBatch);
-      int jsonChunkSize = jsonChunk.getBytes(StandardCharsets.UTF_8).length;
+      String eventJson = objectMapper.writeValueAsString(event);
+      int eventSize = eventJson.getBytes(StandardCharsets.UTF_8).length;
 
-      if (jsonChunkSize > MAX_CHUNK_SIZE_BYTES) {
-        // Remove the last element to stay within the limit
-        tempBatch.remove(tempBatch.size() - 1);
-        chunks.add(objectMapper.writeValueAsString(tempBatch));
-        tempBatch.clear();
-        tempBatch.add(event); // Resume with the item removed
+      if (currentBatchSize.addAndGet(eventSize) > MAX_CHUNK_SIZE_BYTES) {
+        // If the limit is exceed, add the current batch and reset it
+        chunks.add(currentJsonBatch.toString());
+        currentJsonBatch.setLength(0); // Reset the StringBuilder
+        currentBatchSize.set(0); // Reset the batch size
+        tempBatch.clear(); // Clear the current batch
+        tempBatch.add(event); // Start with the current event
+        currentJsonBatch.append(objectMapper.writeValueAsString(tempBatch));
+        currentBatchSize.addAndGet(eventSize);
+      } else {
+        // Add the event to the current batch
+        currentJsonBatch.append(eventJson);
       }
     }
 
-    // Add any remaining items
-    if (!tempBatch.isEmpty()) {
-      chunks.add(objectMapper.writeValueAsString(tempBatch));
+    // Aggiungi qualsiasi elemento rimanente
+    if (currentBatchSize.get() > 0) {
+      chunks.add(currentJsonBatch.toString());
     }
 
     return chunks;
