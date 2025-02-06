@@ -219,7 +219,6 @@ public class BlobProcessingFunction {
     return FDR1XmlSAXParser.parseXmlContent(xmlContent);
   }
 
-  /*
   private void processXmlBlobAndSendToEventHub(
       FlussoRendicontazione flussoRendicontazione, ExecutionContext context)
       throws EventHubException {
@@ -266,89 +265,6 @@ public class BlobProcessingFunction {
       // Rethrow custom exception with context
       throw new EventHubException(errorMessage, e);
     }
-  }*/
-
-  private void processXmlBlobAndSendToEventHub(
-      FlussoRendicontazione flussoRendicontazione, ExecutionContext context)
-      throws EventHubException {
-    try {
-      // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent =
-          FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-      List<ReportedIUVEventModel> reportedIUVEventList =
-          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
-
-      // Serialize the objects to JSON
-      JsonMapper objectMapper =
-          JsonMapper.builder()
-              .addModule(new JavaTimeModule())
-              .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-              .build();
-
-      String flowEventJson = objectMapper.writeValueAsString(flowEvent);
-
-      // Break the list into smaller batches to avoid overshooting limit
-      List<String> reportedIUVEventJsonChunks = splitIntoChunks(reportedIUVEventList, objectMapper);
-
-      sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione);
-
-      for (String chunk : reportedIUVEventJsonChunks) {
-        sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione);
-      }
-
-    } catch (Exception e) {
-      // Log the exception with context
-      String errorMessage =
-          String.format(
-              "Error processing or sending data to event hub: %s. Details: %s",
-              flussoRendicontazione, e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
-
-      // Rethrow custom exception with context
-      throw new EventHubException(errorMessage, e);
-    }
-  }
-
-  /** Divides the event list into smaller JSON blocks (to avoid exceeding 1MB) */
-  private List<String> splitIntoChunks(
-      List<ReportedIUVEventModel> eventList, JsonMapper objectMapper)
-      throws JsonProcessingException {
-    List<String> chunks = new ArrayList<>();
-    List<ReportedIUVEventModel> tempBatch = new ArrayList<>();
-
-    for (ReportedIUVEventModel event : eventList) {
-      tempBatch.add(event);
-      String jsonChunk = objectMapper.writeValueAsString(tempBatch);
-
-      if (jsonChunk.getBytes(StandardCharsets.UTF_8).length > 1024 * 1024) {
-        // If it exceeds 1MB, remove the last item and save the batch
-        tempBatch.remove(tempBatch.size() - 1);
-        chunks.add(objectMapper.writeValueAsString(tempBatch));
-        tempBatch.clear();
-        tempBatch.add(event);
-      }
-    }
-
-    if (!tempBatch.isEmpty()) {
-      chunks.add(objectMapper.writeValueAsString(tempBatch));
-    }
-
-    return chunks;
-  }
-
-  /** Send a message to the Event Hub */
-  private void sendEventToHub(
-      String jsonPayload, EventHubProducerClient eventHubClient, FlussoRendicontazione flusso) {
-    EventData eventData = new EventData(jsonPayload);
-    eventData
-        .getProperties()
-        .put(
-            SERVICE_IDENTIFIER,
-            flusso.getMetadata().get(SERVICE_IDENTIFIER) != null
-                ? flusso.getMetadata().get(SERVICE_IDENTIFIER)
-                : "NA");
-
-    eventHubClient.send(new ArrayList<>(Arrays.asList(eventData)));
   }
 
   /** Divides the event list into smaller JSON blocks (to avoid exceeding 1MB) */
