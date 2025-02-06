@@ -6,7 +6,7 @@
   },
   "extensions": {
     "blobs": {
-      "maxDegreeOfParallelism": 4,
+      "maxDegreeOfParallelism": 1,
       "poisonBlobThreshold": 2
     },
     "queues": {
