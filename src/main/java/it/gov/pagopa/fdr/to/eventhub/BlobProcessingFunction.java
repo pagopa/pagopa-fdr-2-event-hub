@@ -3,6 +3,7 @@ package it.gov.pagopa.fdr.to.eventhub;
 import com.azure.core.amqp.AmqpRetryMode;
 import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -28,7 +29,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -355,6 +355,9 @@ public class BlobProcessingFunction {
                 ? flusso.getMetadata().get(SERVICE_IDENTIFIER)
                 : "NA");
 
-    eventHubClient.send(new ArrayList<>(Arrays.asList(eventData)));
+    EventDataBatch eventBatch = eventHubClient.createBatch();
+    eventBatch.tryAdd(eventData);
+
+    eventHubClient.send(eventBatch);
   }
 }

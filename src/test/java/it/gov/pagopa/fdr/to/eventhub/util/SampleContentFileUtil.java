@@ -11,8 +11,8 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class SampleContentFileUtil {
 
-  public static String getSampleXml() throws Exception {
-    Path path = Paths.get(ClassLoader.getSystemResource("sample.xml").toURI());
+  public static String getSampleXml(String filename) throws Exception {
+    Path path = Paths.get(ClassLoader.getSystemResource(filename).toURI());
     return Files.readString(path);
   }
 

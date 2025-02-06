@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
@@ -42,6 +45,8 @@ class BlobProcessingFunctionTest {
   @BeforeEach
   public void setup() {
     function = new BlobProcessingFunction(eventHubClientFlowTx, eventHubClientReportedIUV);
+    lenient().when(eventHubClientFlowTx.createBatch()).thenReturn(mock(EventDataBatch.class));
+    lenient().when(eventHubClientReportedIUV.createBatch()).thenReturn(mock(EventDataBatch.class));
   }
 
   private byte[] createGzipCompressedData(String input) throws Exception {
@@ -55,7 +60,7 @@ class BlobProcessingFunctionTest {
   @Test
   void testBlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
-    String sampleXml = SampleContentFileUtil.getSampleXml();
+    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -64,8 +69,24 @@ class BlobProcessingFunctionTest {
 
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
-    verify(eventHubClientFlowTx, atLeastOnce()).send(any(ArrayList.class));
-    verify(eventHubClientReportedIUV, atLeastOnce()).send(any(ArrayList.class));
+    verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
+  }
+
+  @Test
+  void testBigBlobTriggerProcessing() throws Exception {
+    when(context.getLogger()).thenReturn(mockLogger);
+    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+    byte[] compressedData = createGzipCompressedData(sampleXml);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+
+    verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
   }
 
   @Test
@@ -119,8 +140,8 @@ class BlobProcessingFunctionTest {
     byte[] compressedData = createGzipCompressedData("<xml>malformed</xml>");
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
-    verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
-    verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
+    verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
 
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
     verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
@@ -185,8 +206,8 @@ class BlobProcessingFunctionTest {
 
     function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context);
 
-    verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
-    verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
+    verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
 
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
     verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
