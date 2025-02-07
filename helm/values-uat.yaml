@@ -73,6 +73,7 @@ microservice-chart:
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
+    WEBSITE_MAX_DYNAMIC_APPLICATION_SCALE_OUT: "1"
   envSecret:
     APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
     FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
