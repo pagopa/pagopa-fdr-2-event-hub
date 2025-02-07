@@ -210,7 +210,7 @@ class BlobProcessingFunctionTest {
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
 
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
+    verify(mockLogger, atLeastOnce()).warning(logCaptor.capture());
 
     boolean logContainsExpectedMessage =
         logCaptor.getAllValues().stream()

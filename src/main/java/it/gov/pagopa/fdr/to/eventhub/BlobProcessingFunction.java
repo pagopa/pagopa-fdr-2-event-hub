@@ -228,30 +228,9 @@ public class BlobProcessingFunction {
     return !("false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
-  /*
-   * private String decompressGzip(byte[] compressedContent) throws
-   * IOException { try (GZIPInputStream gzipInputStream = new
-   * GZIPInputStream(new ByteArrayInputStream(compressedContent));
-   * InputStreamReader reader = new InputStreamReader(gzipInputStream,
-   * StandardCharsets.UTF_8); BufferedReader bufferedReader = new
-   * BufferedReader(reader)) {
-   *
-   * StringBuilder decompressedData = new StringBuilder(); String line; while
-   * ((line = bufferedReader.readLine()) != null) {
-   * decompressedData.append(line).append("\n"); } return
-   * decompressedData.toString(); } }
-   */
-
   private InputStream decompressGzip(byte[] compressedContent) throws IOException {
     return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
   }
-
-  /*
-   * private FlussoRendicontazione parseXml(String xmlContent) throws
-   * ParserConfigurationException, SAXException, IOException { // using a SAX
-   * parser for performance reason return
-   * FDR1XmlSAXParser.parseXmlContent(xmlContent); }
-   */
 
   private FlussoRendicontazione parseXml(InputStream xmlStream)
       throws ParserConfigurationException, SAXException, IOException {
@@ -342,7 +321,7 @@ public class BlobProcessingFunction {
       }
     }
 
-    // Aggiungi qualsiasi elemento rimanente
+    // Add remaining items
     if (currentBatchSize.get() > 0) {
       chunks.add(currentJsonBatch.toString());
     }
