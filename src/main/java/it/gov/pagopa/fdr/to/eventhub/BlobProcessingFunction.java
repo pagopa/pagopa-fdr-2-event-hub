@@ -1,5 +1,22 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.xml.sax.SAXException;
+
 import com.azure.core.amqp.AmqpRetryMode;
 import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.messaging.eventhubs.EventData;
@@ -14,26 +31,13 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
+
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.zip.GZIPInputStream;
-import javax.xml.parsers.ParserConfigurationException;
-import org.xml.sax.SAXException;
 
 public class BlobProcessingFunction {
 
@@ -54,7 +58,8 @@ public class BlobProcessingFunction {
                 System.getenv("EVENT_HUB_FLOWTX_NAME"))
             .retryOptions(
                 new AmqpRetryOptions()
-                    .setMaxRetries(3) // Maximum number of attempts
+									.setMaxRetries(2) // Maximum number of
+														// attempts
                     .setDelay(Duration.ofSeconds(2)) // Delay between attempts
                     .setMode(AmqpRetryMode.EXPONENTIAL)) // Backoff strategy
             .buildProducerClient();
@@ -66,7 +71,7 @@ public class BlobProcessingFunction {
                 System.getenv("EVENT_HUB_REPORTEDIUV_NAME"))
             .retryOptions(
                 new AmqpRetryOptions()
-                    .setMaxRetries(3)
+									.setMaxRetries(2)
                     .setDelay(Duration.ofSeconds(2))
                     .setMode(AmqpRetryMode.EXPONENTIAL))
             .buildProducerClient();
