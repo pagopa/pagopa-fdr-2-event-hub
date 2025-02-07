@@ -97,7 +97,7 @@ public class BlobProcessingFunction {
     if (!validateBlobMetadata(blobMetadata)) {
       context
           .getLogger()
-          .info(
+          .warning(
               () ->
                   String.format(
                       "[FDR1] Skipping processing for Blob container: %s, name: %s, size: %d bytes",
@@ -126,7 +126,7 @@ public class BlobProcessingFunction {
 
       context
           .getLogger()
-          .info(
+          .fine(
               () ->
                   String.format(
                       "[FDR1] Parsed Finished at: %s for Blob container: %s, name: %s, size: %d"
@@ -141,7 +141,7 @@ public class BlobProcessingFunction {
 
       context
           .getLogger()
-          .info(
+          .fine(
               () ->
                   String.format(
                       "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size: %d"
@@ -178,7 +178,7 @@ public class BlobProcessingFunction {
     if (!validateBlobMetadata(blobMetadata)) {
       context
           .getLogger()
-          .info(
+          .warning(
               () ->
                   String.format(
                       "Skipping processing for Blob container: %s, name: %s, size: %d bytes",
@@ -275,7 +275,7 @@ public class BlobProcessingFunction {
 
       context
           .getLogger()
-          .info(
+          .fine(
               () ->
                   String.format(
                       "Chunk splitting process completed at: %s for flow ID: %s. Total number of"
