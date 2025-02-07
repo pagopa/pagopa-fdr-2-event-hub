@@ -99,7 +99,8 @@ public class BlobProcessingFunction {
           .warning(
               () ->
                   String.format(
-                      "[FDR1] Skipping processing for Blob container: %s, name: %s, size: %d bytes",
+                      "[FDR1] Skipping processing for Blob container: %s, name: %s, size in bytes:"
+                          + " %d",
                       fdr1Container, blobName, content.length));
       return; // Skip execution
     }
@@ -112,7 +113,7 @@ public class BlobProcessingFunction {
         .info(
             () ->
                 String.format(
-                    "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size: %d bytes",
+                    "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size in bytes: %d",
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
                     fdr1Container,
                     blobName,
@@ -128,8 +129,8 @@ public class BlobProcessingFunction {
           .fine(
               () ->
                   String.format(
-                      "[FDR1] Parsed Finished at: %s for Blob container: %s, name: %s, size: %d"
-                          + " bytes",
+                      "[FDR1] Parsed Finished at: %s for Blob container: %s, name: %s, size in"
+                          + " bytes: %d",
                       LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
                       fdr1Container,
                       blobName,
@@ -140,11 +141,11 @@ public class BlobProcessingFunction {
 
       context
           .getLogger()
-          .fine(
+          .info(
               () ->
                   String.format(
-                      "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size: %d"
-                          + " bytes",
+                      "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size in"
+                          + " bytes: %d",
                       LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
                       fdr1Container,
                       blobName,
@@ -173,41 +174,25 @@ public class BlobProcessingFunction {
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
-    // checks for the presence of the necessary metadata
-    if (!validateBlobMetadata(blobMetadata)) {
-      context
-          .getLogger()
-          .warning(
-              () ->
-                  String.format(
-                      "Skipping processing for Blob container: %s, name: %s, size: %d bytes",
-                      fdr3Container, blobName, content.length));
-      return; // Skip execution
-    }
-
-    // verify that the file is present and that it is a compressed file
-    boolean isValidGzipFile = isGzip(content);
+    context
+        .getLogger()
+        .info(
+            () ->
+                String.format(
+                    "[FDR3] Triggered for Blob container: %s, name: %s, size: %d bytes",
+                    fdr3Container, blobName, content.length));
 
     context
         .getLogger()
         .info(
             () ->
                 String.format(
-                    "Triggered for Blob container: %s, name: %s, size: %d bytes",
-                    fdr3Container, blobName, content.length));
-
-    try (InputStream decompressedStream =
-        isValidGzipFile ? decompressGzip(content) : new ByteArrayInputStream(content)) {
-      // TODO future needs
-    } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "Error processing Blob '%s/%s': %s",
-                      fdr3Container, blobName, e.getMessage()));
-    }
+                    "[FDR3] Execution Finished at: %s for Blob container: %s, name: %s, size: %d"
+                        + " bytes",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
+                    fdr1Container,
+                    blobName,
+                    content.length));
   }
 
   private boolean isGzip(byte[] content) {
