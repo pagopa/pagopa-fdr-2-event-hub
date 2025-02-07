@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: ""
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "0.0.1-25-PAGOPA-2602-fdr-to-event-hub"
+    tag: "0.0.2"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   livenessProbe:
@@ -51,7 +51,7 @@ microservice-chart:
   autoscaling:
     enable: true
     minReplica: 2
-    maxReplica: 7
+    maxReplica: 5
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
