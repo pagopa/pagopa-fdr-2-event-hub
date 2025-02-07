@@ -20,10 +20,9 @@ import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -119,10 +118,10 @@ public class BlobProcessingFunction {
                     blobName,
                     content.length));
 
-    try {
-      String decompressedContent =
-          isValidGzipFile ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
-      FlussoRendicontazione flusso = parseXml(decompressedContent);
+    try (InputStream decompressedStream =
+        isValidGzipFile ? decompressGzip(content) : new ByteArrayInputStream(content)) {
+
+      FlussoRendicontazione flusso = parseXml(decompressedStream);
 
       context
           .getLogger()
@@ -197,9 +196,8 @@ public class BlobProcessingFunction {
                     "Triggered for Blob container: %s, name: %s, size: %d bytes",
                     fdr3Container, blobName, content.length));
 
-    try {
-      String decompressedContent =
-          isValidGzipFile ? decompressGzip(content) : new String(content, StandardCharsets.UTF_8);
+    try (InputStream decompressedStream =
+        isValidGzipFile ? decompressGzip(content) : new ByteArrayInputStream(content)) {
       // TODO future needs
     } catch (Exception e) {
       context
@@ -230,25 +228,34 @@ public class BlobProcessingFunction {
     return !("false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
-  private String decompressGzip(byte[] compressedContent) throws IOException {
-    try (GZIPInputStream gzipInputStream =
-            new GZIPInputStream(new ByteArrayInputStream(compressedContent));
-        InputStreamReader reader = new InputStreamReader(gzipInputStream, StandardCharsets.UTF_8);
-        BufferedReader bufferedReader = new BufferedReader(reader)) {
+  /*
+   * private String decompressGzip(byte[] compressedContent) throws
+   * IOException { try (GZIPInputStream gzipInputStream = new
+   * GZIPInputStream(new ByteArrayInputStream(compressedContent));
+   * InputStreamReader reader = new InputStreamReader(gzipInputStream,
+   * StandardCharsets.UTF_8); BufferedReader bufferedReader = new
+   * BufferedReader(reader)) {
+   *
+   * StringBuilder decompressedData = new StringBuilder(); String line; while
+   * ((line = bufferedReader.readLine()) != null) {
+   * decompressedData.append(line).append("\n"); } return
+   * decompressedData.toString(); } }
+   */
 
-      StringBuilder decompressedData = new StringBuilder();
-      String line;
-      while ((line = bufferedReader.readLine()) != null) {
-        decompressedData.append(line).append("\n");
-      }
-      return decompressedData.toString();
-    }
+  private InputStream decompressGzip(byte[] compressedContent) throws IOException {
+    return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
   }
 
-  private FlussoRendicontazione parseXml(String xmlContent)
+  /*
+   * private FlussoRendicontazione parseXml(String xmlContent) throws
+   * ParserConfigurationException, SAXException, IOException { // using a SAX
+   * parser for performance reason return
+   * FDR1XmlSAXParser.parseXmlContent(xmlContent); }
+   */
+
+  private FlussoRendicontazione parseXml(InputStream xmlStream)
       throws ParserConfigurationException, SAXException, IOException {
-    // using a SAX parser for performance reason
-    return FDR1XmlSAXParser.parseXmlContent(xmlContent);
+    return FDR1XmlSAXParser.parseXmlStream(xmlStream);
   }
 
   private void processXmlBlobAndSendToEventHub(
