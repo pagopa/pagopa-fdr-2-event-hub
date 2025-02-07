@@ -58,7 +58,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testBlobTriggerProcessing() throws Exception {
+  void testFDR1BlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
@@ -74,7 +74,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testBigBlobTriggerProcessing() throws Exception {
+  void testFDR1BigBlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
     String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
@@ -90,7 +90,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testProcessBlobWithNullData() {
+  void testFDR1ProcessBlobWithNullData() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -101,7 +101,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testProcessBlobWithInvalidGzipData() {
+  void testFDR1ProcessBlobWithInvalidGzipData() {
     when(context.getLogger()).thenReturn(mockLogger);
     String invalidData = "invalidData";
     Map<String, String> metadata = new HashMap<>();
@@ -115,7 +115,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testProcessBlobWithEmptyXml() throws Exception {
+  void testFDR1ProcessBlobWithEmptyXml() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -131,7 +131,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testProcessBlobWithMalformedXml() throws Exception {
+  void testFDR1ProcessBlobWithMalformedXml() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -155,7 +155,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testValidateBlobMetadata_NullMetadata() {
+  void testFDR1ValidateBlobMetadata_NullMetadata() {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
@@ -167,7 +167,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testValidateBlobMetadata_EmptyMetadata() {
+  void testFDR1ValidateBlobMetadata_EmptyMetadata() {
     Map<String, String> emptyMetadata = new HashMap<>();
     IllegalArgumentException exception =
         assertThrows(
@@ -180,7 +180,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testValidateBlobMetadata_MissingKeys() {
+  void testFDR1ValidateBlobMetadata_MissingKeys() {
     Map<String, String> invalidMetadata = new HashMap<>();
     invalidMetadata.put("sessionId", "1234");
     // "insertedTimestamp" key is missing
@@ -197,7 +197,7 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testValidateBlobMetadata_ElaborateFalse() {
+  void testFDR1ValidateBlobMetadata_ElaborateFalse() {
     when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -218,5 +218,20 @@ class BlobProcessingFunctionTest {
             .anyMatch(log -> log.contains("Skipping processing for Blob container"));
     assert logContainsExpectedMessage
         : "The log does not contain the expected message for 'elaborate' false";
+  }
+
+  @Test
+  void testFDR3BlobTriggerProcessing() throws Exception {
+    when(context.getLogger()).thenReturn(mockLogger);
+    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    byte[] compressedData = createGzipCompressedData(sampleXml);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context);
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
   }
 }
