@@ -2,25 +2,40 @@
   "version": "2.0",
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[2.*, 3.0.0)"
+    "version": "[4.0.0, 5.0.0)"
   },
   "extensions": {
+    "blobs": {
+      "maxDegreeOfParallelism": 1,
+      "poisonBlobThreshold": 2
+    },
+    "queues": {
+      "maxPollingInterval": "00:00:45",
+      "visibilityTimeout": "00:10:00",
+      "batchSize": 1,
+      "maxDequeueCount": 3,
+      "newBatchThreshold": 1
+    },
     "http": {
       "routePrefix": ""
     }
   },
   "logging": {
-    "fileLoggingMode": "always",
+    "fileLoggingMode": "debugOnly",
     "logLevel": {
-      "default": "Information",
+      "default": "None",
       "Host.Results": "Error",
-      "Function": "Information",
-      "Host.Aggregator": "Trace"
+      "Function.ProcessFDR1BlobFiles": "Information",
+      "Function.ProcessFDR3BlobFiles": "Information",
+      "Host.Aggregator": "Error"
     },
     "applicationInsights": {
       "samplingSettings": {
-        "isEnabled": false
+        "isEnabled": true,
+        "maxTelemetryItemsPerSecond": 5,
+        "includedTypes": "PageView;Trace;Dependency;Request",
+        "excludedTypes": "Exception;Event;CustomEvent"
+      }
     }
-  } 
-}
+  }
 }
