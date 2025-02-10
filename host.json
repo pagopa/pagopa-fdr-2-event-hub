@@ -26,13 +26,6 @@
       "routePrefix": ""
     }
   },
-  "singleton": {
-    "lockPeriod": "00:00:20",
-    "listenerLockPeriod": "00:01:00",
-    "listenerLockRecoveryPollingInterval": "00:01:00",
-    "lockAcquisitionTimeout": "00:01:00",
-    "lockAcquisitionPollingInterval": "00:00:05"
-  },
   "logging": {
     "fileLoggingMode": "debugOnly",
     "logLevel": {
