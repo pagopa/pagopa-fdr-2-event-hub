@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>0.0.2</version>
+	<version>0.0.2-1-PAGOPA-2645-tuning-fdr-to-eventhub</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
