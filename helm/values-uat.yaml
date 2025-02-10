@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: ""
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "0.0.2-3-PAGOPA-2645-tuning-fdr-to-eventhub"
+    tag: "0.0.2-4-PAGOPA-2645-tuning-fdr-to-eventhub"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   livenessProbe:
@@ -43,15 +43,15 @@ microservice-chart:
     allowPrivilegeEscalation: false
   resources:
     requests:
-      memory: "512Mi"
+      memory: "768Mi"
       cpu: "0.5"
     limits:
-      memory: "2.5Gi"
+      memory: "4Gi"
       cpu: "2"
   autoscaling:
     enable: true
-    minReplica: 2
-    maxReplica: 5
+    minReplica: 1
+    maxReplica: 1
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
@@ -66,7 +66,7 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-    JAVA_OPTS: "-XX:MaxHeapSize=1280m -XX:MinHeapSize=192m"
+    JAVA_OPTS: "-XX:MaxHeapSize=2048m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
