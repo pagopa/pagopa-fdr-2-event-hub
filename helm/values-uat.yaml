@@ -1,7 +1,7 @@
 microservice-chart:
   namespace: "fdr"
   nameOverride: ""
-  fullnameOverride: "pagopa-fdr-to-event-hub"
+  fullnameOverride: ""
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
     tag: "0.0.2-6-PAGOPA-2645-tuning-fdr-to-eventhub"
