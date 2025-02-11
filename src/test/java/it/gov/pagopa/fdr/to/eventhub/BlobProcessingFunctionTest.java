@@ -59,7 +59,12 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1BlobTriggerProcessing() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
@@ -75,7 +80,12 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1BigBlobTriggerProcessing() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
