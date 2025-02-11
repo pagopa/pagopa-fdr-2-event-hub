@@ -1,7 +1,7 @@
 microservice-chart:
   namespace: "fdr"
   nameOverride: ""
-  fullnameOverride: ""
+  fullnameOverride: "pagopa-fdr-to-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
     tag: "0.0.2-5-PAGOPA-2645-tuning-fdr-to-eventhub"
@@ -39,10 +39,15 @@ microservice-chart:
     create: true
     type: ClusterIP
     port: 80
+    targetPort: 80
   ingress:
     create: true
     host: "weuuat.fdr.internal.uat.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
+    backend:
+    service:
+      name: pagopafdrtoeventhub-microservice-chart
+      port: 80
   serviceAccount:
     create: false
     annotations: {}
