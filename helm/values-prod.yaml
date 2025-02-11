@@ -7,30 +7,55 @@ microservice-chart:
     tag: "0.0.2-8-PAGOPA-2645-tuning-fdr-to-eventhub"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
+  # livenessProbe:
+  #   httpGet:
+  #     path: /info
+  #     port: 80
+  #   initialDelaySeconds: 60
+  #   failureThreshold: 6
+  #   periodSeconds: 10
+  # readinessProbe:
+  #   httpGet:
+  #     path: /info
+  #     port: 80
+  #   initialDelaySeconds: 60
+  #   failureThreshold: 6
+  #   periodSeconds: 10
   livenessProbe:
-    httpGet:
-      path: /info
+    handlerType: tcpSocket
+    tcpSocket:
       port: 80
     initialDelaySeconds: 60
-    failureThreshold: 6
-    periodSeconds: 10
+    periodSeconds: 30
+    failureThreshold: 10
   readinessProbe:
-    httpGet:
-      path: /info
+    handlerType: tcpSocket
+    tcpSocket:
       port: 80
     initialDelaySeconds: 60
-    failureThreshold: 6
-    periodSeconds: 10
+    periodSeconds: 30
+    failureThreshold: 10
   deployment:
     create: true
-  service:
+  serviceMonitor:
     create: true
+    endpoints:
+      - interval: 10s #jmx-exporter
+        targetPort: 12345
+        path: /metrics
+  ports:
+    - 80 #http
+    - 12345 #jmx-exporter
+  service:
     type: ClusterIP
-    port: 80
+    ports:
+      - 80 #http
+      - 12345 #jmx-exporter
   ingress:
     create: true
     host: "weuprod.fdr.internal.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
+    servicePort: 80
   serviceAccount:
     create: false
     annotations: {}
@@ -43,15 +68,15 @@ microservice-chart:
     allowPrivilegeEscalation: false
   resources:
     requests:
-      memory: "512Mi"
-      cpu: "0.25"
+      memory: "768Mi"
+      cpu: "0.5"
     limits:
-      memory: "1.25Gi"
-      cpu: "1"
+      memory: "4Gi"
+      cpu: "2"
   autoscaling:
     enable: true
-    minReplica: 2
-    maxReplica: 5
+    minReplica: 1
+    maxReplica: 1
     pollingInterval: 10 # seconds
     cooldownPeriod: 50 # seconds
     triggers:
@@ -66,13 +91,16 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-    JAVA_OPTS: "-XX:MaxHeapSize=640m -XX:MinHeapSize=192m"
+    JAVA_OPTS: "-XX:MaxHeapSize=2048m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
+  envFieldRef:
+    APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
+    APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
   envSecret:
     APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
     FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
