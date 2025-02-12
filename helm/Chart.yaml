@@ -2,8 +2,8 @@ apiVersion: v2
 name: pagopa-fdr-to-event-hub
 description: Microservice fdr to event hub
 type: application
-version: 0.36.0
-appVersion: 0.0.2-9-PAGOPA-2645-tuning-fdr-to-eventhub
+version: 0.37.0
+appVersion: 0.0.2-10-PAGOPA-2645-tuning-fdr-to-eventhub
 dependencies:
   - name: microservice-chart
     version: 2.8.0
