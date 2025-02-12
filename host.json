@@ -29,11 +29,11 @@
   "logging": {
     "fileLoggingMode": "debugOnly",
     "logLevel": {
-      "default": "None",
-      "Host.Results": "Error",
-      "Function.ProcessFDR1BlobFiles": "Information",
-      "Function.ProcessFDR3BlobFiles": "Information",
-      "Host.Aggregator": "Error"
+      "default": "Debug",
+      "Host.Results": "Debug",
+      "Function.ProcessFDR1BlobFiles": "Debug",
+      "Function.ProcessFDR3BlobFiles": "Debug",
+      "Host.Aggregator": "Debug"
     },
     "applicationInsights": {
       "samplingSettings": {
