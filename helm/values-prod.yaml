@@ -1,6 +1,6 @@
 microservice-chart:
   namespace: "fdr"
-  nameOverride: ""
+  nameOverride: "pagopa-fdr-2-event"
   fullnameOverride: "pagopa-fdr-2-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
@@ -24,14 +24,14 @@ microservice-chart:
   livenessProbe:
     handlerType: tcpSocket
     tcpSocket:
-      port: 80
+      port: 8080
     initialDelaySeconds: 60
     periodSeconds: 30
     failureThreshold: 10
   readinessProbe:
     handlerType: tcpSocket
     tcpSocket:
-      port: 80
+      port: 8080
     initialDelaySeconds: 60
     periodSeconds: 30
     failureThreshold: 10
@@ -44,12 +44,12 @@ microservice-chart:
         targetPort: 12345
         path: /metrics
   ports:
-    - 80 #http
     - 12345 #jmx-exporter
+    - 8080
   service:
     type: ClusterIP
     ports:
-      - 80 #http
+      - 8080
       - 12345 #jmx-exporter
   ingress:
     create: true
@@ -65,9 +65,7 @@ microservice-chart:
     seccompProfile:
       type: RuntimeDefault
   securityContext:
-    capabilities:
-      add:
-        - NET_BIND_SERVICE
+    allowPrivilegeEscalation: false
   resources:
     requests:
       memory: "768Mi"
@@ -100,6 +98,7 @@ microservice-chart:
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
+    ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
@@ -115,6 +114,14 @@ microservice-chart:
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
   tolerations: []
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node_type
+                operator: In
+                values:
+                  - 'user'
   canaryDelivery:
     create: false

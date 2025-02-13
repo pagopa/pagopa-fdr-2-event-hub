@@ -37,12 +37,12 @@ microservice-chart:
     failureThreshold: 10
   deployment:
     create: true
-  # serviceMonitor:
-  #   create: true
-  #   endpoints:
-  #     - interval: 10s #jmx-exporter
-  #       targetPort: 12345
-  #       path: /metrics
+  serviceMonitor:
+    create: true
+    endpoints:
+      - interval: 10s #jmx-exporter
+        targetPort: 12345
+        path: /metrics
   ports:
     - 12345 #jmx-exporter
     - 8080
@@ -65,9 +65,7 @@ microservice-chart:
     seccompProfile:
       type: RuntimeDefault
   securityContext:
-    capabilities:
-      add:
-        - NET_BIND_SERVICE
+    allowPrivilegeEscalation: false
   resources:
     requests:
       memory: "768Mi"
@@ -100,8 +98,8 @@ microservice-chart:
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
-    FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
     ASPNETCORE_URLS: "http://*:8080"
+    FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
