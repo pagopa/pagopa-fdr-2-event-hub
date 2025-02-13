@@ -91,7 +91,7 @@ microservice-chart:
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig:
-    JAVA_OPTS: "-XX:MaxHeapSize=2048m -XX:MinHeapSize=256m"
+    JAVA_OPTS: "-XX:MaxHeapSize=2304m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
