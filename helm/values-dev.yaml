@@ -113,15 +113,19 @@ microservice-chart:
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
-  tolerations: []
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: "nodo"
+      effect: NoSchedule
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: node_type
+              - key: nodo
                 operator: In
                 values:
-                  - 'user'
+                  - "true"
   canaryDelivery:
     create: false
