@@ -25,14 +25,14 @@ microservice-chart:
     handlerType: tcpSocket
     tcpSocket:
       port: 8080
-    initialDelaySeconds: 60
+    initialDelaySeconds: 30
     periodSeconds: 30
     failureThreshold: 10
   readinessProbe:
     handlerType: tcpSocket
     tcpSocket:
       port: 8080
-    initialDelaySeconds: 60
+    initialDelaySeconds: 30
     periodSeconds: 30
     failureThreshold: 10
   deployment:
