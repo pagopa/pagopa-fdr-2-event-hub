@@ -54,7 +54,8 @@ public class BlobProcessingFunction {
                 System.getenv("EVENT_HUB_FLOWTX_NAME"))
             .retryOptions(
                 new AmqpRetryOptions()
-                    .setMaxRetries(3) // Maximum number of attempts
+                    .setMaxRetries(3) // Maximum number of
+                    // attempts
                     .setDelay(Duration.ofSeconds(2)) // Delay between attempts
                     .setMode(AmqpRetryMode.EXPONENTIAL)) // Backoff strategy
             .buildProducerClient();
@@ -81,7 +82,7 @@ public class BlobProcessingFunction {
   }
 
   @FunctionName("ProcessFDR1BlobFiles")
-  public void processFDR1BlobFiles(
+  public synchronized void processFDR1BlobFiles(
       @BlobTrigger(
               name = "Fdr1BlobTrigger",
               dataType = "binary",
@@ -137,7 +138,15 @@ public class BlobProcessingFunction {
                       content.length));
 
       flusso.setMetadata(blobMetadata);
-      processXmlBlobAndSendToEventHub(flusso, context);
+
+      // Waits for confirmation of sending the entire flow to the Event Hub
+      boolean eventBatchSent = processXmlBlobAndSendToEventHub(flusso, context);
+      if (!eventBatchSent) {
+        throw new EventHubException(
+            String.format(
+                "EventHub has not confirmed sending the entire batch of events for flow ID: %s",
+                flusso.getIdentificativoFlusso()));
+      }
 
       context
           .getLogger()
@@ -222,9 +231,8 @@ public class BlobProcessingFunction {
     return FDR1XmlSAXParser.parseXmlStream(xmlStream);
   }
 
-  private void processXmlBlobAndSendToEventHub(
-      FlussoRendicontazione flussoRendicontazione, ExecutionContext context)
-      throws EventHubException {
+  private boolean processXmlBlobAndSendToEventHub(
+      FlussoRendicontazione flussoRendicontazione, ExecutionContext context) {
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
@@ -255,11 +263,18 @@ public class BlobProcessingFunction {
                       flussoRendicontazione.getIdentificativoFlusso(),
                       reportedIUVEventJsonChunks.size()));
 
-      sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione);
+      boolean flowEventSent =
+          sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
+      boolean allEventChunksSent = true;
 
       for (String chunk : reportedIUVEventJsonChunks) {
-        sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione);
+        if (!sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione, context)) {
+          allEventChunksSent = false;
+          break;
+        }
       }
+
+      return flowEventSent && allEventChunksSent;
 
     } catch (Exception e) {
       // Log the exception with context
@@ -269,8 +284,7 @@ public class BlobProcessingFunction {
               flussoRendicontazione.getIdentificativoFlusso(), e.getMessage());
       context.getLogger().severe(() -> errorMessage);
 
-      // Rethrow custom exception with context
-      throw new EventHubException(errorMessage, e);
+      return false;
     }
   }
 
@@ -315,20 +329,40 @@ public class BlobProcessingFunction {
   }
 
   /** Send a message to the Event Hub */
-  private void sendEventToHub(
-      String jsonPayload, EventHubProducerClient eventHubClient, FlussoRendicontazione flusso) {
+  private boolean sendEventToHub(
+      String jsonPayload,
+      EventHubProducerClient eventHubClient,
+      FlussoRendicontazione flusso,
+      ExecutionContext context) {
     EventData eventData = new EventData(jsonPayload);
     eventData
         .getProperties()
-        .put(
-            SERVICE_IDENTIFIER,
-            flusso.getMetadata().get(SERVICE_IDENTIFIER) != null
-                ? flusso.getMetadata().get(SERVICE_IDENTIFIER)
-                : "NA");
+        .put(SERVICE_IDENTIFIER, flusso.getMetadata().getOrDefault(SERVICE_IDENTIFIER, "NA"));
 
     EventDataBatch eventBatch = eventHubClient.createBatch();
-    eventBatch.tryAdd(eventData);
+    if (!eventBatch.tryAdd(eventData)) {
+      context
+          .getLogger()
+          .warning(
+              () ->
+                  String.format(
+                      "Failed to add event to batch for flow ID: %s",
+                      flusso.getIdentificativoFlusso()));
+      return false;
+    }
 
-    eventHubClient.send(eventBatch);
+    try {
+      eventHubClient.send(eventBatch);
+      return true;
+    } catch (Exception e) {
+      context
+          .getLogger()
+          .warning(
+              () ->
+                  String.format(
+                      "Failed to add event to batch for flow ID: %s. Details: %s",
+                      flusso.getIdentificativoFlusso(), e.getMessage()));
+      return false;
+    }
   }
 }

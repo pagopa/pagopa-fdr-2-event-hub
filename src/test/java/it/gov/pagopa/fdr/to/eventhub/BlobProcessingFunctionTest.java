@@ -4,12 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.azure.core.amqp.exception.AmqpErrorContext;
+import com.azure.core.amqp.exception.AmqpException;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
@@ -59,7 +62,12 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1BlobTriggerProcessing() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
@@ -75,7 +83,12 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1BigBlobTriggerProcessing() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
     byte[] compressedData = createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
@@ -218,6 +231,53 @@ class BlobProcessingFunctionTest {
             .anyMatch(log -> log.contains("Skipping processing for Blob container"));
     assert logContainsExpectedMessage
         : "The log does not contain the expected message for 'elaborate' false";
+  }
+
+  @Test
+  void testFDR1BlobTriggerProcessingError() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    // precondition for tryAdd fail
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenThrow(
+            new AmqpException(
+                Boolean.TRUE, "Failed to add event data", mock(AmqpErrorContext.class)));
+    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    byte[] compressedData = createGzipCompressedData(sampleXml);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
+
+    logCaptor.getAllValues().stream()
+        .map(Supplier::get)
+        .anyMatch(log -> log.contains("Error processing Blob"));
+
+    verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
+
+    // precondition for send fail
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
+    doThrow(NullPointerException.class).when(eventHubClientFlowTx).send(any(EventDataBatch.class));
+
+    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+
+    logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
+
+    logCaptor.getAllValues().stream()
+        .map(Supplier::get)
+        .anyMatch(log -> log.contains("Error processing Blob"));
+
+    verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
   }
 
   @Test

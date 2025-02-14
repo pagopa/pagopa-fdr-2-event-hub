@@ -62,7 +62,7 @@ jobs:
           cluster_name: ${{ vars.CLUSTER_NAME }}
           resource_group: ${{ vars.CLUSTER_RESOURCE_GROUP }}
           app_name: ${{ env.APP_NAME }}${{inputs.suffix_name}}
-          helm_upgrade_options: '--debug --set microservice-chart.azure.workloadIdentityClientId=${{vars.WORKLOAD_IDENTITY_ID}} ${{inputs.helm_options}}'
+          helm_upgrade_options: '--debug --set microservice-chart.azure.workloadIdentityClientId=${{vars.WORKLOAD_IDENTITY_ID}}'
           timeout: '10m0s'
 
       - name: Remove deployment

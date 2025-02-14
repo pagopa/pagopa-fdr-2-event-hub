@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.experimental.UtilityClass;
 import org.modelmapper.ModelMapper;
@@ -66,10 +67,17 @@ public class FlussoRendicontazioneMapper {
         .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
         .psp(flusso.getIdentificativoPSP())
         .causal(flusso.getFlussoRiversamento().getIdentificativoUnivocoRegolamento())
-        .allDates(
-            flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
-                .map(dsp -> dsp.getDataEsitoSingoloPagamento())
-                .toList())
+        // This field should include all payment dates from the Flusso
+        // Riversamento.
+        // For very large files (>100,000 payments), the resulting JSON
+        // exceeds the 1024KB limit allowed for an Event Hub event. Pending
+        // further guidance, an empty list will be used instead.
+        .allDates(new ArrayList<>())
+        //
+        // .allDates(
+        // flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
+        // .map(dsp -> dsp.getDataEsitoSingoloPagamento()) .toList())
+        //
         .build();
   }
 

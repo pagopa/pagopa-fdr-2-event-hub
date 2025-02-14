@@ -16,6 +16,12 @@
       "maxDequeueCount": 3,
       "newBatchThreshold": 1
     },
+    "retry": {
+      "strategy": "exponentialBackoff",
+      "maxRetryCount": 3,
+      "minimumInterval": "00:00:30",
+      "maximumInterval": "00:02:00"
+    },
     "http": {
       "routePrefix": ""
     }
