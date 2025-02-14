@@ -1,12 +1,14 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,12 +18,20 @@ import com.azure.core.amqp.exception.AmqpException;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
+import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
@@ -30,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,10 +86,28 @@ class BlobProcessingFunctionTest {
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "true");
 
-    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+    FlussoRendicontazione flussoRendicontazione =
+        FDR1XmlSAXParser.parseXmlStream(
+            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+
+    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
+      mockedStatic
+          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
+          .thenReturn(flussoRendicontazione);
+
+      function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+    }
 
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
+
+    FlowTxEventModel flowEvent =
+        FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+
+    assertNotNull(flowEvent);
+    // it is verified that the distinct on the dates has left the only expected
+    // date for all payments
+    assertEquals(1, flowEvent.getAllDates().size());
   }
 
   @Test
@@ -278,6 +307,60 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
+  }
+
+  @Test
+  void testFDR1BigBlobTriggerProcessingCheckAllDates() throws Exception {
+    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    when(context.getLogger()).thenReturn(mockLogger);
+    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
+        .thenReturn(Boolean.TRUE);
+    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+
+    FlussoRendicontazione flussoRendicontazione =
+        FDR1XmlSAXParser.parseXmlStream(
+            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+
+    // the maximum number of dates is forced to 10 for the test
+    FlussoRendicontazioneMapper.setMaxDistinctDates(10);
+
+    // The original flow is modified to have more than 10 distinct dates
+    Random random = new Random();
+    flussoRendicontazione
+        .getFlussoRiversamento()
+        .getDatiSingoliPagamenti()
+        .forEach(
+            dsp -> {
+              int dayOfMonth = random.nextInt(28) + 1;
+              dsp.setDataEsitoSingoloPagamento(LocalDate.of(2025, 2, dayOfMonth).toString());
+            });
+
+    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
+      mockedStatic
+          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
+          .thenReturn(flussoRendicontazione);
+
+      byte[] compressedData = createGzipCompressedData(sampleXml);
+      Map<String, String> metadata = new HashMap<>();
+      metadata.put("sessionId", "1234");
+      metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+      metadata.put("elaborate", "true");
+
+      function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
+    }
+
+    verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
+    verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
+
+    FlowTxEventModel flowEvent =
+        FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+
+    assertNotNull(flowEvent);
+    // it is verified that the distinct on the dates has determined the
+    // presence of 10 dates plus the fake one
+    assertEquals(11, flowEvent.getAllDates().size());
   }
 
   @Test
