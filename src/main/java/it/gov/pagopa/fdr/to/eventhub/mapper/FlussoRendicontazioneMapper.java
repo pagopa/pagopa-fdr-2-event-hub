@@ -1,5 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub.mapper;
 
+import it.gov.pagopa.fdr.to.eventhub.model.DatiSingoloPagamento;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
@@ -9,8 +10,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
@@ -19,6 +22,7 @@ import org.modelmapper.convention.MatchingStrategies;
 public class FlussoRendicontazioneMapper {
 
   private static final ModelMapper modelMapper = new ModelMapper();
+  @Getter @Setter private static int maxDistinctDates = 110;
 
   private static final DateTimeFormatter DATE_TIME_FORMATTER =
       new DateTimeFormatterBuilder()
@@ -55,6 +59,19 @@ public class FlussoRendicontazioneMapper {
    */
   public static FlowTxEventModel toFlowTxEventList(FlussoRendicontazione flusso) {
 
+    List<String> allDates =
+        flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
+            .map(DatiSingoloPagamento::getDataEsitoSingoloPagamento)
+            .distinct()
+            .collect(Collectors.toList());
+
+    // last fake date as alert if there are more than 'this.maxDistinctDates'
+    // dates
+    if (allDates.size() > maxDistinctDates) {
+      allDates = allDates.stream().limit(maxDistinctDates).collect(Collectors.toList());
+      allDates.add("9999-12-31");
+    }
+
     return FlowTxEventModel.builder()
         .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
         .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
@@ -67,17 +84,7 @@ public class FlussoRendicontazioneMapper {
         .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
         .psp(flusso.getIdentificativoPSP())
         .causal(flusso.getFlussoRiversamento().getIdentificativoUnivocoRegolamento())
-        // This field should include all payment dates from the Flusso
-        // Riversamento.
-        // For very large files (>100,000 payments), the resulting JSON
-        // exceeds the 1024KB limit allowed for an Event Hub event. Pending
-        // further guidance, an empty list will be used instead.
-        .allDates(new ArrayList<>())
-        //
-        // .allDates(
-        // flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
-        // .map(dsp -> dsp.getDataEsitoSingoloPagamento()) .toList())
-        //
+        .allDates(allDates)
         .build();
   }
 
