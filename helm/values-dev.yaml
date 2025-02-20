@@ -45,24 +45,22 @@ microservice-chart:
         path: /metrics
   ports:
     - 12345 #jmx-exporter
-    - 80
     - 8080
   service:
     type: ClusterIP
     ports:
-      - 80
       - 8080
       - 12345 #jmx-exporter
   ingress:
     create: true
     host: "weudev.fdr.internal.dev.platform.pagopa.it"
-    path: /pagopa-fdr-to-event-hub-service/(.*)
-    servicePort: 80
+    path: /pagopa-fdr-to-event-hub-service(/|$)(.*)
+    servicePort: 8080
   serviceAccount:
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -114,7 +112,7 @@ microservice-chart:
   keyvault:
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
