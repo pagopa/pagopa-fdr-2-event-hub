@@ -21,6 +21,7 @@
 		</azure.functions.java.library.version>
 		<azure.messaging.eventhubs.version>5.20.0
 		</azure.messaging.eventhubs.version>
+		<azure.storage.blob.version>12.29.0</azure.storage.blob.version>
 		<functionAppName>com.microsoft.azure-20220215182005862
 		</functionAppName>
 		<jackson.version>2.18.2</jackson.version>
@@ -41,6 +42,12 @@
 			<groupId>com.azure</groupId>
 			<artifactId>azure-messaging-eventhubs</artifactId>
 			<version>${azure.messaging.eventhubs.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-storage-blob</artifactId>
+			<version>${azure.storage.blob.version}</version>
 		</dependency>
 
 		<!-- Jackson -->
