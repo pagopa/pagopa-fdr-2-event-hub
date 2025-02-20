@@ -1,10 +1,14 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Objects;
+import java.util.Optional;
+
 import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
@@ -15,18 +19,10 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+
 import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
@@ -96,7 +92,8 @@ public class HttpBlobRecoveryFunction {
                       container,
                       fileName));
 
-      BlobFileData fileData = getBlobFile(container, fileName, context);
+		BlobFileData fileData = CommonUtil.getBlobFile(
+				"FDR_SA_CONNECTION_STRING", container, fileName, context);
 
       if (Objects.isNull(fileData)) {
         return notFound(
@@ -147,33 +144,6 @@ public class HttpBlobRecoveryFunction {
     }
   }
 
-  private BlobFileData getBlobFile(
-      String containerName, String blobName, ExecutionContext context) {
-    try {
-      BlobServiceClient blobServiceClient =
-          new BlobServiceClientBuilder()
-              .connectionString(System.getenv("FDR_SA_CONNECTION_STRING"))
-              .buildClient();
-
-      BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
-      BlobClient blobClient = containerClient.getBlobClient(blobName);
-
-      if (Boolean.FALSE.equals(blobClient.exists())) {
-        context.getLogger().severe(() -> "[HTTP FDR] Blob not found: " + blobName);
-        return null;
-      }
-
-      Map<String, String> metadata = blobClient.getProperties().getMetadata();
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      blobClient.downloadStream(outputStream);
-
-      return new BlobFileData(outputStream.toByteArray(), metadata);
-
-    } catch (Exception e) {
-      context.getLogger().severe("[HTTP FDR] Error accessing blob: " + e.getMessage());
-      return null;
-    }
-  }
 
   private HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
     return response(request, HttpStatus.OK, message);

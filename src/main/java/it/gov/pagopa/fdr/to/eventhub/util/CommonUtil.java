@@ -1,22 +1,7 @@
 package it.gov.pagopa.fdr.to.eventhub.util;
 
-import com.azure.core.amqp.AmqpRetryMode;
-import com.azure.core.amqp.AmqpRetryOptions;
-import com.azure.messaging.eventhubs.EventData;
-import com.azure.messaging.eventhubs.EventDataBatch;
-import com.azure.messaging.eventhubs.EventHubClientBuilder;
-import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.microsoft.azure.functions.ExecutionContext;
-import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
-import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -28,9 +13,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
+
 import javax.xml.parsers.ParserConfigurationException;
-import lombok.experimental.UtilityClass;
+
 import org.xml.sax.SAXException;
+
+import com.azure.core.amqp.AmqpRetryMode;
+import com.azure.core.amqp.AmqpRetryOptions;
+import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
+import com.azure.messaging.eventhubs.EventHubClientBuilder;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.microsoft.azure.functions.ExecutionContext;
+
+import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
+import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import lombok.experimental.UtilityClass;
 
 @UtilityClass
 public class CommonUtil {
@@ -77,6 +87,37 @@ public class CommonUtil {
       throws ParserConfigurationException, SAXException, IOException {
     return FDR1XmlSAXParser.parseXmlStream(xmlStream);
   }
+
+	public static BlobFileData getBlobFile(String storageEnvVar,
+			String containerName,
+			String blobName, ExecutionContext context) {
+		try {
+			BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
+					.connectionString(System.getenv(storageEnvVar))
+					.buildClient();
+
+			BlobContainerClient containerClient = blobServiceClient
+					.getBlobContainerClient(containerName);
+			BlobClient blobClient = containerClient.getBlobClient(blobName);
+
+			if (Boolean.FALSE.equals(blobClient.exists())) {
+				context.getLogger().severe(() -> "Blob not found: " + blobName);
+				return null;
+			}
+
+			Map<String, String> metadata = blobClient.getProperties()
+					.getMetadata();
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			blobClient.downloadStream(outputStream);
+
+			return new BlobFileData(outputStream.toByteArray(), metadata);
+
+		} catch (Exception e) {
+			context.getLogger()
+					.severe("Error accessing blob: " + e.getMessage());
+			return null;
+		}
+	}
 
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,
