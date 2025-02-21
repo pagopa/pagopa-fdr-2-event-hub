@@ -28,6 +28,7 @@ jobs:
         with:
           configuration-path: '.github/auto_assign.yml'
 
+
   check_labels:
     name: Check Required Labels
     # The type of runner that the job will run on
@@ -41,9 +42,28 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const script = require('./.github/workflows/github_scripts/check_required_labels.js')
-            script({github, context, core})
-
+            var comments = await github.rest.issues.listComments({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo
+            });
+            for (const comment of comments.data) {
+              if (comment.body.includes('This pull request does not contain a valid label')){
+                github.rest.issues.deleteComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: comment.id
+                })
+              }
+            }
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'This pull request does not contain a valid label. Please add one of the following labels: `[major, minor, patch, patch, skip]`'
+            })
+            core.setFailed('Missing required labels')
 
   formatter:
     name: Formatter

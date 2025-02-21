@@ -24,7 +24,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -34,7 +33,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
-import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,14 +61,6 @@ class BlobProcessingFunctionTest {
     lenient().when(eventHubClientReportedIUV.createBatch()).thenReturn(mock(EventDataBatch.class));
   }
 
-  private byte[] createGzipCompressedData(String input) throws Exception {
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
-      gzipOutputStream.write(input.getBytes(StandardCharsets.UTF_8));
-    }
-    return byteArrayOutputStream.toByteArray();
-  }
-
   @Test
   void testFDR1BlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
@@ -80,7 +70,7 @@ class BlobProcessingFunctionTest {
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
-    byte[] compressedData = createGzipCompressedData(sampleXml);
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -119,7 +109,7 @@ class BlobProcessingFunctionTest {
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
-    byte[] compressedData = createGzipCompressedData(sampleXml);
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -163,7 +153,7 @@ class BlobProcessingFunctionTest {
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "true");
-    byte[] compressedData = createGzipCompressedData("");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData("");
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
     verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
@@ -179,7 +169,7 @@ class BlobProcessingFunctionTest {
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "true");
-    byte[] compressedData = createGzipCompressedData("<xml>malformed</xml>");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData("<xml>malformed</xml>");
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
@@ -273,7 +263,7 @@ class BlobProcessingFunctionTest {
             new AmqpException(
                 Boolean.TRUE, "Failed to add event data", mock(AmqpErrorContext.class)));
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
-    byte[] compressedData = createGzipCompressedData(sampleXml);
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -342,7 +332,7 @@ class BlobProcessingFunctionTest {
           .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
           .thenReturn(flussoRendicontazione);
 
-      byte[] compressedData = createGzipCompressedData(sampleXml);
+      byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
       Map<String, String> metadata = new HashMap<>();
       metadata.put("sessionId", "1234");
       metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -367,7 +357,7 @@ class BlobProcessingFunctionTest {
   void testFDR3BlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
     String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
-    byte[] compressedData = createGzipCompressedData(sampleXml);
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
