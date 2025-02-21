@@ -8,8 +8,6 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -21,6 +19,8 @@ import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
+import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import javax.xml.parsers.ParserConfigurationException;
+import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.xml.sax.SAXException;
 
@@ -44,6 +45,9 @@ public class CommonUtil {
   public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
+
+  @Setter
+  private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
 
   public static EventHubProducerClient createEventHubClient(
       String connectionString, String eventHubName) {
@@ -87,12 +91,8 @@ public class CommonUtil {
   public static BlobFileData getBlobFile(
       String storageEnvVar, String containerName, String blobName, ExecutionContext context) {
     try {
-      BlobServiceClient blobServiceClient =
-          new BlobServiceClientBuilder()
-              .connectionString(System.getenv(storageEnvVar))
-              .buildClient();
-
-      BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
+      BlobContainerClient containerClient =
+          blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
       BlobClient blobClient = containerClient.getBlobClient(blobName);
 
       if (Boolean.FALSE.equals(blobClient.exists())) {
@@ -111,6 +111,14 @@ public class CommonUtil {
       return null;
     }
   }
+
+  // public static BlobContainerClient getBlobContainerClient(String
+  // storageEnvVar,
+  // String container) {
+
+  // return new BlobServiceClientWrapperImpl()
+  // .getBlobContainerClient(storageEnvVar, container);
+  // }
 
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,
