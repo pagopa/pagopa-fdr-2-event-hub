@@ -1,26 +1,5 @@
 package it.gov.pagopa.fdr.to.eventhub.util;
 
-import com.azure.core.amqp.AmqpRetryMode;
-import com.azure.core.amqp.AmqpRetryOptions;
-import com.azure.messaging.eventhubs.EventData;
-import com.azure.messaging.eventhubs.EventDataBatch;
-import com.azure.messaging.eventhubs.EventHubClientBuilder;
-import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.microsoft.azure.functions.ExecutionContext;
-import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
-import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
-import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
-import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
-import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,10 +13,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
+
 import javax.xml.parsers.ParserConfigurationException;
+
+import org.xml.sax.SAXException;
+
+import com.azure.core.amqp.AmqpRetryMode;
+import com.azure.core.amqp.AmqpRetryOptions;
+import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
+import com.azure.messaging.eventhubs.EventHubClientBuilder;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.microsoft.azure.functions.ExecutionContext;
+
+import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
+import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
+import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
-import org.xml.sax.SAXException;
 
 @UtilityClass
 public class CommonUtil {
@@ -111,14 +115,6 @@ public class CommonUtil {
       return null;
     }
   }
-
-  // public static BlobContainerClient getBlobContainerClient(String
-  // storageEnvVar,
-  // String container) {
-
-  // return new BlobServiceClientWrapperImpl()
-  // .getBlobContainerClient(storageEnvVar, container);
-  // }
 
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,

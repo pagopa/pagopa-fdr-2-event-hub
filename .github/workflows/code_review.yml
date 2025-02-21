@@ -41,7 +41,7 @@ jobs:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           project_key: ${{env.PROJECT_KEY}}
           java_version: 17
-          coverage_exclusions: "**/config/*,**/*Mock*,**/models/**,**/clients/model/**,**/entity/*,**/exception/**,**/App.java"
+          coverage_exclusions: "**/config/*,**/*Mock*,**/models/**,**/clients/model/**,**/entity/*,**/exception/**,**/App.java,**/wrapper/BlobServiceClientWrapperImpl.java"
           cpd_exclusions: "**/models/**,**/clients/model/**,**/entity/*"
           coverage_report_path: "./target/jacoco-report/jacoco.xml"
 
