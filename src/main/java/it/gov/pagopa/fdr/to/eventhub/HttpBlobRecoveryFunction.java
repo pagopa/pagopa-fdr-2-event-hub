@@ -1,13 +1,5 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.Optional;
-
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,10 +11,16 @@ import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
-
 import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Objects;
+import java.util.Optional;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
@@ -92,8 +90,8 @@ public class HttpBlobRecoveryFunction {
                       container,
                       fileName));
 
-		BlobFileData fileData = CommonUtil.getBlobFile(
-				"FDR_SA_CONNECTION_STRING", container, fileName, context);
+      BlobFileData fileData =
+          CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, context);
 
       if (Objects.isNull(fileData)) {
         return notFound(
@@ -143,7 +141,6 @@ public class HttpBlobRecoveryFunction {
       return serverError(request, "Internal Server Error");
     }
   }
-
 
   private HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
     return response(request, HttpStatus.OK, message);

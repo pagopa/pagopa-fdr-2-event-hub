@@ -1,23 +1,5 @@
 package it.gov.pagopa.fdr.to.eventhub.util;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.zip.GZIPInputStream;
-
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.xml.sax.SAXException;
-
 import com.azure.core.amqp.AmqpRetryMode;
 import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.messaging.eventhubs.EventData;
@@ -33,14 +15,28 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
-
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+import javax.xml.parsers.ParserConfigurationException;
 import lombok.experimental.UtilityClass;
+import org.xml.sax.SAXException;
 
 @UtilityClass
 public class CommonUtil {
@@ -88,36 +84,33 @@ public class CommonUtil {
     return FDR1XmlSAXParser.parseXmlStream(xmlStream);
   }
 
-	public static BlobFileData getBlobFile(String storageEnvVar,
-			String containerName,
-			String blobName, ExecutionContext context) {
-		try {
-			BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
-					.connectionString(System.getenv(storageEnvVar))
-					.buildClient();
+  public static BlobFileData getBlobFile(
+      String storageEnvVar, String containerName, String blobName, ExecutionContext context) {
+    try {
+      BlobServiceClient blobServiceClient =
+          new BlobServiceClientBuilder()
+              .connectionString(System.getenv(storageEnvVar))
+              .buildClient();
 
-			BlobContainerClient containerClient = blobServiceClient
-					.getBlobContainerClient(containerName);
-			BlobClient blobClient = containerClient.getBlobClient(blobName);
+      BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
+      BlobClient blobClient = containerClient.getBlobClient(blobName);
 
-			if (Boolean.FALSE.equals(blobClient.exists())) {
-				context.getLogger().severe(() -> "Blob not found: " + blobName);
-				return null;
-			}
+      if (Boolean.FALSE.equals(blobClient.exists())) {
+        context.getLogger().severe(() -> "Blob not found: " + blobName);
+        return null;
+      }
 
-			Map<String, String> metadata = blobClient.getProperties()
-					.getMetadata();
-			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-			blobClient.downloadStream(outputStream);
+      Map<String, String> metadata = blobClient.getProperties().getMetadata();
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      blobClient.downloadStream(outputStream);
 
-			return new BlobFileData(outputStream.toByteArray(), metadata);
+      return new BlobFileData(outputStream.toByteArray(), metadata);
 
-		} catch (Exception e) {
-			context.getLogger()
-					.severe("Error accessing blob: " + e.getMessage());
-			return null;
-		}
-	}
+    } catch (Exception e) {
+      context.getLogger().severe("Error accessing blob: " + e.getMessage());
+      return null;
+    }
+  }
 
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,

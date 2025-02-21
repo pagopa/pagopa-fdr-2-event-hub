@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.zip.GZIPOutputStream;
-
 import lombok.experimental.UtilityClass;
 
 @UtilityClass
@@ -24,13 +23,11 @@ public class SampleContentFileUtil {
     return new ByteArrayInputStream(Files.readString(path).getBytes(StandardCharsets.UTF_8));
   }
 
-	public static byte[] createGzipCompressedData(String input)
-			throws Exception {
-		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-		try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(
-				byteArrayOutputStream)) {
-			gzipOutputStream.write(input.getBytes(StandardCharsets.UTF_8));
-		}
-		return byteArrayOutputStream.toByteArray();
-	}
+  public static byte[] createGzipCompressedData(String input) throws Exception {
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+      gzipOutputStream.write(input.getBytes(StandardCharsets.UTF_8));
+    }
+    return byteArrayOutputStream.toByteArray();
+  }
 }
