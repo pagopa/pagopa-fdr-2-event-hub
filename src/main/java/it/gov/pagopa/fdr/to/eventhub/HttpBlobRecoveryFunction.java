@@ -59,7 +59,7 @@ public class HttpBlobRecoveryFunction {
       @HttpTrigger(
               name = "HTTPBlobRecoveryTrigger",
               methods = {HttpMethod.POST},
-              route = "fdr/notify",
+              route = "notify/fdr",
               authLevel = AuthorizationLevel.ANONYMOUS)
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
