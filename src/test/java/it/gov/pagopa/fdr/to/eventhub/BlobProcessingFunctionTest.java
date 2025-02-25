@@ -63,7 +63,7 @@ class BlobProcessingFunctionTest {
   private BlobProcessingFunction function;
 
   @BeforeEach
-  public void setup() {
+  void setup() {
     function = new BlobProcessingFunction(eventHubClientFlowTx, eventHubClientReportedIUV);
     lenient().when(eventHubClientFlowTx.createBatch()).thenReturn(mock(EventDataBatch.class));
     lenient().when(eventHubClientReportedIUV.createBatch()).thenReturn(mock(EventDataBatch.class));

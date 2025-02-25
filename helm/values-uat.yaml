@@ -55,7 +55,7 @@ microservice-chart:
     create: true
     host: "weuuat.fdr.internal.uat.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
-    servicePort: 80
+    servicePort: 8080
   serviceAccount:
     name: "fdr-workload-identity"
   azure:
