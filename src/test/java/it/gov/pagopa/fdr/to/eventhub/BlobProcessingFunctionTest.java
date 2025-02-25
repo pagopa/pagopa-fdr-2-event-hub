@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -98,6 +99,9 @@ class BlobProcessingFunctionTest {
     // it is verified that the distinct on the dates has left the only expected
     // date for all payments
     assertEquals(1, flowEvent.getAllDates().size());
+
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atMost(2)).info(logCaptor.capture());
   }
 
   @Test
