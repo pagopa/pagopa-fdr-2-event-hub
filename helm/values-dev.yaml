@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: "pagopa-fdr-2-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "0.0.4"
+    tag: "0.0.4-3-PAGOPA-2682"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   # livenessProbe:
@@ -55,7 +55,7 @@ microservice-chart:
     create: true
     host: "weudev.fdr.internal.dev.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
-    servicePort: 80
+    servicePort: 8080
   serviceAccount:
     name: "fdr-workload-identity"
   azure:
