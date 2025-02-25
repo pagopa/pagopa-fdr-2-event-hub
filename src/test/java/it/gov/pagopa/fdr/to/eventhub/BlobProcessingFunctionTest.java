@@ -23,6 +23,7 @@ import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -40,9 +41,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class BlobProcessingFunctionTest {
 
   @Mock private EventHubProducerClient eventHubClientFlowTx;
@@ -52,6 +57,8 @@ class BlobProcessingFunctionTest {
   @Mock private ExecutionContext context;
 
   @Mock private Logger mockLogger;
+
+  @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   private BlobProcessingFunction function;
 
@@ -370,5 +377,40 @@ class BlobProcessingFunctionTest {
     function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context);
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
     verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
+  }
+
+  @Test
+  void testConstructorInitializesClients() {
+
+    try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
+
+      // Simulate environment variables
+      environmentVariables.set("EVENT_HUB_FLOWTX_CONNECTION_STRING", "fake-flowtx-conn-string");
+      environmentVariables.set("EVENT_HUB_FLOWTX_NAME", "fake-flowtx-name");
+      environmentVariables.set(
+          "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
+      environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
+
+      EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
+      EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
+      mockedCommonUtil
+          .when(
+              () -> CommonUtil.createEventHubClient("fake-flowtx-conn-string", "fake-flowtx-name"))
+          .thenReturn(mockClient1);
+      mockedCommonUtil
+          .when(
+              () ->
+                  CommonUtil.createEventHubClient(
+                      "fake-reportediuv-conn-string", "fake-reportediuv-name"))
+          .thenReturn(mockClient2);
+
+      // Instantiate the class
+      BlobProcessingFunction blobProcessingFunction = new BlobProcessingFunction();
+
+      assertNotNull(blobProcessingFunction.getEventHubClientFlowTx());
+      assertNotNull(blobProcessingFunction.getEventHubClientReportedIUV());
+      assertEquals(mockClient1, blobProcessingFunction.getEventHubClientFlowTx());
+      assertEquals(mockClient2, blobProcessingFunction.getEventHubClientReportedIUV());
+    }
   }
 }

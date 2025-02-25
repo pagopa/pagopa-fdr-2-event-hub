@@ -1,6 +1,7 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -28,9 +29,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class HttpBlobRecoveryFunctionTest {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -39,6 +44,8 @@ class HttpBlobRecoveryFunctionTest {
   @Mock private EventHubProducerClient mockEventHubClientReportedIUV;
   @Mock private ExecutionContext mockContext;
   @Mock private HttpRequestMessage<Optional<String>> mockRequest;
+
+  @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   private HttpBlobRecoveryFunction function;
 
@@ -56,16 +63,21 @@ class HttpBlobRecoveryFunctionTest {
     mockResponseBuilder = mock(HttpResponseMessage.Builder.class);
     mockResponse = mock(HttpResponseMessage.class);
 
-    when(mockResponseBuilder.header(anyString(), anyString())).thenReturn(mockResponseBuilder);
-    when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
-    when(mockResponseBuilder.build())
+    lenient()
+        .when(mockResponseBuilder.header(anyString(), anyString()))
+        .thenReturn(mockResponseBuilder);
+    lenient().when(mockResponseBuilder.body(any())).thenReturn(mockResponseBuilder);
+    lenient()
+        .when(mockResponseBuilder.build())
         .thenAnswer(
             invocation -> {
               when(mockResponse.getStatus()).thenReturn(statusToReturn.get());
               return mockResponse;
             });
 
-    when(mockRequest.createResponseBuilder(any(HttpStatus.class))).thenReturn(mockResponseBuilder);
+    lenient()
+        .when(mockRequest.createResponseBuilder(any(HttpStatus.class)))
+        .thenReturn(mockResponseBuilder);
   }
 
   @Test
@@ -194,6 +206,41 @@ class HttpBlobRecoveryFunctionTest {
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatus());
+    }
+  }
+
+  @Test
+  void testConstructorInitializesClients() {
+
+    try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
+
+      // Simulate environment variables
+      environmentVariables.set("EVENT_HUB_FLOWTX_CONNECTION_STRING", "fake-flowtx-conn-string");
+      environmentVariables.set("EVENT_HUB_FLOWTX_NAME", "fake-flowtx-name");
+      environmentVariables.set(
+          "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
+      environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
+
+      EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
+      EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
+      mockedCommonUtil
+          .when(
+              () -> CommonUtil.createEventHubClient("fake-flowtx-conn-string", "fake-flowtx-name"))
+          .thenReturn(mockClient1);
+      mockedCommonUtil
+          .when(
+              () ->
+                  CommonUtil.createEventHubClient(
+                      "fake-reportediuv-conn-string", "fake-reportediuv-name"))
+          .thenReturn(mockClient2);
+
+      // Instantiate the class
+      HttpBlobRecoveryFunction httpBlobRecoveryFunction = new HttpBlobRecoveryFunction();
+
+      assertNotNull(httpBlobRecoveryFunction.getEventHubClientFlowTx());
+      assertNotNull(httpBlobRecoveryFunction.getEventHubClientReportedIUV());
+      assertEquals(mockClient1, httpBlobRecoveryFunction.getEventHubClientFlowTx());
+      assertEquals(mockClient2, httpBlobRecoveryFunction.getEventHubClientReportedIUV());
     }
   }
 }

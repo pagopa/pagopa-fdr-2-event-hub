@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import lombok.Getter;
 
 public class BlobProcessingFunction {
 
@@ -20,8 +21,8 @@ public class BlobProcessingFunction {
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   private final String fdr3Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
-  private final EventHubProducerClient eventHubClientFlowTx;
-  private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
 
   public BlobProcessingFunction() {
     this.eventHubClientFlowTx =

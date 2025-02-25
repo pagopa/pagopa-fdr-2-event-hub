@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Getter;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
@@ -31,8 +32,8 @@ public class HttpBlobRecoveryFunction {
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
 
-  private final EventHubProducerClient eventHubClientFlowTx;
-  private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
 
   public HttpBlobRecoveryFunction() {
     this.eventHubClientFlowTx =
