@@ -75,13 +75,8 @@ public class BlobProcessingFunction {
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = CommonUtil.isGzip(content);
-    telemetryClient.trackEvent(String.format(
-            "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size in bytes: %d",
-            LocalDateTime.now()
-                    .format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-            fdr1Container,
-            blobName,
-            content.length));
+
+    telemetryClient.trackException(new NullPointerException());
     context
         .getLogger()
         .info(
