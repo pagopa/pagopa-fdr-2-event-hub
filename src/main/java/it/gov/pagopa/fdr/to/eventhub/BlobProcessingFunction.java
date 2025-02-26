@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+
+import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import lombok.Getter;
 
 public class BlobProcessingFunction {
@@ -74,7 +76,7 @@ public class BlobProcessingFunction {
 
     context
         .getLogger()
-        .info(
+        .severe( // todo switch to info log
             () ->
                 String.format(
                     "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size in bytes: %d",
@@ -134,8 +136,8 @@ public class BlobProcessingFunction {
           .severe(
               () ->
                   String.format(
-                      "[FDR1] Error processing Blob '%s/%s': %s",
-                      fdr1Container, blobName, e.getMessage()));
+                      "[%s][FDR1] Error processing Blob '%s/%s': %s",
+                          ErrorCodes.FDR1_E1, fdr1Container, blobName, e.getMessage()));
     }
   }
 
