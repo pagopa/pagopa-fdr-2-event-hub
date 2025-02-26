@@ -22,8 +22,8 @@
 		<azure.messaging.eventhubs.version>5.20.0
 		</azure.messaging.eventhubs.version>
 		<azure.storage.blob.version>12.29.0</azure.storage.blob.version>
-		<functionAppName>com.microsoft.azure-20220215182005862
-		</functionAppName>
+		<azure.application.insights.library.version>3.7.0</azure.application.insights.library.version>
+		<functionAppName>com.microsoft.azure-20220215182005862</functionAppName>
 		<jackson.version>2.18.2</jackson.version>
 		<modelmapper.version>3.2.2</modelmapper.version>
 		<lombok.version>1.18.36</lombok.version>
@@ -48,6 +48,12 @@
 			<groupId>com.azure</groupId>
 			<artifactId>azure-storage-blob</artifactId>
 			<version>${azure.storage.blob.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.microsoft.azure/applicationinsights-core -->
+		<dependency>
+			<groupId>com.microsoft.azure</groupId>
+			<artifactId>applicationinsights-core</artifactId>
+			<version>${azure.application.insights.library.version}</version>
 		</dependency>
 
 		<!-- Jackson -->
