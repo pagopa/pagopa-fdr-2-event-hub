@@ -76,11 +76,9 @@ public class BlobProcessingFunction {
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = CommonUtil.isGzip(content);
 
-    telemetryClient.trackException(new NullPointerException());
-    telemetryClient.flush();
     context
         .getLogger()
-        .info(
+        .fine(
             () ->
                 String.format(
                     "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size in bytes: %d",
@@ -123,7 +121,7 @@ public class BlobProcessingFunction {
 
       context
           .getLogger()
-          .info(
+          .fine(
               () ->
                   String.format(
                       "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size in"
@@ -159,7 +157,7 @@ public class BlobProcessingFunction {
 
     context
         .getLogger()
-        .info(
+        .fine(
             () ->
                 String.format(
                     "[FDR3] Triggered for Blob container: %s, name: %s, size: %d bytes",
@@ -167,7 +165,7 @@ public class BlobProcessingFunction {
 
     context
         .getLogger()
-        .info(
+        .fine(
             () ->
                 String.format(
                     "[FDR3] Execution Finished at: %s for Blob container: %s, name: %s, size: %d"
