@@ -77,6 +77,7 @@ public class BlobProcessingFunction {
     boolean isValidGzipFile = CommonUtil.isGzip(content);
 
     telemetryClient.trackException(new NullPointerException());
+    telemetryClient.flush();
     context
         .getLogger()
         .info(
