@@ -1,7 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
 import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
@@ -26,7 +25,6 @@ public class BlobProcessingFunction {
       System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
-  private final TelemetryClient telemetryClient = new TelemetryClient();
 
   public BlobProcessingFunction() {
     this.eventHubClientFlowTx =
