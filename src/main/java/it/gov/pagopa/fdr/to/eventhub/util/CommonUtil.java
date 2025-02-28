@@ -164,8 +164,8 @@ public class CommonUtil {
       // Log the exception with context
       String errorMessage =
           String.format(
-              "Error processing or sending data to event hub: %s. Details: %s",
-              flussoRendicontazione.getIdentificativoFlusso(), e.getMessage());
+              "[%s] Error processing or sending data to event hub: %s. Details: %s",
+              ErrorCodes.COMMON_E2, flussoRendicontazione.getIdentificativoFlusso(), e.getMessage());
       context.getLogger().severe(() -> errorMessage);
 
       return false;
@@ -241,11 +241,11 @@ public class CommonUtil {
     } catch (Exception e) {
       context
           .getLogger()
-          .warning(
+          .severe(
               () ->
                   String.format(
-                      "Failed to add event to batch for flow ID: %s. Details: %s",
-                      flusso.getIdentificativoFlusso(), e.getMessage()));
+                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
+                      ErrorCodes.COMMON_E1, flusso.getIdentificativoFlusso(), e.getMessage()));
       return false;
     }
   }

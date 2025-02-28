@@ -83,7 +83,7 @@ public class HttpBlobRecoveryFunction {
 
       context
           .getLogger()
-          .info(
+          .fine(
               () ->
                   String.format(
                       "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",
