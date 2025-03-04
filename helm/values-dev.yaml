@@ -60,7 +60,7 @@ microservice-chart:
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -88,7 +88,6 @@ microservice-chart:
   envConfig:
     JAVA_OPTS: "-XX:MaxHeapSize=256m -XX:MinHeapSize=64m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
-    HOSTNAME: "pagopafdrtoeventhub"
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
@@ -101,6 +100,7 @@ microservice-chart:
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
+    AzureFunctionsWebHost__hostid: "fdr2eventhub"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
@@ -113,7 +113,7 @@ microservice-chart:
   keyvault:
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
