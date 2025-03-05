@@ -32,8 +32,8 @@
       "default": "None",
       "Host.Results": "Error",
       "Function.ProcessFDR1BlobFiles": "Information",
-      "Function.ProcessFDR3BlobFiles": "Information",
-      "Function.HTTPBlobRecovery": "Information",
+      "Function.ProcessFDR3BlobFiles": "Warning",
+      "Function.HTTPBlobRecovery": "Warning",
       "Host.Aggregator": "Error"
     },
     "applicationInsights": {
