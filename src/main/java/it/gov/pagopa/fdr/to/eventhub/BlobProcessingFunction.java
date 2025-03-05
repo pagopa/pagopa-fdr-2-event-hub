@@ -135,7 +135,7 @@ public class BlobProcessingFunction {
               () ->
                   String.format(
                       "[%s][FDR1] Error processing Blob '%s/%s': %s",
-                          ErrorCodes.FDR1_E1, fdr1Container, blobName, e.getMessage()));
+                      ErrorCodes.FDR1_E1, fdr1Container, blobName, e.getMessage()));
     }
   }
 
