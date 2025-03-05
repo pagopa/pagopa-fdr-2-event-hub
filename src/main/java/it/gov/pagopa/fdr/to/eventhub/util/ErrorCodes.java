@@ -11,12 +11,8 @@ public enum ErrorCodes {
   FDR1_E1("FDR1-E1", "Error processing Blob in processFDR1BlobFiles function");
 
 
-    private final String code;
-    private final String message;
-
-    ErrorCodes(String code, String message) {
-        this.code = code;
-        this.message = message;
-    }
-
+  ErrorCodes(String code, String message) {
+    this.code = code;
+    this.message = message;
+  }
 }
