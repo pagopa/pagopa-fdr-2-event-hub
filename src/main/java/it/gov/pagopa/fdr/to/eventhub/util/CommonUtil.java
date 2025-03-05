@@ -165,7 +165,9 @@ public class CommonUtil {
       String errorMessage =
           String.format(
               "[%s] Error processing or sending data to event hub: %s. Details: %s",
-              ErrorCodes.COMMON_E2, flussoRendicontazione.getIdentificativoFlusso(), e.getMessage());
+              ErrorCodes.COMMON_E2,
+              flussoRendicontazione.getIdentificativoFlusso(),
+              e.getMessage());
       context.getLogger().severe(() -> errorMessage);
 
       return false;
