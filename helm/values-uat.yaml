@@ -100,7 +100,7 @@ microservice-chart:
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
-    AzureFunctionsWebHost__hostid: "fdr2eventhub"
+    AzureFunctionsWebHost__hostid: "pagopafdr2eventhub5fd474c6bdssfp"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
