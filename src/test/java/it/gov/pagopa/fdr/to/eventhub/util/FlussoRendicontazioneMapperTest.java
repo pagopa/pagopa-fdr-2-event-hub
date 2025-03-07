@@ -18,7 +18,7 @@ public class FlussoRendicontazioneMapperTest {
             "2025-03-06T11:01:36+01:00",
             "2025-03-06T11:01:36",
             "2025-03-06T05:01:36-05:00",
-            "2025-03-06T10:01:36Z"
+            "2025-03-06T10:01:36Z",
         };
 
         for (String date : dates) {
@@ -26,5 +26,13 @@ public class FlussoRendicontazioneMapperTest {
             assertNotNull(localDateTime);
             assertEquals("2025-03-06T11:01:36", localDateTime.toString());
         }
+    }
+
+    @Test
+    void testParseDateWithoutHH() {
+        String date = "2025-03-06";
+        LocalDateTime localDateTime = parseDate(date);
+        assertNotNull(localDateTime);
+        assertEquals("2025-03-06T00:00", localDateTime.toString());
     }
 }
