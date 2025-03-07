@@ -6,11 +6,15 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +26,8 @@ import org.modelmapper.convention.MatchingStrategies;
 public class FlussoRendicontazioneMapper {
 
   private static final ModelMapper modelMapper = new ModelMapper();
+  private static final String TIME_ZONE_REGEX = "([+\\-]\\d{2}:\\d{2}|Z)$";
+  private static final Pattern pattern = Pattern.compile(TIME_ZONE_REGEX);
   @Getter @Setter private static int maxDistinctDates = 110;
 
   private static final DateTimeFormatter DATE_TIME_FORMATTER =
@@ -30,18 +36,28 @@ public class FlussoRendicontazioneMapper {
           .optionalStart()
           .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
           .optionalEnd()
+          .optionalStart()
+          .appendPattern("XXX")
+          .optionalEnd()
           .toFormatter();
 
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
   }
 
-  private static LocalDateTime parseDate(String dateStr) {
+  public static LocalDateTime parseDate(String dateStr) {
     if (dateStr == null || dateStr.isEmpty()) {
       return null;
     }
     try {
-      return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
+      Matcher matcher = pattern.matcher(dateStr);
+
+      if(matcher.find()) {
+        // Parsing as ZonedDateTime and adjust to UTC+1
+        ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateStr, DATE_TIME_FORMATTER);
+        ZonedDateTime adjustedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.ofHours(1));
+        return adjustedDateTime.toLocalDateTime();
+      } else return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
     } catch (DateTimeParseException e1) {
       try {
         return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
