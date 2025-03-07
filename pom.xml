@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.3</version>
+	<version>1.0.3-1-PAGOPA-2686-fix-parse-date</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
