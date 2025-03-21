@@ -60,7 +60,7 @@ microservice-chart:
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -101,6 +101,11 @@ microservice-chart:
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhub5fd474c6bdssfp"
+    AzureFunctionsJobHost__logging__logLevel__default: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
@@ -113,7 +118,7 @@ microservice-chart:
   keyvault:
     name: "pagopa-u-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
