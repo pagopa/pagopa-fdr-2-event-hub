@@ -23,7 +23,9 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
 
-/** Azure Functions with Azure Http trigger. */
+/**
+ * Azure Functions with Azure Http trigger.
+ */
 public class HttpBlobRecoveryFunction {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -32,8 +34,10 @@ public class HttpBlobRecoveryFunction {
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
 
-  @Getter private final EventHubProducerClient eventHubClientFlowTx;
-  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter
+  private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter
+  private final EventHubProducerClient eventHubClientReportedIUV;
 
   public HttpBlobRecoveryFunction() {
     this.eventHubClientFlowTx =
@@ -57,11 +61,11 @@ public class HttpBlobRecoveryFunction {
   @FunctionName("HTTPBlobRecovery")
   public HttpResponseMessage run(
       @HttpTrigger(
-              name = "HTTPBlobRecoveryTrigger",
-              methods = {HttpMethod.POST},
-              route = "notify/fdr",
-              authLevel = AuthorizationLevel.ANONYMOUS)
-          HttpRequestMessage<Optional<String>> request,
+          name = "HTTPBlobRecoveryTrigger",
+          methods = {HttpMethod.POST},
+          route = "notify/fdr",
+          authLevel = AuthorizationLevel.ANONYMOUS)
+      HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
     // Check if body is present
@@ -69,6 +73,12 @@ public class HttpBlobRecoveryFunction {
     if (!requestBody.isPresent()) {
       return badRequest(request, "Missing request body");
     }
+
+    // Get named parameter
+    boolean sendFlowEvent = Boolean.parseBoolean(
+        request.getQueryParameters().getOrDefault("sendFlowEvent", "true"));
+    boolean sendPaymentEvents = Boolean.parseBoolean(
+        request.getQueryParameters().getOrDefault("sendPaymentEvent", "true"));
 
     try {
       JsonNode jsonNode = objectMapper.readTree(requestBody.get());
@@ -118,7 +128,8 @@ public class HttpBlobRecoveryFunction {
 
         boolean eventBatchSent =
             CommonUtil.processXmlBlobAndSendToEventHub(
-                eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context);
+                eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
+                sendPaymentEvents);
 
         if (!eventBatchSent) {
           return serviceUnavailable(

@@ -112,11 +112,14 @@ public class CommonUtil {
     }
   }
 
+
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,
       final EventHubProducerClient eventHubClientReportedIUV,
       FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context) {
+      ExecutionContext context,
+      boolean sendFlowEvent,
+      boolean sendPaymentEvents) {
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
@@ -139,23 +142,21 @@ public class CommonUtil {
         reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
       }
 
-      /*
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "Chunk splitting process completed at: %s for flow ID: %s. Total number of"
-                          + " chunks: %d",
-                      LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
-                      flussoRendicontazione.getIdentificativoFlusso(),
-                      reportedIUVEventJsonChunks.size()));
-       */
+      boolean flowEventSent = true;
+      if (sendFlowEvent) {
+        flowEventSent =
+            sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
+      } else {
+        context.getLogger().info(() -> "Skipping sending flow event to EventHub");
+      }
 
-      boolean flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
-      boolean allEventChunksSent = sendEventBatchToHub(reportedIUVEventJsonChunks,
-          eventHubClientReportedIUV, flussoRendicontazione, context);
+      boolean allEventChunksSent = true;
+      if (sendPaymentEvents) {
+        allEventChunksSent = sendEventBatchToHub(reportedIUVEventJsonChunks,
+            eventHubClientReportedIUV, flussoRendicontazione, context);
+      } else {
+        context.getLogger().info(() -> "Skipping sending payments events to EventHub");
+      }
 
       return flowEventSent && allEventChunksSent;
 
@@ -171,6 +172,16 @@ public class CommonUtil {
 
       return false;
     }
+  }
+
+  public static boolean processXmlBlobAndSendToEventHub(
+      final EventHubProducerClient eventHubClientFlowTx,
+      final EventHubProducerClient eventHubClientReportedIUV,
+      FlussoRendicontazione flussoRendicontazione,
+      ExecutionContext context) {
+
+    return processXmlBlobAndSendToEventHub(eventHubClientFlowTx, eventHubClientReportedIUV,
+        flussoRendicontazione, context, true, true);
   }
 
   /**
