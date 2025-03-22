@@ -27,9 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -134,8 +133,12 @@ public class CommonUtil {
       String flowEventJson = objectMapper.writeValueAsString(flowEvent);
 
       // Break the list into smaller batches to avoid overshooting limit
-      List<String> reportedIUVEventJsonChunks = splitIntoChunks(reportedIUVEventList, objectMapper);
+      List<String> reportedIUVEventJsonChunks = new LinkedList<>();
+      for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
+        reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
+      }
 
+      /*
       context
           .getLogger()
           .fine(
@@ -146,17 +149,12 @@ public class CommonUtil {
                       LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
                       flussoRendicontazione.getIdentificativoFlusso(),
                       reportedIUVEventJsonChunks.size()));
+       */
 
       boolean flowEventSent =
           sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
-      boolean allEventChunksSent = true;
-
-      for (String chunk : reportedIUVEventJsonChunks) {
-        if (!sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione, context)) {
-          allEventChunksSent = false;
-          break;
-        }
-      }
+      boolean allEventChunksSent = sendEventBatchToHub(reportedIUVEventJsonChunks,
+          eventHubClientReportedIUV, flussoRendicontazione, context);
 
       return flowEventSent && allEventChunksSent;
 
@@ -174,7 +172,9 @@ public class CommonUtil {
     }
   }
 
-  /** Divides the event list into smaller JSON blocks (to avoid exceeding 1MB) */
+  /**
+   * Divides the event list into smaller JSON blocks (to avoid exceeding 1MB)
+   */
   private List<String> splitIntoChunks(
       List<ReportedIUVEventModel> eventList, JsonMapper objectMapper)
       throws JsonProcessingException {
@@ -214,7 +214,9 @@ public class CommonUtil {
     return chunks;
   }
 
-  /** Send a message to the Event Hub */
+  /**
+   * Send a message to the Event Hub
+   */
   private boolean sendEventToHub(
       String jsonPayload,
       EventHubProducerClient eventHubClient,
@@ -240,6 +242,64 @@ public class CommonUtil {
     try {
       eventHubClient.send(eventBatch);
       return true;
+    } catch (Exception e) {
+      context
+          .getLogger()
+          .severe(
+              () ->
+                  String.format(
+                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
+                      ErrorCodes.COMMON_E1, flusso.getIdentificativoFlusso(), e.getMessage()));
+      return false;
+    }
+  }
+
+
+  /**
+   * Send a message to the Event Hub
+   */
+  private boolean sendEventBatchToHub(
+      List<String> jsonPayloads,
+      EventHubProducerClient eventHubClient,
+      FlussoRendicontazione flusso,
+      ExecutionContext context) {
+
+    try {
+
+      //
+      EventDataBatch evhEventBatch = eventHubClient.createBatch();
+      int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
+      context.getLogger()
+          .fine("Defining batches with maximum dimension of [" + batchMaxSize + "] bytes.");
+
+      for (String jsonPayload : jsonPayloads) {
+
+        EventData eventData = new EventData(jsonPayload);
+        eventData
+            .getProperties()
+            .put(SERVICE_IDENTIFIER, flusso.getMetadata().getOrDefault(SERVICE_IDENTIFIER, "NA"));
+
+        // Try to add the event from the array to the batch
+        if (!evhEventBatch.tryAdd(eventData)) {
+
+          // If the batch is full, send it and then create a new batch
+          eventHubClient.send(evhEventBatch);
+          evhEventBatch = eventHubClient.createBatch();
+
+          // Try to add that event that couldn't fit before.
+          if (!evhEventBatch.tryAdd(eventData)) {
+            throw new IllegalArgumentException(
+                "Event is too large for an empty batch. Max size: [" + batchMaxSize + "].");
+          }
+        }
+      }
+      // send the last batch of remaining events
+      if (evhEventBatch.getCount() > 0) {
+        eventHubClient.send(evhEventBatch);
+      }
+
+      return true;
+
     } catch (Exception e) {
       context
           .getLogger()
