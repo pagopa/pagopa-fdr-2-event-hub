@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
@@ -270,7 +271,9 @@ public class CommonUtil {
       EventDataBatch evhEventBatch = eventHubClient.createBatch();
       int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
       context.getLogger()
-          .fine("Defining batches with maximum dimension of [" + batchMaxSize + "] bytes.");
+          .fine(() ->
+              String.format("Defining batches with maximum dimension of [%s] bytes.",
+                  batchMaxSize));
 
       for (String jsonPayload : jsonPayloads) {
 
@@ -288,7 +291,7 @@ public class CommonUtil {
 
           // Try to add that event that couldn't fit before.
           if (!evhEventBatch.tryAdd(eventData)) {
-            throw new IllegalArgumentException(
+            throw new EventHubException(
                 "Event is too large for an empty batch. Max size: [" + batchMaxSize + "].");
           }
         }
