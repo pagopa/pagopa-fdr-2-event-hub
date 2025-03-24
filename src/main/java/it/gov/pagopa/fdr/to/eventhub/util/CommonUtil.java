@@ -8,7 +8,6 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,13 +25,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import javax.xml.parsers.ParserConfigurationException;
 import lombok.Setter;
@@ -112,7 +108,6 @@ public class CommonUtil {
     }
   }
 
-
   public static boolean processXmlBlobAndSendToEventHub(
       final EventHubProducerClient eventHubClientFlowTx,
       final EventHubProducerClient eventHubClientReportedIUV,
@@ -174,58 +169,6 @@ public class CommonUtil {
     }
   }
 
-  public static boolean processXmlBlobAndSendToEventHub(
-      final EventHubProducerClient eventHubClientFlowTx,
-      final EventHubProducerClient eventHubClientReportedIUV,
-      FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context) {
-
-    return processXmlBlobAndSendToEventHub(eventHubClientFlowTx, eventHubClientReportedIUV,
-        flussoRendicontazione, context, true, true);
-  }
-
-  /**
-   * Divides the event list into smaller JSON blocks (to avoid exceeding 1MB)
-   */
-  private List<String> splitIntoChunks(
-      List<ReportedIUVEventModel> eventList, JsonMapper objectMapper)
-      throws JsonProcessingException {
-
-    List<String> chunks = new ArrayList<>();
-    List<ReportedIUVEventModel> tempBatch = new ArrayList<>();
-    final int MAX_CHUNK_SIZE_BYTES = 900 * 1024; // 900 KB for security
-
-    StringBuilder currentJsonBatch = new StringBuilder();
-    AtomicInteger currentBatchSize = new AtomicInteger(0);
-
-    for (ReportedIUVEventModel event : eventList) {
-      tempBatch.add(event);
-      String eventJson = objectMapper.writeValueAsString(event);
-      int eventSize = eventJson.getBytes(StandardCharsets.UTF_8).length;
-
-      if (currentBatchSize.addAndGet(eventSize) > MAX_CHUNK_SIZE_BYTES) {
-        // If the limit is exceed, add the current batch and reset it
-        chunks.add(currentJsonBatch.toString());
-        currentJsonBatch.setLength(0); // Reset the StringBuilder
-        currentBatchSize.set(0); // Reset the batch size
-        tempBatch.clear(); // Clear the current batch
-        tempBatch.add(event); // Start with the current event
-        currentJsonBatch.append(objectMapper.writeValueAsString(tempBatch));
-        currentBatchSize.addAndGet(eventSize);
-      } else {
-        // Add the event to the current batch
-        currentJsonBatch.append(eventJson);
-      }
-    }
-
-    // Add remaining items
-    if (currentBatchSize.get() > 0) {
-      chunks.add(currentJsonBatch.toString());
-    }
-
-    return chunks;
-  }
-
   /**
    * Send a message to the Event Hub
    */
@@ -268,7 +211,7 @@ public class CommonUtil {
 
 
   /**
-   * Send a message to the Event Hub
+   * Send a batch of messages to the Event Hub
    */
   private boolean sendEventBatchToHub(
       List<String> jsonPayloads,
@@ -278,7 +221,7 @@ public class CommonUtil {
 
     try {
 
-      //
+      // Creating an empty event batch
       EventDataBatch evhEventBatch = eventHubClient.createBatch();
       int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
       context.getLogger()
@@ -288,6 +231,7 @@ public class CommonUtil {
 
       for (String jsonPayload : jsonPayloads) {
 
+        // Generating event data from single payload
         EventData eventData = new EventData(jsonPayload);
         eventData
             .getProperties()

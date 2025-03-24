@@ -8,13 +8,12 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
+import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-
-import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import lombok.Getter;
 
 public class BlobProcessingFunction {
@@ -23,8 +22,10 @@ public class BlobProcessingFunction {
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   private final String fdr3Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
-  @Getter private final EventHubProducerClient eventHubClientFlowTx;
-  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter
+  private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter
+  private final EventHubProducerClient eventHubClientReportedIUV;
 
   public BlobProcessingFunction() {
     this.eventHubClientFlowTx =
@@ -49,11 +50,11 @@ public class BlobProcessingFunction {
   @FunctionName("ProcessFDR1BlobFiles")
   public synchronized void processFDR1BlobFiles(
       @BlobTrigger(
-              name = "Fdr1BlobTrigger",
-              dataType = "binary",
-              path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}",
-              connection = "FDR_SA_CONNECTION_STRING")
-          byte[] content,
+          name = "Fdr1BlobTrigger",
+          dataType = "binary",
+          path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}",
+          connection = "FDR_SA_CONNECTION_STRING")
+      byte[] content,
       @BindingName("blobName") String blobName,
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
@@ -109,7 +110,7 @@ public class BlobProcessingFunction {
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
           CommonUtil.processXmlBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context);
+              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, true, true);
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(
@@ -144,11 +145,11 @@ public class BlobProcessingFunction {
   @FunctionName("ProcessFDR3BlobFiles")
   public void processFDR3BlobFiles(
       @BlobTrigger(
-              name = "Fdr3BlobTrigger",
-              dataType = "binary",
-              path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
-              connection = "FDR_SA_CONNECTION_STRING")
-          byte[] content,
+          name = "Fdr3BlobTrigger",
+          dataType = "binary",
+          path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
+          connection = "FDR_SA_CONNECTION_STRING")
+      byte[] content,
       @BindingName("blobName") String blobName,
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
