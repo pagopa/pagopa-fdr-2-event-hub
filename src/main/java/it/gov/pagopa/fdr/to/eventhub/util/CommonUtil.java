@@ -8,11 +8,11 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
@@ -25,14 +25,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import javax.xml.parsers.ParserConfigurationException;
 import lombok.Setter;
@@ -116,7 +112,9 @@ public class CommonUtil {
       final EventHubProducerClient eventHubClientFlowTx,
       final EventHubProducerClient eventHubClientReportedIUV,
       FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context) {
+      ExecutionContext context,
+      boolean sendFlowEvent,
+      boolean sendPaymentEvents) {
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
@@ -134,28 +132,25 @@ public class CommonUtil {
       String flowEventJson = objectMapper.writeValueAsString(flowEvent);
 
       // Break the list into smaller batches to avoid overshooting limit
-      List<String> reportedIUVEventJsonChunks = splitIntoChunks(reportedIUVEventList, objectMapper);
+      List<String> reportedIUVEventJsonChunks = new LinkedList<>();
+      for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
+        reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
+      }
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "Chunk splitting process completed at: %s for flow ID: %s. Total number of"
-                          + " chunks: %d",
-                      LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)),
-                      flussoRendicontazione.getIdentificativoFlusso(),
-                      reportedIUVEventJsonChunks.size()));
+      boolean flowEventSent = true;
+      if (sendFlowEvent) {
+        flowEventSent =
+            sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
+      } else {
+        context.getLogger().info(() -> "Skipping sending flow event to EventHub");
+      }
 
-      boolean flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
       boolean allEventChunksSent = true;
-
-      for (String chunk : reportedIUVEventJsonChunks) {
-        if (!sendEventToHub(chunk, eventHubClientReportedIUV, flussoRendicontazione, context)) {
-          allEventChunksSent = false;
-          break;
-        }
+      if (sendPaymentEvents) {
+        allEventChunksSent = sendEventBatchToHub(reportedIUVEventJsonChunks,
+            eventHubClientReportedIUV, flussoRendicontazione, context);
+      } else {
+        context.getLogger().info(() -> "Skipping sending payments events to EventHub");
       }
 
       return flowEventSent && allEventChunksSent;
@@ -174,47 +169,9 @@ public class CommonUtil {
     }
   }
 
-  /** Divides the event list into smaller JSON blocks (to avoid exceeding 1MB) */
-  private List<String> splitIntoChunks(
-      List<ReportedIUVEventModel> eventList, JsonMapper objectMapper)
-      throws JsonProcessingException {
-
-    List<String> chunks = new ArrayList<>();
-    List<ReportedIUVEventModel> tempBatch = new ArrayList<>();
-    final int MAX_CHUNK_SIZE_BYTES = 900 * 1024; // 900 KB for security
-
-    StringBuilder currentJsonBatch = new StringBuilder();
-    AtomicInteger currentBatchSize = new AtomicInteger(0);
-
-    for (ReportedIUVEventModel event : eventList) {
-      tempBatch.add(event);
-      String eventJson = objectMapper.writeValueAsString(event);
-      int eventSize = eventJson.getBytes(StandardCharsets.UTF_8).length;
-
-      if (currentBatchSize.addAndGet(eventSize) > MAX_CHUNK_SIZE_BYTES) {
-        // If the limit is exceed, add the current batch and reset it
-        chunks.add(currentJsonBatch.toString());
-        currentJsonBatch.setLength(0); // Reset the StringBuilder
-        currentBatchSize.set(0); // Reset the batch size
-        tempBatch.clear(); // Clear the current batch
-        tempBatch.add(event); // Start with the current event
-        currentJsonBatch.append(objectMapper.writeValueAsString(tempBatch));
-        currentBatchSize.addAndGet(eventSize);
-      } else {
-        // Add the event to the current batch
-        currentJsonBatch.append(eventJson);
-      }
-    }
-
-    // Add remaining items
-    if (currentBatchSize.get() > 0) {
-      chunks.add(currentJsonBatch.toString());
-    }
-
-    return chunks;
-  }
-
-  /** Send a message to the Event Hub */
+  /**
+   * Send a message to the Event Hub
+   */
   private boolean sendEventToHub(
       String jsonPayload,
       EventHubProducerClient eventHubClient,
@@ -240,6 +197,67 @@ public class CommonUtil {
     try {
       eventHubClient.send(eventBatch);
       return true;
+    } catch (Exception e) {
+      context
+          .getLogger()
+          .severe(
+              () ->
+                  String.format(
+                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
+                      ErrorCodes.COMMON_E1, flusso.getIdentificativoFlusso(), e.getMessage()));
+      return false;
+    }
+  }
+
+
+  /**
+   * Send a batch of messages to the Event Hub
+   */
+  private boolean sendEventBatchToHub(
+      List<String> jsonPayloads,
+      EventHubProducerClient eventHubClient,
+      FlussoRendicontazione flusso,
+      ExecutionContext context) {
+
+    try {
+
+      // Creating an empty event batch
+      EventDataBatch evhEventBatch = eventHubClient.createBatch();
+      int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
+      context.getLogger()
+          .fine(() ->
+              String.format("Defining batches with maximum dimension of [%s] bytes.",
+                  batchMaxSize));
+
+      for (String jsonPayload : jsonPayloads) {
+
+        // Generating event data from single payload
+        EventData eventData = new EventData(jsonPayload);
+        eventData
+            .getProperties()
+            .put(SERVICE_IDENTIFIER, flusso.getMetadata().getOrDefault(SERVICE_IDENTIFIER, "NA"));
+
+        // Try to add the event from the array to the batch
+        if (!evhEventBatch.tryAdd(eventData)) {
+
+          // If the batch is full, send it and then create a new batch
+          eventHubClient.send(evhEventBatch);
+          evhEventBatch = eventHubClient.createBatch();
+
+          // Try to add that event that couldn't fit before.
+          if (!evhEventBatch.tryAdd(eventData)) {
+            throw new EventHubException(
+                "Event is too large for an empty batch. Max size: [" + batchMaxSize + "].");
+          }
+        }
+      }
+      // send the last batch of remaining events
+      if (evhEventBatch.getCount() > 0) {
+        eventHubClient.send(evhEventBatch);
+      }
+
+      return true;
+
     } catch (Exception e) {
       context
           .getLogger()
