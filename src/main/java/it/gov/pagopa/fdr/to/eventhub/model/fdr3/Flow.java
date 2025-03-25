@@ -16,6 +16,7 @@ public class Flow {
   private Long revision;
   private Instant created;
   private Instant updated;
+  private Instant published;
   private String status;
   private Sender sender;
   private Receiver receiver;
