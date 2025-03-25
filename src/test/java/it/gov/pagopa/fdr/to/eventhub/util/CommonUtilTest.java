@@ -18,7 +18,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobProperties;
 import com.microsoft.azure.functions.ExecutionContext;
-import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -40,14 +40,22 @@ class CommonUtilTest {
   private static final String CONTAINER_NAME = "test-container";
   private static final String BLOB_NAME = "test-blob.xml";
 
-  @Mock private BlobServiceClientWrapper mockBlobServiceClientWrapper;
-  @Mock private BlobServiceClient mockBlobServiceClient;
-  @Mock private BlobContainerClient mockBlobContainerClient;
-  @Mock private BlobClient mockBlobClient;
-  @Mock private BlobProperties mockBlobProperties;
-  @Mock private ExecutionContext mockContext;
-  @Mock private Logger mockLogger;
-  @Mock private BlobServiceClientBuilder mockBuilder;
+  @Mock
+  private BlobServiceClientWrapper mockBlobServiceClientWrapper;
+  @Mock
+  private BlobServiceClient mockBlobServiceClient;
+  @Mock
+  private BlobContainerClient mockBlobContainerClient;
+  @Mock
+  private BlobClient mockBlobClient;
+  @Mock
+  private BlobProperties mockBlobProperties;
+  @Mock
+  private ExecutionContext mockContext;
+  @Mock
+  private Logger mockLogger;
+  @Mock
+  private BlobServiceClientBuilder mockBuilder;
 
   @BeforeEach
   void setUp() {
@@ -86,11 +94,11 @@ class CommonUtilTest {
     when(mockBlobClient.getProperties()).thenReturn(mockBlobProperties);
     when(mockBlobProperties.getMetadata()).thenReturn(metadata);
     doAnswer(
-            invocation -> {
-              ByteArrayOutputStream actualOutputStream = invocation.getArgument(0);
-              inputStream.transferTo(actualOutputStream);
-              return null;
-            })
+        invocation -> {
+          ByteArrayOutputStream actualOutputStream = invocation.getArgument(0);
+          inputStream.transferTo(actualOutputStream);
+          return null;
+        })
         .when(mockBlobClient)
         .downloadStream(any(ByteArrayOutputStream.class));
 

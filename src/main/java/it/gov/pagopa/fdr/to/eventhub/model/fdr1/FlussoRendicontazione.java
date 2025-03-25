@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdr.to.eventhub.model;
+package it.gov.pagopa.fdr.to.eventhub.model.fdr1;
 
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class FlussoRendicontazione {
+
   private String identificativoPSP;
   private String identificativoIntermediarioPSP;
   private String identificativoCanale;

@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdr.to.eventhub.model;
+package it.gov.pagopa.fdr.to.eventhub.model.fdr1;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Istituto {
+
   private String tipoIdentificativoUnivoco;
   private String codiceIdentificativoUnivoco;
   private String denominazione;

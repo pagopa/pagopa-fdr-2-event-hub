@@ -20,8 +20,8 @@ import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
@@ -50,15 +50,20 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class BlobProcessingFunctionTest {
 
-  @Mock private EventHubProducerClient eventHubClientFlowTx;
+  @Mock
+  private EventHubProducerClient eventHubClientFlowTx;
 
-  @Mock private EventHubProducerClient eventHubClientReportedIUV;
+  @Mock
+  private EventHubProducerClient eventHubClientReportedIUV;
 
-  @Mock private ExecutionContext context;
+  @Mock
+  private ExecutionContext context;
 
-  @Mock private Logger mockLogger;
+  @Mock
+  private Logger mockLogger;
 
-  @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
+  @SystemStub
+  private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   private BlobProcessingFunction function;
 
@@ -202,7 +207,7 @@ class BlobProcessingFunctionTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context));
+            () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", null, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -215,7 +220,7 @@ class BlobProcessingFunctionTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context));
+            () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", emptyMetadata, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -232,7 +237,7 @@ class BlobProcessingFunctionTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context));
+                function.processFDR1BlobFiles(new byte[]{}, "testBlob", invalidMetadata, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -247,7 +252,7 @@ class BlobProcessingFunctionTest {
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "false");
 
-    function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context);
+    function.processFDR1BlobFiles(new byte[]{}, "testBlob", metadata, context);
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));

@@ -1,9 +1,9 @@
 package it.gov.pagopa.fdr.to.eventhub.mapper;
 
-import it.gov.pagopa.fdr.to.eventhub.model.DatiSingoloPagamento;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.DatiSingoloPagamento;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -28,8 +28,6 @@ public class FlussoRendicontazioneMapper {
   private static final ModelMapper modelMapper = new ModelMapper();
   private static final String TIME_ZONE_REGEX = "([+\\-]\\d{2}:\\d{2}|Z)$";
   private static final Pattern pattern = Pattern.compile(TIME_ZONE_REGEX);
-  @Getter @Setter private static int maxDistinctDates = 110;
-
   private static final DateTimeFormatter DATE_TIME_FORMATTER =
       new DateTimeFormatterBuilder()
           .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
@@ -40,6 +38,9 @@ public class FlussoRendicontazioneMapper {
           .appendPattern("XXX")
           .optionalEnd()
           .toFormatter();
+  @Getter
+  @Setter
+  private static int maxDistinctDates = 110;
 
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -52,12 +53,14 @@ public class FlussoRendicontazioneMapper {
     try {
       Matcher matcher = pattern.matcher(dateStr);
 
-      if(matcher.find()) {
+      if (matcher.find()) {
         // Parsing as ZonedDateTime and adjust to UTC+1
         ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateStr, DATE_TIME_FORMATTER);
         ZonedDateTime adjustedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.ofHours(1));
         return adjustedDateTime.toLocalDateTime();
-      } else return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
+      } else {
+        return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
+      }
     } catch (DateTimeParseException e1) {
       try {
         return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
