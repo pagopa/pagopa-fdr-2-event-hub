@@ -1,7 +1,5 @@
 microservice-chart: &microservice-chart
   namespace: "fdr"
-  nameOverride: "pagopa-fdr-2-event"
-  fullnameOverride: "pagopa-fdr-2-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
     tag: "1.0.5-5-PAGOPA-2718"
@@ -60,7 +58,7 @@ microservice-chart: &microservice-chart
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -73,7 +71,7 @@ microservice-chart: &microservice-chart
     limits:
       memory: "4Gi"
       cpu: "3"
-  autoscaling:
+  autoscaling: &autoscaling
     enable: true
     minReplica: 1
     maxReplica: 1
@@ -102,19 +100,19 @@ microservice-chart: &microservice-chart
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
     # WARNING: in order to avoid the re-schedulation of blob conversion, we are using an existing queue with a casual name on PROD
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhub56ccffd76f42jg"
-  envFieldRef:
+  envFieldRef: &envFieldRef
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
-  envSecret:
+  envSecret: &envSecret
     APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
     FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
     EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
     EVENT_HUB_FLOWTX_CONNECTION_STRING: "fdr-qi-flows-tx-connection-string"
     AzureWebJobsStorage: "fdr-sa-connection-string"
-  keyvault:
+  keyvault: &keyvault
     name: "pagopa-p-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
@@ -132,13 +130,15 @@ microservice-chart: &microservice-chart
   canaryDelivery:
     create: false
 # Function for Fdr-To-EventHub for FdR1's BLOB trigger
-pagopa-fdr-2-event-hub-fdr1-blobtrigger:
+fdr1-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
     path: /fdr1-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr1blobtrigger'
@@ -149,14 +149,22 @@ pagopa-fdr-2-event-hub-fdr1-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
 # Function for Fdr-To-EventHub for FdR3's BLOB trigger
-pagopa-fdr-2-event-hub-fdr3-blobtrigger:
+fdr3-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
     path: /fdr3-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr3blobtrigger'
@@ -167,13 +175,21 @@ pagopa-fdr-2-event-hub-fdr3-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
 # Function for Fdr-To-EventHub for recovery HTTP trigger
-pagopa-fdr-2-event-hub-recovery:
+recovery:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubrecovery'
@@ -184,3 +200,9 @@ pagopa-fdr-2-event-hub-recovery:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__HTTPBlobRecovery: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
