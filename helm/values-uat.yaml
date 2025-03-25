@@ -58,7 +58,7 @@ microservice-chart: &microservice-chart
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -110,7 +110,7 @@ microservice-chart: &microservice-chart
   keyvault: &keyvault
     name: "pagopa-u-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
@@ -184,6 +184,7 @@ recovery:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
+    path: /pagopa-fdr-to-event-hub-recovery-service/(.*)
   resources:
     !!merge <<: *resources
   autoscaling:
