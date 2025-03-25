@@ -1,0 +1,55 @@
+{
+  "fdr": "2025-01-30ABI08327-0119925015803808",
+  "fdrDate": 1742463778.000000000,
+  "revision": 1,
+  "created": 1742460180.967169000,
+  "updated": 1742460181.328567000,
+  "published": 1742460181.328567000,
+  "status": "PUBLISHED",
+  "sender": {
+    "type": "ABI_CODE",
+    "id": "ABI08327",
+    "pspName": "Banca di Credito Cooperativo di Roma",
+    "pspBrokerId": "04774801007",
+    "channelId": "04774801007_01",
+    "pspId": "ABI08327"
+  },
+  "receiver": {
+    "id": "01199250158",
+    "organizationName": "Comune di Milano",
+    "organizationId": "01199250158"
+  },
+  "regulation": "0832700053006301480320000000IT",
+  "regulationDate": "2025-03-20T07:53:47Z",
+  "computedTotPayments": 3,
+  "computedSumPayments": 0.6,
+  "payments": [
+    {
+      "index": 1,
+      "iuv": "02130000010800303",
+      "iur": "08ac5a43b8dc42f999094ca5087f77ab",
+      "pay": 0.2,
+      "payDate": "2025-01-29T15:48:16Z",
+      "payStatus": "EXECUTED",
+      "idTransfer": 2
+    },
+    {
+      "index": 2,
+      "iuv": "02130000010800304",
+      "iur": "b05f8ca9dc8f4fbb85938fa80b10112d",
+      "pay": 0.2,
+      "payDate": "2025-01-29T15:54:27Z",
+      "payStatus": "EXECUTED",
+      "idTransfer": 2
+    },
+    {
+      "index": 3,
+      "iuv": "02130000010800305",
+      "iur": "5f84cd7f852c4a1c97afc49f36da72f1",
+      "pay": 0.2,
+      "payDate": "2025-01-29T15:58:13Z",
+      "payStatus": "EXECUTED",
+      "idTransfer": 2
+    }
+  ]
+}

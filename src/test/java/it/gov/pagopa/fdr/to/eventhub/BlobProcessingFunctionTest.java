@@ -50,21 +50,16 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class BlobProcessingFunctionTest {
 
-  @Mock
-  private EventHubProducerClient eventHubClientFlowTx;
-
-  @Mock
-  private EventHubProducerClient eventHubClientReportedIUV;
-
-  @Mock
-  private ExecutionContext context;
-
-  @Mock
-  private Logger mockLogger;
-
   @SystemStub
   private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-
+  @Mock
+  private EventHubProducerClient eventHubClientFlowTx;
+  @Mock
+  private EventHubProducerClient eventHubClientReportedIUV;
+  @Mock
+  private ExecutionContext context;
+  @Mock
+  private Logger mockLogger;
   private BlobProcessingFunction function;
 
   @BeforeEach
@@ -372,7 +367,7 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR3BlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    String sampleXml = SampleContentFileUtil.getSampleJson("sample.json");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -381,7 +376,7 @@ class BlobProcessingFunctionTest {
 
     function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context);
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
+    verify(mockLogger, atLeastOnce()).fine(logCaptor.capture());
   }
 
   @Test

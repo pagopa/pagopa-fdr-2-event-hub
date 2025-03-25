@@ -18,6 +18,11 @@ public class SampleContentFileUtil {
     return Files.readString(path);
   }
 
+  public static String getSampleJson(String filename) throws Exception {
+    Path path = Paths.get(ClassLoader.getSystemResource(filename).toURI());
+    return Files.readString(path);
+  }
+
   public static InputStream getSamplePomProperties() throws Exception {
     Path path = Paths.get(ClassLoader.getSystemResource("pom.properties").toURI());
     return new ByteArrayInputStream(Files.readString(path).getBytes(StandardCharsets.UTF_8));
