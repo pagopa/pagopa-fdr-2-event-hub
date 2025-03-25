@@ -60,7 +60,7 @@ microservice-chart:
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -94,13 +94,7 @@ microservice-chart:
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"
-    # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
-    AzureFunctionsWebHost__hostid: "fdr2eventhub"
   envFieldRef:
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
@@ -113,7 +107,7 @@ microservice-chart:
   keyvault:
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
@@ -130,3 +124,59 @@ microservice-chart:
                   - "true"
   canaryDelivery:
     create: false
+
+# Function for Fdr-To-EventHub for FdR1's BLOB trigger
+pagopa-fdr-2-event-hub-fdr1-blobtrigger:
+  !!merge <<: *microservice-chart
+  ingress:
+    !!merge <<: *ingress
+    path: /fdr1-blobtrigger-notused/(.*)
+  resources:
+    !!merge <<: *resources
+  envConfig:
+    !!merge <<: *envConfig
+    WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr1blobtrigger'
+    AzureFunctionsWebHost__hostid: "pagopafdr2eventhubfdr1"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "ProcessFDR1BlobFiles"
+    # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
+
+# Function for Fdr-To-EventHub for FdR3's BLOB trigger
+pagopa-fdr-2-event-hub-fdr3-blobtrigger:
+  !!merge <<: *microservice-chart
+  ingress:
+    !!merge <<: *ingress
+    path: /fdr3-blobtrigger-notused/(.*)
+  resources:
+    !!merge <<: *resources
+  envConfig:
+    !!merge <<: *envConfig
+    WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr3blobtrigger'
+    AzureFunctionsWebHost__hostid: "pagopafdr2eventhubfdr3"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "ProcessFDR3BlobFiles"
+    # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
+
+# Function for Fdr-To-EventHub for recovery HTTP trigger
+pagopa-fdr-2-event-hub-recovery:
+  !!merge <<: *microservice-chart
+  ingress:
+    !!merge <<: *ingress
+  resources:
+    !!merge <<: *resources
+  envConfig:
+    !!merge <<: *envConfig
+    WEBSITE_SITE_NAME: 'pagopafdrtoeventhubrecovery'
+    AzureFunctionsWebHost__hostid: "pagopafdr2eventhubrecovery"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "HTTPBlobRecovery"
+    # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Function__HTTPBlobRecovery: "Debug"
