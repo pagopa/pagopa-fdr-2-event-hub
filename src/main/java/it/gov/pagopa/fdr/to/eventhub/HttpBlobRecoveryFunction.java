@@ -13,6 +13,7 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,7 +34,8 @@ public class HttpBlobRecoveryFunction {
   private static final String APPLICATION_JSON = "application/json";
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
-
+  private final String fdr1Container =
+      System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   @Getter
   private final EventHubProducerClient eventHubClientFlowTx;
   @Getter
@@ -123,13 +125,28 @@ public class HttpBlobRecoveryFunction {
               ? CommonUtil.decompressGzip(fileData.getFileContent())
               : new ByteArrayInputStream(fileData.getFileContent())) {
 
-        FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
-        flusso.setMetadata(fileData.getMetadata());
+        boolean eventBatchSent;
+        String flowName;
+        if (fdr1Container.equals(container)) {
 
-        boolean eventBatchSent =
-            CommonUtil.processXmlBlobAndSendToEventHub(
-                eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
-                sendPaymentEvents);
+          FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+          flusso.setMetadata(fileData.getMetadata());
+          flowName = flusso.getIdentificativoFlusso();
+          eventBatchSent =
+              CommonUtil.processXmlBlobAndSendToEventHub(
+                  eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
+                  sendPaymentEvents);
+
+        } else {
+
+          Flow flusso = CommonUtil.parseJSON(decompressedStream);
+          flusso.setMetadata(fileData.getMetadata());
+          flowName = flusso.getFdr();
+          eventBatchSent =
+              CommonUtil.processJsonBlobAndSendToEventHub(
+                  eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
+                  sendPaymentEvents);
+        }
 
         if (!eventBatchSent) {
           return serviceUnavailable(
@@ -137,7 +154,7 @@ public class HttpBlobRecoveryFunction {
               String.format(
                   "EventHub failed to confirm batch processing for flow ID %s [file %s, container"
                       + " %s]",
-                  flusso.getIdentificativoFlusso(), fileName, container));
+                  flowName, fileName, container));
         }
       }
 
