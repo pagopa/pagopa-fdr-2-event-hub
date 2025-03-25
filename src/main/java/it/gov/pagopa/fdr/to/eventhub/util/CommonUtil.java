@@ -8,16 +8,20 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
+import it.gov.pagopa.fdr.to.eventhub.mapper.FlowMapper;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
@@ -84,6 +88,10 @@ public class CommonUtil {
     return FDR1XmlSAXParser.parseXmlStream(xmlStream);
   }
 
+  public static Flow parseJSON(InputStream jsonStream) throws IOException {
+    return new ObjectMapper().readValue(jsonStream, Flow.class);
+  }
+
   public static BlobFileData getBlobFile(
       String storageEnvVar, String containerName, String blobName, ExecutionContext context) {
     try {
@@ -115,6 +123,7 @@ public class CommonUtil {
       ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents) {
+
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
@@ -122,40 +131,18 @@ public class CommonUtil {
       List<ReportedIUVEventModel> reportedIUVEventList =
           FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
 
-      // Serialize the objects to JSON
-      JsonMapper objectMapper =
-          JsonMapper.builder()
-              .addModule(new JavaTimeModule())
-              .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-              .build();
-
-      String flowEventJson = objectMapper.writeValueAsString(flowEvent);
-
-      // Break the list into smaller batches to avoid overshooting limit
-      List<String> reportedIUVEventJsonChunks = new LinkedList<>();
-      for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
-        reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
-      }
-
-      boolean flowEventSent = true;
-      if (sendFlowEvent) {
-        flowEventSent =
-            sendEventToHub(flowEventJson, eventHubClientFlowTx, flussoRendicontazione, context);
-      } else {
-        context.getLogger().info(() -> "Skipping sending flow event to EventHub");
-      }
-
-      boolean allEventChunksSent = true;
-      if (sendPaymentEvents) {
-        allEventChunksSent = sendEventBatchToHub(reportedIUVEventJsonChunks,
-            eventHubClientReportedIUV, flussoRendicontazione, context);
-      } else {
-        context.getLogger().info(() -> "Skipping sending payments events to EventHub");
-      }
-
-      return flowEventSent && allEventChunksSent;
+      return prepareAndSendEventsToEventHub(eventHubClientFlowTx,
+          eventHubClientReportedIUV,
+          flowEvent,
+          reportedIUVEventList,
+          flussoRendicontazione.getIdentificativoFlusso(),
+          flussoRendicontazione.getMetadata(),
+          context,
+          sendFlowEvent,
+          sendPaymentEvents);
 
     } catch (Exception e) {
+
       // Log the exception with context
       String errorMessage =
           String.format(
@@ -169,18 +156,107 @@ public class CommonUtil {
     }
   }
 
+  public static boolean processJsonBlobAndSendToEventHub(
+      EventHubProducerClient eventHubClientFlowTx,
+      EventHubProducerClient eventHubClientReportedIUV,
+      Flow flow,
+      ExecutionContext context,
+      boolean sendFlowEvent,
+      boolean sendPaymentEvents) {
+
+    try {
+      // Convert FlussoRendicontazione to event models
+      FlowTxEventModel flowEvent =
+          FlowMapper.toFlowTxEventList(flow);
+      List<ReportedIUVEventModel> reportedIUVEventList =
+          FlowMapper.toReportedIUVEventList(flow);
+
+      return prepareAndSendEventsToEventHub(eventHubClientFlowTx,
+          eventHubClientReportedIUV,
+          flowEvent,
+          reportedIUVEventList,
+          flow.getFdr(),
+          flow.getMetadata(),
+          context,
+          sendFlowEvent,
+          sendPaymentEvents);
+
+    } catch (Exception e) {
+
+      // Log the exception with context
+      String errorMessage =
+          String.format(
+              "[%s] Error processing or sending data to event hub: %s. Details: %s",
+              ErrorCodes.COMMON_E2,
+              flow.getFdr(),
+              e.getMessage());
+      context.getLogger().severe(() -> errorMessage);
+
+      return false;
+    }
+  }
+
+  private static boolean prepareAndSendEventsToEventHub(EventHubProducerClient eventHubClientFlowTx,
+      EventHubProducerClient eventHubClientReportedIUV,
+      FlowTxEventModel flowEvent,
+      List<ReportedIUVEventModel> reportedIUVEventList,
+      String flowName,
+      Map<String, String> metadata,
+      ExecutionContext context,
+      boolean sendFlowEvent,
+      boolean sendPaymentEvents) throws JsonProcessingException {
+
+    // Serialize the objects to JSON
+    JsonMapper objectMapper =
+        JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .build();
+
+    String flowEventJson = objectMapper.writeValueAsString(flowEvent);
+
+    // Break the list into smaller batches to avoid overshooting limit
+    List<String> reportedIUVEventJsonChunks = new LinkedList<>();
+    for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
+      reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
+    }
+
+    String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
+
+    boolean flowEventSent = true;
+    if (sendFlowEvent) {
+      flowEventSent =
+          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, context);
+    } else {
+      context.getLogger().info(() -> "Skipping sending flow event to EventHub");
+    }
+
+    boolean allEventChunksSent = true;
+    if (sendPaymentEvents) {
+      allEventChunksSent =
+          sendEventBatchToHub(reportedIUVEventJsonChunks, eventHubClientReportedIUV, flowName,
+              serviceIdentifier, context);
+    } else {
+      context.getLogger().info(() -> "Skipping sending payments events to EventHub");
+    }
+
+    return flowEventSent && allEventChunksSent;
+  }
+
   /**
    * Send a message to the Event Hub
    */
   private boolean sendEventToHub(
       String jsonPayload,
       EventHubProducerClient eventHubClient,
-      FlussoRendicontazione flusso,
+      String flowName,
+      String serviceIdentifier,
       ExecutionContext context) {
+
     EventData eventData = new EventData(jsonPayload);
     eventData
         .getProperties()
-        .put(SERVICE_IDENTIFIER, flusso.getMetadata().getOrDefault(SERVICE_IDENTIFIER, "NA"));
+        .put(SERVICE_IDENTIFIER, serviceIdentifier);
 
     EventDataBatch eventBatch = eventHubClient.createBatch();
     if (!eventBatch.tryAdd(eventData)) {
@@ -190,7 +266,7 @@ public class CommonUtil {
               () ->
                   String.format(
                       "Failed to add event to batch for flow ID: %s",
-                      flusso.getIdentificativoFlusso()));
+                      flowName));
       return false;
     }
 
@@ -204,7 +280,7 @@ public class CommonUtil {
               () ->
                   String.format(
                       "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flusso.getIdentificativoFlusso(), e.getMessage()));
+                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
       return false;
     }
   }
@@ -216,7 +292,8 @@ public class CommonUtil {
   private boolean sendEventBatchToHub(
       List<String> jsonPayloads,
       EventHubProducerClient eventHubClient,
-      FlussoRendicontazione flusso,
+      String flowName,
+      String serviceIdentifier,
       ExecutionContext context) {
 
     try {
@@ -235,7 +312,7 @@ public class CommonUtil {
         EventData eventData = new EventData(jsonPayload);
         eventData
             .getProperties()
-            .put(SERVICE_IDENTIFIER, flusso.getMetadata().getOrDefault(SERVICE_IDENTIFIER, "NA"));
+            .put(SERVICE_IDENTIFIER, serviceIdentifier);
 
         // Try to add the event from the array to the batch
         if (!evhEventBatch.tryAdd(eventData)) {
@@ -265,7 +342,7 @@ public class CommonUtil {
               () ->
                   String.format(
                       "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flusso.getIdentificativoFlusso(), e.getMessage()));
+                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
       return false;
     }
   }
