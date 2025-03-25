@@ -58,7 +58,7 @@ microservice-chart: &microservice-chart
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -102,10 +102,10 @@ microservice-chart: &microservice-chart
     EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
     EVENT_HUB_FLOWTX_CONNECTION_STRING: "fdr-qi-flows-tx-connection-string"
     AzureWebJobsStorage: "fdr-sa-connection-string"
-  keyvault:
+  keyvault: &keyvault
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
@@ -123,7 +123,7 @@ microservice-chart: &microservice-chart
   canaryDelivery:
     create: false
 # Function for Fdr-To-EventHub for FdR1's BLOB trigger
-pagopa-fdr-2-event-hub-fdr1-blobtrigger:
+fdr1-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
@@ -146,8 +146,10 @@ pagopa-fdr-2-event-hub-fdr1-blobtrigger:
     !!merge <<: *envFieldRef
   envSecret:
     !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
 # Function for Fdr-To-EventHub for FdR3's BLOB trigger
-pagopa-fdr-2-event-hub-fdr3-blobtrigger:
+fdr3-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
@@ -170,8 +172,10 @@ pagopa-fdr-2-event-hub-fdr3-blobtrigger:
     !!merge <<: *envFieldRef
   envSecret:
     !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
 # Function for Fdr-To-EventHub for recovery HTTP trigger
-pagopa-fdr-2-event-hub-recovery:
+recovery:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
@@ -193,3 +197,5 @@ pagopa-fdr-2-event-hub-recovery:
     !!merge <<: *envFieldRef
   envSecret:
     !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
