@@ -89,7 +89,8 @@ public class CommonUtil {
   }
 
   public static Flow parseJSON(InputStream jsonStream) throws IOException {
-    return new ObjectMapper().readValue(jsonStream, Flow.class);
+    return new ObjectMapper().registerModule(new JavaTimeModule())
+        .readValue(jsonStream, Flow.class);
   }
 
   public static BlobFileData getBlobFile(
