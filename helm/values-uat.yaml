@@ -1,4 +1,4 @@
-microservice-chart:
+microservice-chart: &microservice-chart
   namespace: "fdr"
   nameOverride: "pagopa-fdr-2-event"
   fullnameOverride: "pagopa-fdr-2-event-hub"
@@ -51,7 +51,7 @@ microservice-chart:
     ports:
       - 8080
       - 12345 #jmx-exporter
-  ingress:
+  ingress: &ingress
     create: true
     host: "weuuat.fdr.internal.uat.platform.pagopa.it"
     path: /pagopa-fdr-to-event-hub-service/(.*)
@@ -66,7 +66,7 @@ microservice-chart:
       type: RuntimeDefault
   securityContext:
     allowPrivilegeEscalation: false
-  resources:
+  resources: &resources
     requests:
       memory: "768Mi"
       cpu: "0.5"
@@ -90,7 +90,7 @@ microservice-chart:
           # Required
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
-  envConfig:
+  envConfig: &envConfig
     JAVA_OPTS: "-XX:MaxHeapSize=2304m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights
     FUNCTIONS_WORKER_RUNTIME: "java"
