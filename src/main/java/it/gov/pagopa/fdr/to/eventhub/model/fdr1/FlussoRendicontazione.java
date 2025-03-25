@@ -20,5 +20,5 @@ public class FlussoRendicontazione {
   private String identificativoFlusso;
   private String dataOraFlusso;
   private FlussoRiversamento flussoRiversamento; // base64 <xmlRendicontazione> block
-  private Map<String, String> metadata;
+  private Map<String, String> metadata; // generated from blob file metadata
 }

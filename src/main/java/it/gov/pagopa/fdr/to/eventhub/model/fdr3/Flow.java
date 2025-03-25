@@ -3,6 +3,7 @@ package it.gov.pagopa.fdr.to.eventhub.model.fdr3;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
 
@@ -24,4 +25,5 @@ public class Flow {
   private Long computedTotPayments;
   private BigDecimal computedSumPayments;
   private List<Payment> payments;
+  private Map<String, String> metadata; // generated from blob file metadata
 }
