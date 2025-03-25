@@ -129,6 +129,8 @@ public class HttpBlobRecoveryFunction {
         String flowName;
         if (fdr1Container.equals(container)) {
 
+          context.getLogger()
+              .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
           FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
@@ -139,6 +141,8 @@ public class HttpBlobRecoveryFunction {
 
         } else {
 
+          context.getLogger()
+              .info(() -> "Retrieving and sending data on EventHub from FdR3 container.");
           Flow flusso = CommonUtil.parseJSON(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getFdr();
