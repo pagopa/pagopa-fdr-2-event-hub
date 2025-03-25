@@ -1,7 +1,5 @@
 microservice-chart: &microservice-chart
   namespace: "fdr"
-  nameOverride: "pagopa-fdr-2-event"
-  fullnameOverride: "pagopa-fdr-2-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
     tag: "1.0.5-2-PAGOPA-2718"
@@ -60,7 +58,7 @@ microservice-chart: &microservice-chart
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -73,7 +71,7 @@ microservice-chart: &microservice-chart
     limits:
       memory: "768Mi"
       cpu: "0.40"
-  autoscaling:
+  autoscaling: &autoscaling
     enable: true
     minReplica: 1
     maxReplica: 1
@@ -95,10 +93,10 @@ microservice-chart: &microservice-chart
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
-  envFieldRef:
+  envFieldRef: &envFieldRef
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
-  envSecret:
+  envSecret: &envSecret
     APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
     FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
     EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
@@ -107,7 +105,7 @@ microservice-chart: &microservice-chart
   keyvault:
     name: "pagopa-d-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
+  nodeSelector: { }
   tolerations:
     - key: dedicated
       operator: Equal
@@ -132,6 +130,8 @@ pagopa-fdr-2-event-hub-fdr1-blobtrigger:
     path: /fdr1-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr1blobtrigger'
@@ -142,6 +142,10 @@ pagopa-fdr-2-event-hub-fdr1-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
 # Function for Fdr-To-EventHub for FdR3's BLOB trigger
 pagopa-fdr-2-event-hub-fdr3-blobtrigger:
   !!merge <<: *microservice-chart
@@ -150,6 +154,8 @@ pagopa-fdr-2-event-hub-fdr3-blobtrigger:
     path: /fdr3-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr3blobtrigger'
@@ -160,6 +166,10 @@ pagopa-fdr-2-event-hub-fdr3-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
 # Function for Fdr-To-EventHub for recovery HTTP trigger
 pagopa-fdr-2-event-hub-recovery:
   !!merge <<: *microservice-chart
@@ -167,6 +177,8 @@ pagopa-fdr-2-event-hub-recovery:
     !!merge <<: *ingress
   resources:
     !!merge <<: *resources
+  autoscaling:
+    !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubrecovery'
@@ -177,3 +189,7 @@ pagopa-fdr-2-event-hub-recovery:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__HTTPBlobRecovery: "Debug"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    !!merge <<: *envSecret
