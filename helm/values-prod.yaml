@@ -4,7 +4,7 @@ microservice-chart: &microservice-chart
   fullnameOverride: "pagopa-fdr-2-event-hub"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "1.0.5-1-PAGOPA-2718"
+    tag: "1.0.5-2-PAGOPA-2718"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   # livenessProbe:
@@ -60,7 +60,7 @@ microservice-chart: &microservice-chart
     name: "fdr-workload-identity"
   azure:
     workloadIdentityClientId: <workload-identity-client-id-set-automatically-by-gha>
-  podAnnotations: { }
+  podAnnotations: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -114,7 +114,7 @@ microservice-chart: &microservice-chart
   keyvault:
     name: "pagopa-p-fdr-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: { }
+  nodeSelector: {}
   tolerations:
     - key: dedicated
       operator: Equal
@@ -131,7 +131,6 @@ microservice-chart: &microservice-chart
                   - "true"
   canaryDelivery:
     create: false
-
 # Function for Fdr-To-EventHub for FdR1's BLOB trigger
 pagopa-fdr-2-event-hub-fdr1-blobtrigger:
   !!merge <<: *microservice-chart
@@ -150,7 +149,6 @@ pagopa-fdr-2-event-hub-fdr1-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
-
 # Function for Fdr-To-EventHub for FdR3's BLOB trigger
 pagopa-fdr-2-event-hub-fdr3-blobtrigger:
   !!merge <<: *microservice-chart
@@ -169,7 +167,6 @@ pagopa-fdr-2-event-hub-fdr3-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
-
 # Function for Fdr-To-EventHub for recovery HTTP trigger
 pagopa-fdr-2-event-hub-recovery:
   !!merge <<: *microservice-chart
