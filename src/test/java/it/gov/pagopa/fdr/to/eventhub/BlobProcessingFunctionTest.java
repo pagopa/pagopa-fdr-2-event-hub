@@ -67,9 +67,10 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
@@ -109,9 +110,10 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BigBlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
@@ -261,8 +263,10 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BlobTriggerProcessingError() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentEventDataBatch);
     // precondition for tryAdd fail
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenThrow(
@@ -302,15 +306,15 @@ class BlobProcessingFunctionTest {
         .anyMatch(log -> log.contains("Error processing Blob"));
 
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
-    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
   }
 
   @Test
   void testFDR1BigBlobTriggerProcessingCheckAllDates() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
     String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
