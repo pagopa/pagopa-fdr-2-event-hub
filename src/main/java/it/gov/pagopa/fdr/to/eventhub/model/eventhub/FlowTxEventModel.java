@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class FlowTxEventModel {
+
   @JsonProperty("ID_FLUSSO")
   private String flowId;
 

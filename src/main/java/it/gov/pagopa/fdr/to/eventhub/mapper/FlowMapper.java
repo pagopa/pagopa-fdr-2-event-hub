@@ -2,9 +2,8 @@ package it.gov.pagopa.fdr.to.eventhub.mapper;
 
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr1.DatiSingoloPagamento;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
-import java.math.BigDecimal;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Payment;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -23,7 +22,7 @@ import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 
 @UtilityClass
-public class FlussoRendicontazioneMapper {
+public class FlowMapper {
 
   private static final ModelMapper modelMapper = new ModelMapper();
   private static final String TIME_ZONE_REGEX = "([+\\-]\\d{2}:\\d{2}|Z)$";
@@ -74,13 +73,10 @@ public class FlussoRendicontazioneMapper {
    * @param flusso to convert.
    * @return List of FlowTxEventModel.
    */
-  public static FlowTxEventModel toFlowTxEventList(FlussoRendicontazione flusso) {
+  public static FlowTxEventModel toFlowTxEventList(Flow flusso) {
 
     List<String> allDates =
-        flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
-            .map(DatiSingoloPagamento::getDataEsitoSingoloPagamento)
-            .distinct()
-            .collect(Collectors.toList());
+        flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
 
     // last fake date as alert if there are more than 'this.maxDistinctDates'
     // dates
@@ -90,47 +86,65 @@ public class FlussoRendicontazioneMapper {
     }
 
     return FlowTxEventModel.builder()
-        .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
-        .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
-        .regulationDate(parseDate(flusso.getFlussoRiversamento().getDataRegolamento()))
-        .paymentsNum(flusso.getFlussoRiversamento().getNumeroTotalePagamenti())
-        .amountPaid(BigDecimal.valueOf(flusso.getFlussoRiversamento().getImportoTotalePagamenti()))
-        .domainId(flusso.getIdentificativoDominio())
-        .intPsp(flusso.getIdentificativoIntermediarioPSP())
+        .flowId(flusso.getFdr())
+        .flowDateTime(parseDate(flusso.getPublished().toString()))
+        .regulationDate(parseDate(flusso.getRegulationDate()))
+        .paymentsNum(Math.toIntExact(flusso.getComputedTotPayments()))
+        .amountPaid(flusso.getComputedSumPayments())
+        .domainId(flusso.getReceiver().getOrganizationId())
+        .intPsp(flusso.getSender().getPspBrokerId())
         .uniqueId(flusso.getMetadata().get("sessionId"))
         .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-        .psp(flusso.getIdentificativoPSP())
-        .causal(flusso.getFlussoRiversamento().getIdentificativoUnivocoRegolamento())
+        .psp(flusso.getSender().getPspId())
+        .causal(flusso.getRegulation())
         .allDates(allDates)
         .build();
   }
 
   /**
-   * Converts FlussoRendicontazione into a list of ReportedIUVEventModel.
+   * Converts Flow into a list of ReportedIUVEventModel.
    *
    * @param flusso to convert.
    * @return List of ReportedIUVEventModel.
    */
-  public static List<ReportedIUVEventModel> toReportedIUVEventList(FlussoRendicontazione flusso) {
-    return flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
+  public static List<ReportedIUVEventModel> toReportedIUVEventList(Flow flusso) {
+    return flusso.getPayments().stream()
         .map(
             singoloPagamento ->
                 ReportedIUVEventModel.builder()
-                    .iuv(singoloPagamento.getIdentificativoUnivocoVersamento())
-                    .iur(singoloPagamento.getIdentificativoUnivocoRiscossione())
-                    .amount(BigDecimal.valueOf(singoloPagamento.getSingoloImportoPagato()))
-                    .outcomeCode(singoloPagamento.getCodiceEsitoSingoloPagamento())
-                    .idsp(singoloPagamento.getIndiceDatiSingoloPagamento())
-                    .singlePaymentOutcomeDate(
-                        parseDate(singoloPagamento.getDataEsitoSingoloPagamento()))
-                    .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
-                    .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
-                    .domainId(flusso.getIdentificativoDominio())
-                    .intPsp(flusso.getIdentificativoIntermediarioPSP())
+                    .iuv(singoloPagamento.getIuv())
+                    .iur(singoloPagamento.getIur())
+                    .amount(singoloPagamento.getPay())
+                    .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
+                    .idsp(
+                        singoloPagamento.getIndex() != null
+                            ? singoloPagamento.getIndex().toString()
+                            : null)
+                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
+                    .flowId(flusso.getFdr())
+                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
+                    .domainId(flusso.getReceiver().getOrganizationId())
+                    .intPsp(flusso.getSender().getPspBrokerId())
                     .uniqueId(flusso.getMetadata().get("sessionId"))
                     .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-                    .psp(flusso.getIdentificativoPSP())
+                    .psp(flusso.getSender().getPspId())
                     .build())
         .toList();
+  }
+
+  public static Integer convertPayStatus(String payStatus) {
+    Integer outcomeCode = null;
+    if (payStatus != null) {
+      outcomeCode =
+          switch (payStatus) {
+            case "EXECUTED" -> 0;
+            case "REVOKED" -> 3;
+            case "STAND_IN" -> 4;
+            case "STAND_IN_NO_RPT" -> 8;
+            case "NO_RPT" -> 9;
+            default -> outcomeCode;
+          };
+    }
+    return outcomeCode;
   }
 }

@@ -16,8 +16,8 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
-import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.util.HashMap;
@@ -41,16 +41,11 @@ class HttpBlobRecoveryFunctionTest {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private final AtomicReference<HttpStatus> statusToReturn = new AtomicReference<>();
-  @SystemStub
-  private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-  @Mock
-  private EventHubProducerClient mockEventHubClientFlowTx;
-  @Mock
-  private EventHubProducerClient mockEventHubClientReportedIUV;
-  @Mock
-  private ExecutionContext mockContext;
-  @Mock
-  private HttpRequestMessage<Optional<String>> mockRequest;
+  @SystemStub private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+  @Mock private EventHubProducerClient mockEventHubClientFlowTx;
+  @Mock private EventHubProducerClient mockEventHubClientReportedIUV;
+  @Mock private ExecutionContext mockContext;
+  @Mock private HttpRequestMessage<Optional<String>> mockRequest;
   private HttpBlobRecoveryFunction function;
   private HttpResponseMessage.Builder mockResponseBuilder;
   private HttpResponseMessage mockResponse;
@@ -132,7 +127,7 @@ class HttpBlobRecoveryFunctionTest {
             Map.of("fileName", "test.xml", "container", "test-container"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
-    BlobFileData mockBlobFileData = new BlobFileData(new byte[]{}, new HashMap<>());
+    BlobFileData mockBlobFileData = new BlobFileData(new byte[] {}, new HashMap<>());
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
@@ -159,7 +154,7 @@ class HttpBlobRecoveryFunctionTest {
     metadata.put("key", "value");
     BlobFileData mockBlobFileData =
         new BlobFileData(
-            SampleContentFileUtil.createGzipCompressedData(new byte[]{1, 2, 3}.toString()),
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
@@ -170,9 +165,10 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
-          .when(() -> CommonUtil.processXmlBlobAndSendToEventHub(any(), any(), any(), any(),
-              anyBoolean(),
-              anyBoolean()))
+          .when(
+              () ->
+                  CommonUtil.processXmlBlobAndSendToEventHub(
+                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(true);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
@@ -194,7 +190,7 @@ class HttpBlobRecoveryFunctionTest {
     metadata.put("key", "value");
     BlobFileData mockBlobFileData =
         new BlobFileData(
-            SampleContentFileUtil.createGzipCompressedData(new byte[]{1, 2, 3}.toString()),
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
@@ -205,9 +201,10 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
-          .when(() -> CommonUtil.processXmlBlobAndSendToEventHub(any(), any(), any(), any(),
-              anyBoolean(),
-              anyBoolean()))
+          .when(
+              () ->
+                  CommonUtil.processXmlBlobAndSendToEventHub(
+                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(false);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);

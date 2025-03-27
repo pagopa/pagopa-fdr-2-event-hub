@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ReportedIUVEventModel {
+
   @JsonProperty("IUV")
   private String iuv;
 

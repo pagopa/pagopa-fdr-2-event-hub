@@ -20,8 +20,8 @@ import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
@@ -50,16 +50,11 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class BlobProcessingFunctionTest {
 
+  @SystemStub private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
   @Mock private EventHubProducerClient eventHubClientFlowTx;
-
   @Mock private EventHubProducerClient eventHubClientReportedIUV;
-
   @Mock private ExecutionContext context;
-
   @Mock private Logger mockLogger;
-
-  @SystemStub private EnvironmentVariables environmentVariables = new EnvironmentVariables();
-
   private BlobProcessingFunction function;
 
   @BeforeEach
@@ -72,12 +67,13 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -114,12 +110,13 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BigBlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -266,14 +263,16 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1BlobTriggerProcessingError() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentEventDataBatch);
     // precondition for tryAdd fail
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenThrow(
             new AmqpException(
                 Boolean.TRUE, "Failed to add event data", mock(AmqpErrorContext.class)));
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -307,18 +306,18 @@ class BlobProcessingFunctionTest {
         .anyMatch(log -> log.contains("Error processing Blob"));
 
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
-    verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
   }
 
   @Test
   void testFDR1BigBlobTriggerProcessingCheckAllDates() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
+    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
     when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
+    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
 
     FlussoRendicontazione flussoRendicontazione =
         FDR1XmlSAXParser.parseXmlStream(
@@ -367,8 +366,8 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR3BlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
-    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
+    String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleJson);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -376,7 +375,7 @@ class BlobProcessingFunctionTest {
 
     function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context);
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).info(logCaptor.capture());
+    verify(mockLogger, atLeastOnce()).fine(logCaptor.capture());
   }
 
   @Test

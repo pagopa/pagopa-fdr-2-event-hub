@@ -1,10 +1,10 @@
 package it.gov.pagopa.fdr.to.eventhub.parser;
 
 import it.gov.pagopa.fdr.to.eventhub.exception.XmlParsingException;
-import it.gov.pagopa.fdr.to.eventhub.model.DatiSingoloPagamento;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.model.FlussoRiversamento;
-import it.gov.pagopa.fdr.to.eventhub.model.Istituto;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.DatiSingoloPagamento;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRiversamento;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.Istituto;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -98,6 +98,7 @@ public class FDR1XmlSAXParser {
 
   private static FlussoRiversamento decodeAndParseFlussoRiversamento(String base64Content)
       throws XmlParsingException {
+
     if (base64Content == null || base64Content.isEmpty()) {
       return null;
     }
@@ -131,11 +132,12 @@ public class FDR1XmlSAXParser {
 }
 
 class FlussoRiversamentoHandler extends DefaultHandler {
-  private FlussoRiversamento flussoRiversamento;
-  private Map<String, String> flussoDati;
+
+  private final FlussoRiversamento flussoRiversamento;
+  private final Map<String, String> flussoDati;
+  private final StringBuilder value = new StringBuilder();
   private Map<String, String> currentIstituto;
   private Map<String, String> currentDatiPagamento;
-  private StringBuilder value = new StringBuilder();
   private boolean insideDatiSingoliPagamenti = false;
 
   public FlussoRiversamentoHandler() {
@@ -145,6 +147,7 @@ class FlussoRiversamentoHandler extends DefaultHandler {
   }
 
   public FlussoRiversamento getFlussoRiversamento() {
+
     flussoRiversamento.setVersioneOggetto(flussoDati.get("versioneOggetto"));
     flussoRiversamento.setIdentificativoFlusso(flussoDati.get("identificativoFlusso"));
     flussoRiversamento.setDataOraFlusso(flussoDati.get("dataOraFlusso"));

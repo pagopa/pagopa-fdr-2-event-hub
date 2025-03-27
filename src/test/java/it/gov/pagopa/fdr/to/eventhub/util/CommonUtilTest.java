@@ -18,7 +18,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobProperties;
 import com.microsoft.azure.functions.ExecutionContext;
-import it.gov.pagopa.fdr.to.eventhub.model.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,6 +51,7 @@ class CommonUtilTest {
 
   @BeforeEach
   void setUp() {
+
     lenient().when(mockContext.getLogger()).thenReturn(mockLogger);
     CommonUtil.setBlobServiceClientWrapper(mockBlobServiceClientWrapper);
     when(mockBlobServiceClientWrapper.getBlobContainerClient(anyString(), anyString()))

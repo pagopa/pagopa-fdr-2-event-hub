@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdr.to.eventhub.model;
+package it.gov.pagopa.fdr.to.eventhub.model.fdr1;
 
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -13,5 +13,6 @@ import lombok.NoArgsConstructor;
 public class BlobFileData {
 
   private byte[] fileContent;
+
   private Map<String, String> metadata;
 }
