@@ -23,10 +23,8 @@ public class BlobProcessingFunction {
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   private final String fdr3Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
-  @Getter
-  private final EventHubProducerClient eventHubClientFlowTx;
-  @Getter
-  private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
 
   public BlobProcessingFunction() {
     this.eventHubClientFlowTx =
@@ -51,11 +49,11 @@ public class BlobProcessingFunction {
   @FunctionName("ProcessFDR1BlobFiles")
   public synchronized void processFDR1BlobFiles(
       @BlobTrigger(
-          name = "Fdr1BlobTrigger",
-          dataType = "binary",
-          path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}",
-          connection = "FDR_SA_CONNECTION_STRING")
-      byte[] content,
+              name = "Fdr1BlobTrigger",
+              dataType = "binary",
+              path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}",
+              connection = "FDR_SA_CONNECTION_STRING")
+          byte[] content,
       @BindingName("blobName") String blobName,
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
@@ -146,11 +144,11 @@ public class BlobProcessingFunction {
   @FunctionName("ProcessFDR3BlobFiles")
   public void processFDR3BlobFiles(
       @BlobTrigger(
-          name = "Fdr3BlobTrigger",
-          dataType = "binary",
-          path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
-          connection = "FDR_SA_CONNECTION_STRING")
-      byte[] content,
+              name = "Fdr3BlobTrigger",
+              dataType = "binary",
+              path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
+              connection = "FDR_SA_CONNECTION_STRING")
+          byte[] content,
       @BindingName("blobName") String blobName,
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
