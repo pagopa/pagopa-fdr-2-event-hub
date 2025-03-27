@@ -5,6 +5,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 
 public class BlobServiceClientWrapperImpl implements BlobServiceClientWrapper {
+
   @Override
   public BlobContainerClient getBlobContainerClient(String storageEnvVar, String containerName) {
     BlobServiceClient blobServiceClient =

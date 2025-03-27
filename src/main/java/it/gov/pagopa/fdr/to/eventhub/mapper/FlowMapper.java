@@ -37,9 +37,7 @@ public class FlowMapper {
           .appendPattern("XXX")
           .optionalEnd()
           .toFormatter();
-  @Getter
-  @Setter
-  private static int maxDistinctDates = 110;
+  @Getter @Setter private static int maxDistinctDates = 110;
 
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -77,10 +75,8 @@ public class FlowMapper {
    */
   public static FlowTxEventModel toFlowTxEventList(Flow flusso) {
 
-    List<String> allDates = flusso.getPayments().stream()
-        .map(Payment::getPayDate)
-        .distinct()
-        .toList();
+    List<String> allDates =
+        flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
 
     // last fake date as alert if there are more than 'this.maxDistinctDates'
     // dates
@@ -121,7 +117,8 @@ public class FlowMapper {
                     .amount(singoloPagamento.getPay())
                     .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
                     .idsp(
-                        singoloPagamento.getIndex() != null ? singoloPagamento.getIndex().toString()
+                        singoloPagamento.getIndex() != null
+                            ? singoloPagamento.getIndex().toString()
                             : null)
                     .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
                     .flowId(flusso.getFdr())
@@ -138,14 +135,15 @@ public class FlowMapper {
   public static Integer convertPayStatus(String payStatus) {
     Integer outcomeCode = null;
     if (payStatus != null) {
-      outcomeCode = switch (payStatus) {
-        case "EXECUTED" -> 0;
-        case "REVOKED" -> 3;
-        case "STAND_IN" -> 4;
-        case "STAND_IN_NO_RPT" -> 8;
-        case "NO_RPT" -> 9;
-        default -> outcomeCode;
-      };
+      outcomeCode =
+          switch (payStatus) {
+            case "EXECUTED" -> 0;
+            case "REVOKED" -> 3;
+            case "STAND_IN" -> 4;
+            case "STAND_IN_NO_RPT" -> 8;
+            case "NO_RPT" -> 9;
+            default -> outcomeCode;
+          };
     }
     return outcomeCode;
   }

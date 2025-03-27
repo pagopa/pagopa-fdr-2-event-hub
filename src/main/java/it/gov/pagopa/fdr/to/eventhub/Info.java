@@ -17,11 +17,6 @@ import java.util.logging.Logger;
 /** Azure Functions with Azure Http trigger. */
 public class Info {
 
-  /**
-   * This function will be invoked when a Http Trigger occurs
-   *
-   * @return
-   */
   @FunctionName("Info")
   public HttpResponseMessage run(
       @HttpTrigger(

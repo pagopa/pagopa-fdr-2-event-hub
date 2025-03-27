@@ -14,14 +14,22 @@ import lombok.NoArgsConstructor;
 public class FlussoRiversamento {
 
   private String versioneOggetto;
+
   private String identificativoFlusso;
+
   private String dataOraFlusso;
+
   private String identificativoUnivocoRegolamento;
+
   private String dataRegolamento;
+
   private Istituto istitutoMittente;
+
   private Istituto istitutoRicevente;
+
   private int numeroTotalePagamenti;
+
   private double importoTotalePagamenti;
-  @Builder.Default
-  private List<DatiSingoloPagamento> datiSingoliPagamenti = new ArrayList<>();
+
+  @Builder.Default private List<DatiSingoloPagamento> datiSingoliPagamenti = new ArrayList<>();
 }

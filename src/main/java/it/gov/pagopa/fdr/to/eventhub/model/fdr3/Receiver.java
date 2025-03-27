@@ -14,6 +14,8 @@ import lombok.extern.jackson.Jacksonized;
 public class Receiver {
 
   private String id;
+
   private String organizationId;
+
   private String organizationName;
 }

@@ -13,5 +13,6 @@ import lombok.NoArgsConstructor;
 public class BlobFileData {
 
   private byte[] fileContent;
+
   private Map<String, String> metadata;
 }

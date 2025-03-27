@@ -16,19 +16,34 @@ import lombok.NoArgsConstructor;
 public class Flow {
 
   private String fdr;
+
   private Instant fdrDate;
+
   private Long revision;
+
   private Instant created;
+
   private Instant updated;
+
   private Instant published;
+
   private String status;
+
   private Sender sender;
+
   private Receiver receiver;
+
   private String regulation;
+
   private String regulationDate;
+
   private String bicCodePouringBank;
+
   private Long computedTotPayments;
+
   private BigDecimal computedSumPayments;
+
   private List<Payment> payments;
+
   private Map<String, String> metadata; // generated from blob file metadata
 }

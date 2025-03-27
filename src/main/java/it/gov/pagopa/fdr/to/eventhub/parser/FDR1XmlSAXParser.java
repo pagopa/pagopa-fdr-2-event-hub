@@ -98,6 +98,7 @@ public class FDR1XmlSAXParser {
 
   private static FlussoRiversamento decodeAndParseFlussoRiversamento(String base64Content)
       throws XmlParsingException {
+
     if (base64Content == null || base64Content.isEmpty()) {
       return null;
     }
@@ -134,9 +135,9 @@ class FlussoRiversamentoHandler extends DefaultHandler {
 
   private final FlussoRiversamento flussoRiversamento;
   private final Map<String, String> flussoDati;
+  private final StringBuilder value = new StringBuilder();
   private Map<String, String> currentIstituto;
   private Map<String, String> currentDatiPagamento;
-  private final StringBuilder value = new StringBuilder();
   private boolean insideDatiSingoliPagamenti = false;
 
   public FlussoRiversamentoHandler() {
@@ -146,6 +147,7 @@ class FlussoRiversamentoHandler extends DefaultHandler {
   }
 
   public FlussoRiversamento getFlussoRiversamento() {
+
     flussoRiversamento.setVersioneOggetto(flussoDati.get("versioneOggetto"));
     flussoRiversamento.setIdentificativoFlusso(flussoDati.get("identificativoFlusso"));
     flussoRiversamento.setDataOraFlusso(flussoDati.get("dataOraFlusso"));

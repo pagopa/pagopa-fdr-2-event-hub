@@ -89,7 +89,8 @@ public class CommonUtil {
   }
 
   public static Flow parseJSON(InputStream jsonStream) throws IOException {
-    return new ObjectMapper().registerModule(new JavaTimeModule())
+    return new ObjectMapper()
+        .registerModule(new JavaTimeModule())
         .readValue(jsonStream, Flow.class);
   }
 
@@ -132,7 +133,8 @@ public class CommonUtil {
       List<ReportedIUVEventModel> reportedIUVEventList =
           FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
 
-      return prepareAndSendEventsToEventHub(eventHubClientFlowTx,
+      return prepareAndSendEventsToEventHub(
+          eventHubClientFlowTx,
           eventHubClientReportedIUV,
           flowEvent,
           reportedIUVEventList,
@@ -167,12 +169,11 @@ public class CommonUtil {
 
     try {
       // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent =
-          FlowMapper.toFlowTxEventList(flow);
-      List<ReportedIUVEventModel> reportedIUVEventList =
-          FlowMapper.toReportedIUVEventList(flow);
+      FlowTxEventModel flowEvent = FlowMapper.toFlowTxEventList(flow);
+      List<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventList(flow);
 
-      return prepareAndSendEventsToEventHub(eventHubClientFlowTx,
+      return prepareAndSendEventsToEventHub(
+          eventHubClientFlowTx,
           eventHubClientReportedIUV,
           flowEvent,
           reportedIUVEventList,
@@ -188,16 +189,15 @@ public class CommonUtil {
       String errorMessage =
           String.format(
               "[%s] Error processing or sending data to event hub: %s. Details: %s",
-              ErrorCodes.COMMON_E2,
-              flow.getFdr(),
-              e.getMessage());
+              ErrorCodes.COMMON_E2, flow.getFdr(), e.getMessage());
       context.getLogger().severe(() -> errorMessage);
 
       return false;
     }
   }
 
-  private static boolean prepareAndSendEventsToEventHub(EventHubProducerClient eventHubClientFlowTx,
+  private static boolean prepareAndSendEventsToEventHub(
+      EventHubProducerClient eventHubClientFlowTx,
       EventHubProducerClient eventHubClientReportedIUV,
       FlowTxEventModel flowEvent,
       List<ReportedIUVEventModel> reportedIUVEventList,
@@ -205,7 +205,8 @@ public class CommonUtil {
       Map<String, String> metadata,
       ExecutionContext context,
       boolean sendFlowEvent,
-      boolean sendPaymentEvents) throws JsonProcessingException {
+      boolean sendPaymentEvents)
+      throws JsonProcessingException {
 
     // Serialize the objects to JSON
     JsonMapper objectMapper =
@@ -235,8 +236,12 @@ public class CommonUtil {
     boolean allEventChunksSent = true;
     if (sendPaymentEvents) {
       allEventChunksSent =
-          sendEventBatchToHub(reportedIUVEventJsonChunks, eventHubClientReportedIUV, flowName,
-              serviceIdentifier, context);
+          sendEventBatchToHub(
+              reportedIUVEventJsonChunks,
+              eventHubClientReportedIUV,
+              flowName,
+              serviceIdentifier,
+              context);
     } else {
       context.getLogger().info(() -> "Skipping sending payments events to EventHub");
     }
@@ -244,9 +249,7 @@ public class CommonUtil {
     return flowEventSent && allEventChunksSent;
   }
 
-  /**
-   * Send a message to the Event Hub
-   */
+  /** Send a message to the Event Hub */
   private boolean sendEventToHub(
       String jsonPayload,
       EventHubProducerClient eventHubClient,
@@ -255,19 +258,13 @@ public class CommonUtil {
       ExecutionContext context) {
 
     EventData eventData = new EventData(jsonPayload);
-    eventData
-        .getProperties()
-        .put(SERVICE_IDENTIFIER, serviceIdentifier);
+    eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
 
     EventDataBatch eventBatch = eventHubClient.createBatch();
     if (!eventBatch.tryAdd(eventData)) {
       context
           .getLogger()
-          .warning(
-              () ->
-                  String.format(
-                      "Failed to add event to batch for flow ID: %s",
-                      flowName));
+          .warning(() -> String.format("Failed to add event to batch for flow ID: %s", flowName));
       return false;
     }
 
@@ -286,10 +283,7 @@ public class CommonUtil {
     }
   }
 
-
-  /**
-   * Send a batch of messages to the Event Hub
-   */
+  /** Send a batch of messages to the Event Hub */
   private boolean sendEventBatchToHub(
       List<String> jsonPayloads,
       EventHubProducerClient eventHubClient,
@@ -302,18 +296,18 @@ public class CommonUtil {
       // Creating an empty event batch
       EventDataBatch evhEventBatch = eventHubClient.createBatch();
       int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
-      context.getLogger()
-          .fine(() ->
-              String.format("Defining batches with maximum dimension of [%s] bytes.",
-                  batchMaxSize));
+      context
+          .getLogger()
+          .fine(
+              () ->
+                  String.format(
+                      "Defining batches with maximum dimension of [%s] bytes.", batchMaxSize));
 
       for (String jsonPayload : jsonPayloads) {
 
         // Generating event data from single payload
         EventData eventData = new EventData(jsonPayload);
-        eventData
-            .getProperties()
-            .put(SERVICE_IDENTIFIER, serviceIdentifier);
+        eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
 
         // Try to add the event from the array to the batch
         if (!evhEventBatch.tryAdd(eventData)) {

@@ -8,6 +8,8 @@ import lombok.Data;
 public class IstitutoRicevente {
 
   private String tipoIdentificativoUnivoco;
+
   private String codiceIdentificativoUnivoco;
+
   private String denominazione;
 }

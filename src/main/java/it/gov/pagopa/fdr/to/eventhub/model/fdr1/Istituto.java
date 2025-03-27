@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class Istituto {
 
   private String tipoIdentificativoUnivoco;
+
   private String codiceIdentificativoUnivoco;
+
   private String denominazione;
 }

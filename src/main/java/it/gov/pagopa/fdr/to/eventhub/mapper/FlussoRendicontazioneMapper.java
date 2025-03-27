@@ -38,9 +38,7 @@ public class FlussoRendicontazioneMapper {
           .appendPattern("XXX")
           .optionalEnd()
           .toFormatter();
-  @Getter
-  @Setter
-  private static int maxDistinctDates = 110;
+  @Getter @Setter private static int maxDistinctDates = 110;
 
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);

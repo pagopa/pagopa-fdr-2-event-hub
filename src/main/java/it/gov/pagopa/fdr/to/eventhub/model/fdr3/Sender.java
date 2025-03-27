@@ -14,10 +14,16 @@ import lombok.extern.jackson.Jacksonized;
 public class Sender {
 
   private SenderTypeEnum type;
+
   private String id;
+
   private String pspId;
+
   private String pspName;
+
   private String pspBrokerId;
+
   private String channelId;
+
   private String password;
 }

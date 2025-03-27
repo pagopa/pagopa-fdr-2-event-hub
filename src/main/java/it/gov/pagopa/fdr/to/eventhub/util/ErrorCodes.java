@@ -4,6 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum ErrorCodes {
+
   // Common Errors
   COMMON_E1("FDR-E1", "Error while sending to EventHub."),
   COMMON_E2("FDR-E2", "Error while process XML Blob."),

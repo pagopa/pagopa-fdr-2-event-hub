@@ -24,9 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
 
-/**
- * Azure Functions with Azure Http trigger.
- */
+/** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -36,10 +34,8 @@ public class HttpBlobRecoveryFunction {
   private static final String JSON_CONTAINER = "container";
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
-  @Getter
-  private final EventHubProducerClient eventHubClientFlowTx;
-  @Getter
-  private final EventHubProducerClient eventHubClientReportedIUV;
+  @Getter private final EventHubProducerClient eventHubClientFlowTx;
+  @Getter private final EventHubProducerClient eventHubClientReportedIUV;
 
   public HttpBlobRecoveryFunction() {
     this.eventHubClientFlowTx =
@@ -63,24 +59,24 @@ public class HttpBlobRecoveryFunction {
   @FunctionName("HTTPBlobRecovery")
   public HttpResponseMessage run(
       @HttpTrigger(
-          name = "HTTPBlobRecoveryTrigger",
-          methods = {HttpMethod.POST},
-          route = "notify/fdr",
-          authLevel = AuthorizationLevel.ANONYMOUS)
-      HttpRequestMessage<Optional<String>> request,
+              name = "HTTPBlobRecoveryTrigger",
+              methods = {HttpMethod.POST},
+              route = "notify/fdr",
+              authLevel = AuthorizationLevel.ANONYMOUS)
+          HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
     // Check if body is present
     Optional<String> requestBody = request.getBody();
-    if (!requestBody.isPresent()) {
+    if (requestBody.isEmpty()) {
       return badRequest(request, "Missing request body");
     }
 
     // Get named parameter
-    boolean sendFlowEvent = Boolean.parseBoolean(
-        request.getQueryParameters().getOrDefault("sendFlowEvent", "true"));
-    boolean sendPaymentEvents = Boolean.parseBoolean(
-        request.getQueryParameters().getOrDefault("sendPaymentEvent", "true"));
+    boolean sendFlowEvent =
+        Boolean.parseBoolean(request.getQueryParameters().getOrDefault("sendFlowEvent", "true"));
+    boolean sendPaymentEvents =
+        Boolean.parseBoolean(request.getQueryParameters().getOrDefault("sendPaymentEvent", "true"));
 
     try {
       JsonNode jsonNode = objectMapper.readTree(requestBody.get());
@@ -129,26 +125,36 @@ public class HttpBlobRecoveryFunction {
         String flowName;
         if (fdr1Container.equals(container)) {
 
-          context.getLogger()
+          context
+              .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
           FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
           eventBatchSent =
               CommonUtil.processXmlBlobAndSendToEventHub(
-                  eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
+                  eventHubClientFlowTx,
+                  eventHubClientReportedIUV,
+                  flusso,
+                  context,
+                  sendFlowEvent,
                   sendPaymentEvents);
 
         } else {
 
-          context.getLogger()
+          context
+              .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR3 container.");
           Flow flusso = CommonUtil.parseJSON(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getFdr();
           eventBatchSent =
               CommonUtil.processJsonBlobAndSendToEventHub(
-                  eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, sendFlowEvent,
+                  eventHubClientFlowTx,
+                  eventHubClientReportedIUV,
+                  flusso,
+                  context,
+                  sendFlowEvent,
                   sendPaymentEvents);
         }
 

@@ -13,10 +13,16 @@ import lombok.NoArgsConstructor;
 public class Payment {
 
   private Long index;
+
   private String iuv;
+
   private String iur;
+
   private BigDecimal pay;
+
   private String payDate;
+
   private String payStatus;
+
   private Long idTransfer;
 }
