@@ -40,25 +40,18 @@ class CommonUtilTest {
   private static final String CONTAINER_NAME = "test-container";
   private static final String BLOB_NAME = "test-blob.xml";
 
-  @Mock
-  private BlobServiceClientWrapper mockBlobServiceClientWrapper;
-  @Mock
-  private BlobServiceClient mockBlobServiceClient;
-  @Mock
-  private BlobContainerClient mockBlobContainerClient;
-  @Mock
-  private BlobClient mockBlobClient;
-  @Mock
-  private BlobProperties mockBlobProperties;
-  @Mock
-  private ExecutionContext mockContext;
-  @Mock
-  private Logger mockLogger;
-  @Mock
-  private BlobServiceClientBuilder mockBuilder;
+  @Mock private BlobServiceClientWrapper mockBlobServiceClientWrapper;
+  @Mock private BlobServiceClient mockBlobServiceClient;
+  @Mock private BlobContainerClient mockBlobContainerClient;
+  @Mock private BlobClient mockBlobClient;
+  @Mock private BlobProperties mockBlobProperties;
+  @Mock private ExecutionContext mockContext;
+  @Mock private Logger mockLogger;
+  @Mock private BlobServiceClientBuilder mockBuilder;
 
   @BeforeEach
   void setUp() {
+
     lenient().when(mockContext.getLogger()).thenReturn(mockLogger);
     CommonUtil.setBlobServiceClientWrapper(mockBlobServiceClientWrapper);
     when(mockBlobServiceClientWrapper.getBlobContainerClient(anyString(), anyString()))
@@ -94,11 +87,11 @@ class CommonUtilTest {
     when(mockBlobClient.getProperties()).thenReturn(mockBlobProperties);
     when(mockBlobProperties.getMetadata()).thenReturn(metadata);
     doAnswer(
-        invocation -> {
-          ByteArrayOutputStream actualOutputStream = invocation.getArgument(0);
-          inputStream.transferTo(actualOutputStream);
-          return null;
-        })
+            invocation -> {
+              ByteArrayOutputStream actualOutputStream = invocation.getArgument(0);
+              inputStream.transferTo(actualOutputStream);
+              return null;
+            })
         .when(mockBlobClient)
         .downloadStream(any(ByteArrayOutputStream.class));
 

@@ -50,16 +50,11 @@ import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 @ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
 class BlobProcessingFunctionTest {
 
-  @SystemStub
-  private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-  @Mock
-  private EventHubProducerClient eventHubClientFlowTx;
-  @Mock
-  private EventHubProducerClient eventHubClientReportedIUV;
-  @Mock
-  private ExecutionContext context;
-  @Mock
-  private Logger mockLogger;
+  @SystemStub private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+  @Mock private EventHubProducerClient eventHubClientFlowTx;
+  @Mock private EventHubProducerClient eventHubClientReportedIUV;
+  @Mock private ExecutionContext context;
+  @Mock private Logger mockLogger;
   private BlobProcessingFunction function;
 
   @BeforeEach
@@ -77,7 +72,7 @@ class BlobProcessingFunctionTest {
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -119,7 +114,7 @@ class BlobProcessingFunctionTest {
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -202,7 +197,7 @@ class BlobProcessingFunctionTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", null, context));
+            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -215,7 +210,7 @@ class BlobProcessingFunctionTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[]{}, "testBlob", emptyMetadata, context));
+            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -232,7 +227,7 @@ class BlobProcessingFunctionTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                function.processFDR1BlobFiles(new byte[]{}, "testBlob", invalidMetadata, context));
+                function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context));
 
     assertEquals(
         "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
@@ -247,7 +242,7 @@ class BlobProcessingFunctionTest {
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "false");
 
-    function.processFDR1BlobFiles(new byte[]{}, "testBlob", metadata, context);
+    function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context);
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -273,7 +268,7 @@ class BlobProcessingFunctionTest {
         .thenThrow(
             new AmqpException(
                 Boolean.TRUE, "Failed to add event data", mock(AmqpErrorContext.class)));
-    String sampleXml = SampleContentFileUtil.getSampleXml("sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -318,7 +313,7 @@ class BlobProcessingFunctionTest {
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
         .thenReturn(Boolean.TRUE);
-    String sampleXml = SampleContentFileUtil.getSampleXml("big_sample.xml");
+    String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
 
     FlussoRendicontazione flussoRendicontazione =
         FDR1XmlSAXParser.parseXmlStream(
@@ -367,8 +362,8 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR3BlobTriggerProcessing() throws Exception {
     when(context.getLogger()).thenReturn(mockLogger);
-    String sampleXml = SampleContentFileUtil.getSampleJson("sample.json");
-    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
+    String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleJson);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
