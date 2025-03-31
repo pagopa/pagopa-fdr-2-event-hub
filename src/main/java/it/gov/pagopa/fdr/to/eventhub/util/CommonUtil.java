@@ -23,6 +23,7 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 import java.io.ByteArrayInputStream;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLStreamException;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.xml.sax.SAXException;
@@ -45,6 +47,9 @@ public class CommonUtil {
   public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
+
+  private final String useExperimentalParser =
+      System.getenv().getOrDefault("USE_EXPERIMENTAL_PARSER", "false");
 
   @Setter
   private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
@@ -84,8 +89,15 @@ public class CommonUtil {
   }
 
   public static FlussoRendicontazione parseXml(InputStream xmlStream)
-      throws ParserConfigurationException, SAXException, IOException {
-    return FDR1XmlSAXParser.parseXmlStream(xmlStream);
+      throws ParserConfigurationException, SAXException, IOException, XMLStreamException {
+
+    FlussoRendicontazione flussoRendicontazione;
+    if (Boolean.parseBoolean(useExperimentalParser)) {
+      flussoRendicontazione = FDR1XmlStAXParser.parseXmlStream(xmlStream);
+    } else {
+      flussoRendicontazione = FDR1XmlSAXParser.parseXmlStream(xmlStream);
+    }
+    return flussoRendicontazione;
   }
 
   public static Flow parseJSON(InputStream jsonStream) throws IOException {
