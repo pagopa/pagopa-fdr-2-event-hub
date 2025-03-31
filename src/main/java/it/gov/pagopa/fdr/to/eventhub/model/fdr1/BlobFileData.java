@@ -11,8 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BlobFileData {
+	private String fileName;
 
-  private byte[] fileContent;
+	private byte[] fileContent;
 
-  private Map<String, String> metadata;
+	private Map<String, String> metadata;
 }
