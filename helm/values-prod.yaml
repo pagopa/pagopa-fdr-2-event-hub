@@ -94,6 +94,7 @@ microservice-chart: &microservice-chart
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
+    BLOB_FILTER_PREFIX: "yyyy-MM-dd"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"

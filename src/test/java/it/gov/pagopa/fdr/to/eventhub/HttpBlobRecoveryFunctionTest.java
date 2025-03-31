@@ -127,7 +127,7 @@ class HttpBlobRecoveryFunctionTest {
             Map.of("fileName", "test.xml", "container", "test-container"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
-    BlobFileData mockBlobFileData = new BlobFileData(new byte[] {}, new HashMap<>());
+    BlobFileData mockBlobFileData = new BlobFileData("",new byte[] {}, new HashMap<>());
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
@@ -153,7 +153,7 @@ class HttpBlobRecoveryFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key", "value");
     BlobFileData mockBlobFileData =
-        new BlobFileData(
+        new BlobFileData("fileName",
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
@@ -189,7 +189,7 @@ class HttpBlobRecoveryFunctionTest {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key", "value");
     BlobFileData mockBlobFileData =
-        new BlobFileData(
+        new BlobFileData("fileName",
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
