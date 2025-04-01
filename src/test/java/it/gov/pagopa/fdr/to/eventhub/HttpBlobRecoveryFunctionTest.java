@@ -20,6 +20,9 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -127,7 +130,7 @@ class HttpBlobRecoveryFunctionTest {
             Map.of("fileName", "test.xml", "container", "test-container"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
-    BlobFileData mockBlobFileData = new BlobFileData("",new byte[] {}, new HashMap<>());
+    BlobFileData mockBlobFileData = new BlobFileData("",new byte[] {}, new HashMap<>(), new ArrayList<>());
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
@@ -155,7 +158,8 @@ class HttpBlobRecoveryFunctionTest {
     BlobFileData mockBlobFileData =
         new BlobFileData("fileName",
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
-            metadata);
+            metadata,
+            new ArrayList<>());
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
@@ -191,7 +195,8 @@ class HttpBlobRecoveryFunctionTest {
     BlobFileData mockBlobFileData =
         new BlobFileData("fileName",
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
-            metadata);
+            metadata,
+            Arrays.asList("evh error"));
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
