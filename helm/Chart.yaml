@@ -1,8 +1,8 @@
 apiVersion: v2
 name: pagopa-fdr-to-event-hub
 description: Microservice fdr to event hub
-version: 0.76.0
-appVersion: 1.0.7
+version: 0.77.0
+appVersion: 1.0.7-1-feat-logging-on-elastic
 dependencies:
   - name: microservice-chart
     version: 7.1.1
