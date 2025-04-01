@@ -1,0 +1,8 @@
+<configuration>
+  <appender class="ch.qos.logback.core.ConsoleAppender" name="JSON_CONSOLE">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+  </appender>
+  <root level="INFO">
+    <appender-ref ref="JSON_CONSOLE"/>
+  </root>
+</configuration>
