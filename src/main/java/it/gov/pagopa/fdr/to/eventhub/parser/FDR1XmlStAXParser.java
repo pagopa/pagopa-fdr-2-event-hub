@@ -5,20 +5,18 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import java.io.InputStream;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
-import lombok.experimental.UtilityClass;
 import org.xml.sax.SAXException;
 
-@UtilityClass
 public class FDR1XmlStAXParser {
 
   private final XMLInputFactory factory;
 
-  static {
-    factory = XMLInputFactory.newInstance();
-    factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+  public FDR1XmlStAXParser() {
+    this.factory = XMLInputFactory.newInstance();
+    this.factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
   }
 
-  public static FlussoRendicontazione parseXmlStream(InputStream xmlStream)
+  public FlussoRendicontazione parseXmlStream(InputStream xmlStream)
       throws SAXException, XMLStreamException {
 
     if (xmlStream == null) {

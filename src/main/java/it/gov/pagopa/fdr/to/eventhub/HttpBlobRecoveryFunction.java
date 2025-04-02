@@ -14,6 +14,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,6 +33,8 @@ public class HttpBlobRecoveryFunction {
   private static final String APPLICATION_JSON = "application/json";
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
+  private final String useExperimentalParser =
+      System.getenv().getOrDefault("USE_EXPERIMENTAL_PARSER", "false");
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
@@ -128,7 +131,13 @@ public class HttpBlobRecoveryFunction {
           context
               .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
-          FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+          // FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+          FlussoRendicontazione flusso;
+          if (Boolean.parseBoolean(useExperimentalParser)) {
+            flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
+          } else {
+            flusso = CommonUtil.parseXml(decompressedStream);
+          }
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
           eventBatchSent =
