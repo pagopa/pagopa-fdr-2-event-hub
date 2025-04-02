@@ -168,7 +168,7 @@ class HttpBlobRecoveryFunctionTest {
           .when(
               () ->
                   CommonUtil.processXmlBlobAndSendToEventHub(
-                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+                      any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(true);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
@@ -204,7 +204,7 @@ class HttpBlobRecoveryFunctionTest {
           .when(
               () ->
                   CommonUtil.processXmlBlobAndSendToEventHub(
-                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+                      any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(false);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
