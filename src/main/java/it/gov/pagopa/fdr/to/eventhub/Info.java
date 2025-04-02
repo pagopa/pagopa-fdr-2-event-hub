@@ -12,10 +12,13 @@ import it.gov.pagopa.fdr.to.eventhub.model.AppInfo;
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Azure Functions with Azure Http trigger. */
 public class Info {
+
+  private static final Logger logger = LoggerFactory.getLogger(Info.class);
 
   @FunctionName("Info")
   public HttpResponseMessage run(
@@ -32,7 +35,7 @@ public class Info {
         .header("Content-Type", "application/json")
         .body(
             getInfo(
-                context.getLogger(),
+                logger,
                 "/META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/pom.properties"))
         .build();
   }
@@ -49,7 +52,7 @@ public class Info {
         name = properties.getProperty("artifactId", null);
       }
     } catch (Exception e) {
-      logger.severe("Impossible to retrieve information from pom.properties file.");
+      logger.error("Impossible to retrieve information from pom.properties file.");
     }
     return AppInfo.builder().version(version).environment("azure-fn").name(name).build();
   }

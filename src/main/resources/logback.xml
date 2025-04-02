@@ -1,8 +1,13 @@
 <configuration>
+
+  <!-- Definisce l'appender per la console in formato JSON -->
   <appender class="ch.qos.logback.core.ConsoleAppender" name="JSON_CONSOLE">
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
   </appender>
-  <root level="INFO">
-    <appender-ref ref="JSON_CONSOLE"/>
+
+  <!-- Configura il livello di log -->
+  <root level="${LOG_LEVEL}">
+    <appender-ref ref="JSON_CONSOLE" />
   </root>
+
 </configuration>

@@ -99,7 +99,7 @@ public class BlobProcessingFunction {
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
           CommonUtil.processXmlBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, true, true);
+              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, true, true);
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(
@@ -187,7 +187,7 @@ public class BlobProcessingFunction {
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
           CommonUtil.processJsonBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flow, context, true, true);
+              eventHubClientFlowTx, eventHubClientReportedIUV, flow, true, true);
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(

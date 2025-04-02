@@ -104,7 +104,7 @@ public class CommonUtil {
       BlobClient blobClient = containerClient.getBlobClient(blobName);
 
       if (Boolean.FALSE.equals(blobClient.exists())) {
-        context.getLogger().severe(() -> "Blob not found: " + blobName);
+        logger.error("Blob not found: {}" + blobName);
         return null;
       }
 
@@ -115,7 +115,7 @@ public class CommonUtil {
       return new BlobFileData(outputStream.toByteArray(), metadata);
 
     } catch (Exception e) {
-      context.getLogger().severe("Error accessing blob: " + e.getMessage());
+      logger.error("Error accessing blob: {}", e.getMessage());
       return null;
     }
   }
@@ -124,7 +124,6 @@ public class CommonUtil {
       final EventHubProducerClient eventHubClientFlowTx,
       final EventHubProducerClient eventHubClientReportedIUV,
       FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents) {
 
@@ -163,7 +162,6 @@ public class CommonUtil {
       EventHubProducerClient eventHubClientFlowTx,
       EventHubProducerClient eventHubClientReportedIUV,
       Flow flow,
-      ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents) {
 
@@ -189,8 +187,7 @@ public class CommonUtil {
           String.format(
               "[%s] Error processing or sending data to event hub: %s. Details: %s",
               ErrorCodes.COMMON_E2, flow.getFdr(), e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
-
+      logger.error(errorMessage);
       return false;
     }
   }

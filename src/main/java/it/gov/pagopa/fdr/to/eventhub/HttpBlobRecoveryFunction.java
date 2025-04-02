@@ -19,19 +19,22 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
 
+  private static final Logger logger = LoggerFactory.getLogger(HttpBlobRecoveryFunction.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final String CONTENT_TYPE = "Content-Type";
   private static final String APPLICATION_JSON = "application/json";
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
+
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
@@ -89,15 +92,11 @@ public class HttpBlobRecoveryFunction {
         return badRequest(request, "Missing required fields: fileName, container");
       }
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",
-                      LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                      container,
-                      fileName));
+      logger.debug(
+          "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
+          LocalDateTime.now(),
+          container,
+          fileName);
 
       BlobFileData fileData =
           CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, context);
@@ -125,9 +124,7 @@ public class HttpBlobRecoveryFunction {
         String flowName;
         if (fdr1Container.equals(container)) {
 
-          context
-              .getLogger()
-              .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
+          logger.info("Retrieving and sending data on EventHub from FdR1 container.");
           FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
@@ -136,15 +133,12 @@ public class HttpBlobRecoveryFunction {
                   eventHubClientFlowTx,
                   eventHubClientReportedIUV,
                   flusso,
-                  context,
                   sendFlowEvent,
                   sendPaymentEvents);
 
         } else {
 
-          context
-              .getLogger()
-              .info(() -> "Retrieving and sending data on EventHub from FdR3 container.");
+          logger.info("Retrieving and sending data on EventHub from FdR3 container.");
           Flow flusso = CommonUtil.parseJSON(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getFdr();
@@ -153,7 +147,6 @@ public class HttpBlobRecoveryFunction {
                   eventHubClientFlowTx,
                   eventHubClientReportedIUV,
                   flusso,
-                  context,
                   sendFlowEvent,
                   sendPaymentEvents);
         }
@@ -176,7 +169,7 @@ public class HttpBlobRecoveryFunction {
     } catch (IOException e) {
       return badRequest(request, "Invalid JSON format");
     } catch (Exception e) {
-      context.getLogger().severe("[HTTP FDR] Unexpected error: " + e.getMessage());
+      logger.error("[HTTP FDR] Unexpected error: {}", e.getMessage());
       return serverError(request, "Internal Server Error");
     }
   }
