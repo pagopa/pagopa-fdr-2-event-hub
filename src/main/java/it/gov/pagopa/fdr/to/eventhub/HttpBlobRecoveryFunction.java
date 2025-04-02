@@ -33,8 +33,6 @@ public class HttpBlobRecoveryFunction {
   private static final String APPLICATION_JSON = "application/json";
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
-  private final String useExperimentalParser =
-      System.getenv().getOrDefault("USE_EXPERIMENTAL_PARSER", "false");
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;

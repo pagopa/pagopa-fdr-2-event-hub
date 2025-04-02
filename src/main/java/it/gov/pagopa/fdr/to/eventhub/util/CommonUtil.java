@@ -43,9 +43,6 @@ public class CommonUtil {
 
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
 
-  private final String useExperimentalParser =
-      System.getenv().getOrDefault("USE_EXPERIMENTAL_PARSER", "false");
-
   @Setter
   private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
 
