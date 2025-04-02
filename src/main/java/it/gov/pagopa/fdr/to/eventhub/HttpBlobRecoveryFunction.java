@@ -131,13 +131,7 @@ public class HttpBlobRecoveryFunction {
           context
               .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
-          // FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
-          FlussoRendicontazione flusso;
-          if (Boolean.parseBoolean(useExperimentalParser)) {
-            flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
-          } else {
-            flusso = CommonUtil.parseXml(decompressedStream);
-          }
+          FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
           eventBatchSent =

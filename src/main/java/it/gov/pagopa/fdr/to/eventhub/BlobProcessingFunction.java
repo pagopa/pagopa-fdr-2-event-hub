@@ -8,6 +8,7 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import java.io.ByteArrayInputStream;
@@ -89,7 +90,7 @@ public class BlobProcessingFunction {
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
 
-      FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+      FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
 
       context
           .getLogger()
