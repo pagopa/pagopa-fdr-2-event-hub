@@ -22,7 +22,7 @@ import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayInputStream;
@@ -81,12 +81,12 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "true");
 
     FlussoRendicontazione flussoRendicontazione =
-        FDR1XmlSAXParser.parseXmlStream(
-            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+        new FDR1XmlStAXParser()
+            .parseXmlStream(new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
 
-    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
+    try (MockedStatic<FDR1XmlStAXParser> mockedStatic = mockStatic(FDR1XmlStAXParser.class)) {
       mockedStatic
-          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
+          .when(() -> new FDR1XmlStAXParser().parseXmlStream(any(InputStream.class)))
           .thenReturn(flussoRendicontazione);
 
       function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
@@ -320,8 +320,8 @@ class BlobProcessingFunctionTest {
     String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
 
     FlussoRendicontazione flussoRendicontazione =
-        FDR1XmlSAXParser.parseXmlStream(
-            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+        new FDR1XmlStAXParser()
+            .parseXmlStream(new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
 
     // the maximum number of dates is forced to 10 for the test
     FlussoRendicontazioneMapper.setMaxDistinctDates(10);
@@ -337,9 +337,9 @@ class BlobProcessingFunctionTest {
               dsp.setDataEsitoSingoloPagamento(LocalDate.of(2025, 2, dayOfMonth).toString());
             });
 
-    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
+    try (MockedStatic<FDR1XmlStAXParser> mockedStatic = mockStatic(FDR1XmlStAXParser.class)) {
       mockedStatic
-          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
+          .when(() -> new FDR1XmlStAXParser().parseXmlStream(any(InputStream.class)))
           .thenReturn(flussoRendicontazione);
 
       byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
