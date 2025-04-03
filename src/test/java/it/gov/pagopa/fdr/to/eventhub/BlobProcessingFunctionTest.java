@@ -196,44 +196,31 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1ValidateBlobMetadata_NullMetadata() {
-    IllegalArgumentException exception =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context));
-
-    assertEquals(
-        "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
-        exception.getMessage());
+    when(context.getLogger()).thenReturn(mockLogger);
+    function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context);
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).warning(logCaptor.capture());
   }
 
   @Test
   void testFDR1ValidateBlobMetadata_EmptyMetadata() {
+    when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> emptyMetadata = new HashMap<>();
-    IllegalArgumentException exception =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context));
-
-    assertEquals(
-        "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
-        exception.getMessage());
+    function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context);
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).warning(logCaptor.capture());
   }
 
   @Test
   void testFDR1ValidateBlobMetadata_MissingKeys() {
+    when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> invalidMetadata = new HashMap<>();
     invalidMetadata.put("sessionId", "1234");
     // "insertedTimestamp" key is missing
 
-    IllegalArgumentException exception =
-        assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context));
-
-    assertEquals(
-        "Invalid blob metadata: sessionId or insertedTimestamp is missing.",
-        exception.getMessage());
+    function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context);
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).warning(logCaptor.capture());
   }
 
   @Test
