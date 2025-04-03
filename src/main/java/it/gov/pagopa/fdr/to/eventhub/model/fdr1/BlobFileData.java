@@ -13,9 +13,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BlobFileData {
-	private String fileName;
-	private byte[] fileContent;
-	private Map<String, String> metadata;
-	@Builder.Default
-	private List<String> unprocessableFileDetail = new ArrayList<>();
+  private String fileName;
+  private byte[] fileContent;
+  private Map<String, String> metadata;
+  @Builder.Default private List<String> unprocessableFileDetail = new ArrayList<>();
 }
