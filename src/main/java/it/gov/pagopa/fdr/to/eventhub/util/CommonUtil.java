@@ -74,23 +74,12 @@ public class CommonUtil {
   }
 
   public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {
-    // Check if metadata is null or empty
-    if (blobMetadata == null || blobMetadata.isEmpty()) {
-      return false;
-    }
-
-    // Check if required keys exist in the metadata
-    if (!blobMetadata.containsKey("sessionId") || !blobMetadata.containsKey("insertedTimestamp")) {
-      return false;
-    }
-
-    // Validate 'elaborate' key value if present
-    String elaborateValue = blobMetadata.get("elaborate");
-    if (elaborateValue != null && "false".equalsIgnoreCase(elaborateValue)) {
-      return false;
-    }
-
-    return true;
+    return blobMetadata != null
+        && !blobMetadata.isEmpty()
+        && blobMetadata.containsKey("sessionId")
+        && blobMetadata.containsKey("insertedTimestamp")
+        && (blobMetadata.get("elaborate") == null
+            || !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
   public static boolean isGzip(byte[] content) {
