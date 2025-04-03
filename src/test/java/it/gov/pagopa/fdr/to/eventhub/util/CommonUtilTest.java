@@ -55,6 +55,7 @@ class CommonUtilTest {
   private static final String STORAGE_ENV_VAR = "STORAGE_ENV_VAR";
   private static final String CONTAINER_NAME = "test-container";
   private static final String BLOB_NAME = "test-blob.xml";
+  private static final HttpStatus MULTI_STATUS = null;
 
   @Mock private BlobServiceClientWrapper mockBlobServiceClientWrapper;
   @Mock private BlobServiceClient mockBlobServiceClient;
