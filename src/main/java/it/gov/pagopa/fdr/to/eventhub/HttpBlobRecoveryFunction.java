@@ -74,10 +74,9 @@ public class HttpBlobRecoveryFunction {
 
     try {
       JsonNode jsonNode = objectMapper.readTree(request.getBody().get());
-      String fileName =
-          Optional.ofNullable(jsonNode.get(JSON_FILENAME)).map(JsonNode::asText).orElse(null);
-      String container =
-          Optional.ofNullable(jsonNode.get(JSON_CONTAINER)).map(JsonNode::asText).orElse(null);
+
+      String fileName = CommonUtil.getJsonField(jsonNode, JSON_FILENAME);
+      String container = CommonUtil.getJsonField(jsonNode, JSON_CONTAINER);
 
       if (fileName == null || container == null) {
         return CommonUtil.badRequest(request, "Missing required fields: fileName, container");

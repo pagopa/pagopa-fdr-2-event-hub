@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -125,6 +127,12 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.unprocessableEntity(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 
@@ -166,6 +174,12 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 
@@ -216,6 +230,15 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 
@@ -256,6 +279,12 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr3-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.json");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 
@@ -305,6 +334,15 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr3-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 
@@ -355,6 +393,15 @@ class HttpMassiveBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.multiStatus(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
 

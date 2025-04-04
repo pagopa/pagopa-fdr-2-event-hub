@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -115,6 +117,12 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.notFound(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.NOT_FOUND, response.getStatus());
@@ -141,6 +149,12 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.unprocessableEntity(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatus());
@@ -181,6 +195,12 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.OK, response.getStatus());
@@ -221,6 +241,12 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.serviceUnavailable(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatus());

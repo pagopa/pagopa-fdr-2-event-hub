@@ -84,14 +84,11 @@ public class HttpMassiveBlobRecoveryFunction {
 
     try {
       JsonNode jsonNode = objectMapper.readTree(request.getBody().get());
-      String fileName =
-          Optional.ofNullable(jsonNode.get(JSON_FILENAME)).map(JsonNode::asText).orElse(null);
-      String container =
-          Optional.ofNullable(jsonNode.get(JSON_CONTAINER)).map(JsonNode::asText).orElse(null);
-      String fromStr =
-          Optional.ofNullable(jsonNode.get(JSON_DATEFROM)).map(JsonNode::asText).orElse(null);
-      String toStr =
-          Optional.ofNullable(jsonNode.get(JSON_DATETO)).map(JsonNode::asText).orElse(null);
+
+      String fileName = CommonUtil.getJsonField(jsonNode, JSON_FILENAME);
+      String container = CommonUtil.getJsonField(jsonNode, JSON_CONTAINER);
+      String fromStr = CommonUtil.getJsonField(jsonNode, JSON_DATEFROM);
+      String toStr = CommonUtil.getJsonField(jsonNode, JSON_DATETO);
 
       HttpResponseMessage checkBodyRes =
           this.checkBodyContentAccuracy(request, fileName, container, fromStr, toStr);

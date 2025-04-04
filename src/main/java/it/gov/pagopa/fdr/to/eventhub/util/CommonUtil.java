@@ -11,6 +11,7 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -65,6 +66,10 @@ public class CommonUtil {
       HttpRequestMessage<Optional<String>> request, String paramName, boolean defaultValue) {
     return Boolean.parseBoolean(
         request.getQueryParameters().getOrDefault(paramName, String.valueOf(defaultValue)));
+  }
+
+  public static String getJsonField(JsonNode node, String fieldName) {
+    return Optional.ofNullable(node.get(fieldName)).map(JsonNode::asText).orElse(null);
   }
 
   public static EventHubProducerClient createEventHubClient(
