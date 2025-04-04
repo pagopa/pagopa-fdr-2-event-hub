@@ -20,6 +20,7 @@ import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.util.ArrayList;
@@ -162,7 +163,7 @@ class HttpBlobRecoveryFunctionTest {
   }
 
   @Test
-  void testSuccessfulProcessing() throws Exception {
+  void testFDR1SuccessfulProcessing() throws Exception {
 
     when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
 
@@ -201,6 +202,51 @@ class HttpBlobRecoveryFunctionTest {
       mockedUtil
           .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
           .thenReturn("fdr1-flows");
+
+      HttpResponseMessage response = function.run(mockRequest, mockContext);
+      assertEquals(HttpStatus.OK, response.getStatus());
+    }
+  }
+
+  @Test
+  void testFDR3SuccessfulProcessing() throws Exception {
+
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
+
+    String requestBody =
+        objectMapper.writeValueAsString(Map.of("fileName", "test.json", "container", "fdr3-flows"));
+    when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key", "value");
+    BlobFileData mockBlobFileData =
+        new BlobFileData(
+            "fileName",
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
+            metadata,
+            new ArrayList<>());
+
+    try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
+      mockedUtil
+          .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
+          .thenReturn(mockBlobFileData);
+      mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
+      mockedUtil.when(() -> CommonUtil.parseJSON(any())).thenReturn(mock(Flow.class));
+      mockedUtil
+          .when(
+              () ->
+                  CommonUtil.processJsonBlobAndSendToEventHub(
+                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+          .thenReturn(true);
+      mockedUtil
+          .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.xml");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr3-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.OK, response.getStatus());
