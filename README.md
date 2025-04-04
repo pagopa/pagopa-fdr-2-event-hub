@@ -1,19 +1,29 @@
-# pagoPA Functions template
+# pagoPA Functions pagopa-fdr-2-event-hub
 
-Java template to create an Azure Function.
+The function is designed to ingest FDR data flows into the FdR QI system
 
-## Function examples
-There is an example of a Http Trigger function.
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-fdr-2-event-hub&metric=alert_status)](https://sonarcloud.io/dashboard?id=pagopa_pagopa-fdr-2-event-hub)
 
 ---
 
-## Run locally with Docker
-`docker build -t pagopa-functions-template .`
+## Api Documentation 📖
 
-`docker run -p 8999:80 pagopa-functions-template`
+See the [OpenApi 3 here.](https://editor.swagger.io/?url=https://raw.githubusercontent.com/pagopa/pagopa-fdr-2-event-hub/refs/heads/main/openapi/openapi.json)
+
+---
+
+## Technology Stack
+
+- Java 17
+- Azure functions [4.0.0, 5.0.0)
+
+## Run locally with Docker
+`docker build -t pagopa-functions-fdr-2-event-hub .`
+
+`docker run -p 8999:80 pagopa-functions-fdr-2-event-hub`
 
 ### Test
-`curl http://localhost:8999/example`
+`curl http://localhost:8999/info`
 
 ## Run locally with Maven
 
@@ -22,21 +32,6 @@ There is an example of a Http Trigger function.
 `mvn azure-functions:run`
 
 ### Test
-`curl http://localhost:7071/example` 
+`curl http://localhost:7071/info` 
 
 ---
-
-
-## TODO
-Once cloned the repo, you should:
-- to deploy on standard Azure service:
-  - rename `deploy-pipelines-standard.yml` to `deploy-pipelines.yml`
-  - remove `helm` folder
-- to deploy on Kubernetes:
-  - rename `deploy-pipelines-aks.yml` to `deploy-pipelines.yml`
-  - customize `helm` configuration
-- configure the following GitHub action in `.github` folder: 
-  - `deploy.yml`
-  - `sonar_analysis.yml`
-
-Configure the SonarCloud project :point_right: [guide](https://pagopa.atlassian.net/wiki/spaces/DEVOPS/pages/147193860/SonarCloud+experimental).
