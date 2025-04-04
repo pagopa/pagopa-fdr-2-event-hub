@@ -61,6 +61,12 @@ public class CommonUtil {
   @Setter
   private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
 
+  public static boolean getBooleanQueryParam(
+      HttpRequestMessage<Optional<String>> request, String paramName, boolean defaultValue) {
+    return Boolean.parseBoolean(
+        request.getQueryParameters().getOrDefault(paramName, String.valueOf(defaultValue)));
+  }
+
   public static EventHubProducerClient createEventHubClient(
       String connectionString, String eventHubName) {
     return new EventHubClientBuilder()
