@@ -7,7 +7,6 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
-import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
@@ -28,8 +27,6 @@ import lombok.Getter;
 public class HttpBlobRecoveryFunction {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
-  private static final String CONTENT_TYPE = "Content-Type";
-  private static final String APPLICATION_JSON = "application/json";
   private static final String JSON_FILENAME = "fileName";
   private static final String JSON_CONTAINER = "container";
   private final String fdr1Container =
@@ -69,7 +66,7 @@ public class HttpBlobRecoveryFunction {
     // Check if body is present
     Optional<String> requestBody = request.getBody();
     if (requestBody.isEmpty()) {
-      return badRequest(request, "Missing request body");
+      return CommonUtil.badRequest(request, "Missing request body");
     }
 
     // Get named parameter
@@ -86,7 +83,7 @@ public class HttpBlobRecoveryFunction {
           Optional.ofNullable(jsonNode.get(JSON_CONTAINER)).map(JsonNode::asText).orElse(null);
 
       if (fileName == null || container == null) {
-        return badRequest(request, "Missing required fields: fileName, container");
+        return CommonUtil.badRequest(request, "Missing required fields: fileName, container");
       }
 
       context
@@ -103,12 +100,12 @@ public class HttpBlobRecoveryFunction {
           CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, context);
 
       if (Objects.isNull(fileData)) {
-        return notFound(
+        return CommonUtil.notFound(
             request, String.format("File %s not found in container %s", fileName, container));
       }
 
       if (!CommonUtil.validateBlobMetadata(fileData.getMetadata())) {
-        return unprocessableEntity(
+        return CommonUtil.unprocessableEntity(
             request,
             String.format(
                 "The file %s in container %s is missing required metadata", fileName, container));
@@ -159,7 +156,7 @@ public class HttpBlobRecoveryFunction {
         }
 
         if (!eventBatchSent) {
-          return serviceUnavailable(
+          return CommonUtil.serviceUnavailable(
               request,
               String.format(
                   "EventHub failed to confirm batch processing for flow ID %s [file %s, container"
@@ -168,49 +165,16 @@ public class HttpBlobRecoveryFunction {
         }
       }
 
-      return ok(
+      return CommonUtil.ok(
           request,
           String.format(
               "Processed recovery request for file: %s in container: %s", fileName, container));
 
     } catch (IOException e) {
-      return badRequest(request, "Invalid JSON format");
+      return CommonUtil.badRequest(request, "Invalid JSON format");
     } catch (Exception e) {
       context.getLogger().severe("[HTTP FDR] Unexpected error: " + e.getMessage());
-      return serverError(request, "Internal Server Error");
+      return CommonUtil.serverError(request, "Internal Server Error");
     }
-  }
-
-  private HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.OK, message);
-  }
-
-  private HttpResponseMessage badRequest(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.BAD_REQUEST, message);
-  }
-
-  private HttpResponseMessage notFound(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.NOT_FOUND, message);
-  }
-
-  private HttpResponseMessage unprocessableEntity(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.UNPROCESSABLE_ENTITY, message);
-  }
-
-  private HttpResponseMessage serviceUnavailable(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.SERVICE_UNAVAILABLE, message);
-  }
-
-  private HttpResponseMessage serverError(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.INTERNAL_SERVER_ERROR, message);
-  }
-
-  private HttpResponseMessage response(
-      HttpRequestMessage<?> request, HttpStatus status, String message) {
-    return request
-        .createResponseBuilder(status)
-        .header(CONTENT_TYPE, APPLICATION_JSON)
-        .body("{\"message\": \"" + message + "\"}")
-        .build();
   }
 }

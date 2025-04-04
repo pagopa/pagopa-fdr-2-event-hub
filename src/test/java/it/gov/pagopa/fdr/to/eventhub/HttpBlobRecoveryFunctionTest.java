@@ -102,17 +102,19 @@ class HttpBlobRecoveryFunctionTest {
   @Test
   void testFileNotFound() throws Exception {
 
-    statusToReturn.set(HttpStatus.NOT_FOUND);
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.NOT_FOUND);
 
     String requestBody =
-        objectMapper.writeValueAsString(
-            Map.of("fileName", "test.xml", "container", "test-container"));
+        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(null);
+      mockedUtil
+          .when(() -> CommonUtil.notFound(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.NOT_FOUND, response.getStatus());
@@ -122,11 +124,10 @@ class HttpBlobRecoveryFunctionTest {
   @Test
   void testMissingMetadata() throws Exception {
 
-    statusToReturn.set(HttpStatus.UNPROCESSABLE_ENTITY);
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.UNPROCESSABLE_ENTITY);
 
     String requestBody =
-        objectMapper.writeValueAsString(
-            Map.of("fileName", "test.xml", "container", "test-container"));
+        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
     BlobFileData mockBlobFileData =
@@ -137,6 +138,9 @@ class HttpBlobRecoveryFunctionTest {
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(false);
+      mockedUtil
+          .when(() -> CommonUtil.unprocessableEntity(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatus());
@@ -146,11 +150,10 @@ class HttpBlobRecoveryFunctionTest {
   @Test
   void testSuccessfulProcessing() throws Exception {
 
-    statusToReturn.set(HttpStatus.OK);
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
 
     String requestBody =
-        objectMapper.writeValueAsString(
-            Map.of("fileName", "test.xml", "container", "test-container"));
+        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
     Map<String, String> metadata = new HashMap<>();
@@ -175,6 +178,9 @@ class HttpBlobRecoveryFunctionTest {
                   CommonUtil.processXmlBlobAndSendToEventHub(
                       any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(true);
+      mockedUtil
+          .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.OK, response.getStatus());
@@ -184,11 +190,10 @@ class HttpBlobRecoveryFunctionTest {
   @Test
   void testEventHubProcessingFailure() throws Exception {
 
-    statusToReturn.set(HttpStatus.SERVICE_UNAVAILABLE);
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.SERVICE_UNAVAILABLE);
 
     String requestBody =
-        objectMapper.writeValueAsString(
-            Map.of("fileName", "test.xml", "container", "test-container"));
+        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
     Map<String, String> metadata = new HashMap<>();
@@ -213,6 +218,9 @@ class HttpBlobRecoveryFunctionTest {
                   CommonUtil.processXmlBlobAndSendToEventHub(
                       any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(false);
+      mockedUtil
+          .when(() -> CommonUtil.serviceUnavailable(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
       assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatus());
