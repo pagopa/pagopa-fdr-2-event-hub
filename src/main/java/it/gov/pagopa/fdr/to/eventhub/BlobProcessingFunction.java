@@ -8,6 +8,7 @@ import com.microsoft.azure.functions.annotation.FunctionName;
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import java.io.ByteArrayInputStream;
@@ -85,7 +86,8 @@ public class BlobProcessingFunction {
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
 
-      FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+      FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
+      flusso.setMetadata(blobMetadata);
 
       logger.debug(
           "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
@@ -93,8 +95,6 @@ public class BlobProcessingFunction {
           fdr1Container,
           blobName,
           content.length);
-
-      flusso.setMetadata(blobMetadata);
 
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =

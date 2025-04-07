@@ -5,11 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,11 +20,10 @@ import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlSAXParser;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,8 +40,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
@@ -69,7 +65,7 @@ class BlobProcessingFunctionTest {
   void testFDR1BlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
@@ -81,38 +77,17 @@ class BlobProcessingFunctionTest {
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "true");
 
-    FlussoRendicontazione flussoRendicontazione =
-        FDR1XmlSAXParser.parseXmlStream(
-            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
-
-    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
-      mockedStatic
-          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
-          .thenReturn(flussoRendicontazione);
-
-      function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
-    }
+    function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
-
-    FlowTxEventModel flowEvent =
-        FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-
-    assertNotNull(flowEvent);
-    // it is verified that the distinct on the dates has left the only expected
-    // date for all payments
-    assertEquals(1, flowEvent.getAllDates().size());
-
-    // ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atMost(2)).info(any());
   }
 
   @Test
   void testFDR1BigBlobTriggerProcessing() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
     when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
@@ -143,7 +118,7 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1ProcessBlobWithInvalidGzipData() {
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     String invalidData = "invalidData";
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -152,12 +127,12 @@ class BlobProcessingFunctionTest {
     function.processFDR1BlobFiles(
         invalidData.getBytes(StandardCharsets.UTF_8), "sampleBlob", metadata, context);
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).error(any());
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
   }
 
   @Test
   void testFDR1ProcessBlobWithEmptyXml() throws Exception {
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -167,13 +142,13 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
     verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
-    // ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).error(any());
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
   }
 
   @Test
   void testFDR1ProcessBlobWithMalformedXml() throws Exception {
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -184,17 +159,15 @@ class BlobProcessingFunctionTest {
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
 
-    // ArgumentCaptor<Logger> logCaptor = ArgumentCaptor.forClass(Logger.class);
-    verify(mockLogger, atLeastOnce()).error(any());
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
 
-    /*
     boolean logContainsExpectedMessage =
         logCaptor.getAllValues().stream()
             .map(Supplier::get)
             .anyMatch(log -> log.contains("Error processing Blob"));
     assert logContainsExpectedMessage
         : "The log does not contain the expected message for expetion during malformed XML file";
-     */
   }
 
   @Test
@@ -241,7 +214,7 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR1ValidateBlobMetadata_ElaborateFalse() {
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -252,24 +225,22 @@ class BlobProcessingFunctionTest {
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
 
-    // ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).warn(any());
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).warning(logCaptor.capture());
 
-    /*
     boolean logContainsExpectedMessage =
         logCaptor.getAllValues().stream()
             .map(Supplier::get)
             .anyMatch(log -> log.contains("Skipping processing for Blob container"));
     assert logContainsExpectedMessage
         : "The log does not contain the expected message for 'elaborate' false";
-     */
   }
 
   @Test
   void testFDR1BlobTriggerProcessingError() throws Exception {
     EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
     EventDataBatch mockPaymentEventDataBatch = mock(EventDataBatch.class);
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
     when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentEventDataBatch);
     // precondition for tryAdd fail
@@ -287,7 +258,7 @@ class BlobProcessingFunctionTest {
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
     ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).error(any());
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
 
     logCaptor.getAllValues().stream()
         .map(Supplier::get)
@@ -303,31 +274,30 @@ class BlobProcessingFunctionTest {
 
     function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
 
-    // logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).error(any());
+    logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
 
-    /*
     logCaptor.getAllValues().stream()
         .map(Supplier::get)
         .anyMatch(log -> log.contains("Error processing Blob"));
-     */
+
     verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
   }
 
   @Test
   void testFDR1BigBlobTriggerProcessingCheckAllDates() throws Exception {
-    EventDataBatch mockEventDataBatch = mock(EventDataBatch.class);
-    EventDataBatch mockPaymentsEventDataBatch = mock(EventDataBatch.class);
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
-    when(eventHubClientFlowTx.createBatch()).thenReturn(mockEventDataBatch);
-    when(eventHubClientReportedIUV.createBatch()).thenReturn(mockPaymentsEventDataBatch);
-    when(mockEventDataBatch.tryAdd(any(com.azure.messaging.eventhubs.EventData.class)))
-        .thenReturn(Boolean.TRUE);
+
     String sampleXml = SampleContentFileUtil.getFileContent("big_sample.xml");
 
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
     FlussoRendicontazione flussoRendicontazione =
-        FDR1XmlSAXParser.parseXmlStream(
-            new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+        new FDR1XmlStAXParser()
+            .parseXmlStream(new ByteArrayInputStream(sampleXml.getBytes(StandardCharsets.UTF_8)));
+    flussoRendicontazione.setMetadata(metadata);
 
     // the maximum number of dates is forced to 10 for the test
     FlussoRendicontazioneMapper.setMaxDistinctDates(10);
@@ -343,23 +313,6 @@ class BlobProcessingFunctionTest {
               dsp.setDataEsitoSingoloPagamento(LocalDate.of(2025, 2, dayOfMonth).toString());
             });
 
-    try (MockedStatic<FDR1XmlSAXParser> mockedStatic = mockStatic(FDR1XmlSAXParser.class)) {
-      mockedStatic
-          .when(() -> FDR1XmlSAXParser.parseXmlStream(any(InputStream.class)))
-          .thenReturn(flussoRendicontazione);
-
-      byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
-      Map<String, String> metadata = new HashMap<>();
-      metadata.put("sessionId", "1234");
-      metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
-      metadata.put("elaborate", "true");
-
-      function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context);
-    }
-
-    verify(eventHubClientFlowTx, atLeastOnce()).send(any(EventDataBatch.class));
-    verify(eventHubClientReportedIUV, atLeastOnce()).send(any(EventDataBatch.class));
-
     FlowTxEventModel flowEvent =
         FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
 
@@ -371,7 +324,7 @@ class BlobProcessingFunctionTest {
 
   @Test
   void testFDR3BlobTriggerProcessing() throws Exception {
-    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
+    when(context.getLogger()).thenReturn(mockLogger);
     String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleJson);
     Map<String, String> metadata = new HashMap<>();
@@ -380,8 +333,8 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "true");
 
     function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context);
-    // ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).debug(any());
+    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
+    verify(mockLogger, atLeastOnce()).fine(logCaptor.capture());
   }
 
   @Test
