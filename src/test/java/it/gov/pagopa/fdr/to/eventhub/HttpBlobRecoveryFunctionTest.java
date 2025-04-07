@@ -17,8 +17,6 @@ import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.util.HashMap;
@@ -157,14 +155,12 @@ class HttpBlobRecoveryFunctionTest {
         new BlobFileData(
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
-    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> new FDR1XmlStAXParser().parseXmlStream(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->
@@ -193,14 +189,12 @@ class HttpBlobRecoveryFunctionTest {
         new BlobFileData(
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata);
-    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> new FDR1XmlStAXParser().parseXmlStream(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->

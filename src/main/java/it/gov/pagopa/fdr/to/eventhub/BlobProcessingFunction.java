@@ -91,6 +91,7 @@ public class BlobProcessingFunction {
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
 
       FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
+      flusso.setMetadata(blobMetadata);
 
       context
           .getLogger()
@@ -104,8 +105,6 @@ public class BlobProcessingFunction {
                       fdr1Container,
                       blobName,
                       content.length));
-
-      flusso.setMetadata(blobMetadata);
 
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
