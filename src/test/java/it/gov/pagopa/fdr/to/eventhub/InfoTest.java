@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
@@ -17,20 +18,21 @@ import it.gov.pagopa.fdr.to.eventhub.model.AppInfo;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.InputStream;
 import java.util.Optional;
-import java.util.logging.Logger;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @ExtendWith(MockitoExtension.class)
 class InfoTest {
 
   @Mock ExecutionContext context;
-
   Info infoFunction;
+  @Mock private Logger mockLogger;
 
   @BeforeEach
   public void setup() {
@@ -61,7 +63,8 @@ class InfoTest {
   @SneakyThrows
   @Test
   void getInfoOk() {
-    Logger logger = Logger.getLogger("example-test-logger");
+
+    lenient().when(LoggerFactory.getLogger(Info.class)).thenReturn(mockLogger);
 
     InputStream mockInputStream = SampleContentFileUtil.getSamplePomProperties();
 
@@ -74,7 +77,7 @@ class InfoTest {
     // Execute function
     AppInfo response =
         infoSpy.getInfo(
-            logger,
+            mockLogger,
             "META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/pom.properties");
 
     // Checking assertions
@@ -88,11 +91,11 @@ class InfoTest {
   void getInfoKo() {
 
     // Mocking service creation
-    Logger logger = Logger.getLogger("example-test-logger");
+    lenient().when(LoggerFactory.getLogger(Info.class)).thenReturn(mockLogger);
     String path = "/META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/fake";
 
     // Execute function
-    AppInfo response = infoFunction.getInfo(logger, path);
+    AppInfo response = infoFunction.getInfo(mockLogger, path);
 
     // Checking assertions
     assertNull(response.getName());

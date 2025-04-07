@@ -17,8 +17,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlobProcessingFunction {
+
+  private static final Logger logger = LoggerFactory.getLogger(BlobProcessingFunction.class);
 
   private final String fdr1Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
@@ -61,31 +65,23 @@ public class BlobProcessingFunction {
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
-      context
-          .getLogger()
-          .warning(
-              () ->
-                  String.format(
-                      "[FDR1] Skipping processing for Blob container: %s, name: %s, size in bytes:"
-                          + " %d",
-                      fdr1Container, blobName, content.length));
+      logger.warn(
+          "[FDR1] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
+          fdr1Container,
+          blobName,
+          content.length);
       return; // Skip execution
     }
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = CommonUtil.isGzip(content);
 
-    context
-        .getLogger()
-        .fine(
-            () ->
-                String.format(
-                    "[FDR1] Triggered at: %s for Blob container: %s, name: %s, size in bytes: %d",
-                    LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                    fdr1Container,
-                    blobName,
-                    content.length));
+    logger.debug(
+        "[FDR1] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
+        LocalDateTime.now(),
+        fdr1Container,
+        blobName,
+        content.length);
 
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
@@ -93,23 +89,17 @@ public class BlobProcessingFunction {
       FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
       flusso.setMetadata(blobMetadata);
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "[FDR1] Parsed Finished at: %s for Blob container: %s, name: %s, size in"
-                          + " bytes: %d",
-                      LocalDateTime.now()
-                          .format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                      fdr1Container,
-                      blobName,
-                      content.length));
+      logger.debug(
+          "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now(),
+          fdr1Container,
+          blobName,
+          content.length);
 
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
           CommonUtil.processXmlBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, context, true, true);
+              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, true, true);
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(
@@ -117,27 +107,20 @@ public class BlobProcessingFunction {
                 flusso.getIdentificativoFlusso()));
       }
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "[FDR1] Execution Finished at: %s for Blob container: %s, name: %s, size in"
-                          + " bytes: %d",
-                      LocalDateTime.now()
-                          .format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                      fdr1Container,
-                      blobName,
-                      content.length));
+      logger.debug(
+          "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now(),
+          fdr1Container,
+          blobName,
+          content.length);
 
     } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "[%s][FDR1] Error processing Blob '%s/%s': %s",
-                      ErrorCodes.FDR1_E1, fdr1Container, blobName, e.getMessage()));
+      logger.error(
+          "[{}][FDR1] Error processing Blob '{}/{}': {}",
+          ErrorCodes.FDR1_E1,
+          fdr1Container,
+          blobName,
+          e.getMessage());
     }
   }
 
@@ -204,7 +187,7 @@ public class BlobProcessingFunction {
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
           CommonUtil.processJsonBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flow, context, true, true);
+              eventHubClientFlowTx, eventHubClientReportedIUV, flow, true, true);
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(

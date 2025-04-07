@@ -35,12 +35,14 @@ import java.util.Map;
 import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @UtilityClass
 public class CommonUtil {
 
   public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
-
+  private static final Logger logger = LoggerFactory.getLogger(CommonUtil.class);
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
 
   @Setter
@@ -94,7 +96,7 @@ public class CommonUtil {
       BlobClient blobClient = containerClient.getBlobClient(blobName);
 
       if (Boolean.FALSE.equals(blobClient.exists())) {
-        context.getLogger().severe(() -> "Blob not found: " + blobName);
+        logger.error("Blob not found: {}", blobName);
         return null;
       }
 
@@ -105,7 +107,7 @@ public class CommonUtil {
       return new BlobFileData(outputStream.toByteArray(), metadata);
 
     } catch (Exception e) {
-      context.getLogger().severe("Error accessing blob: " + e.getMessage());
+      logger.error("Error accessing blob: {}", e.getMessage());
       return null;
     }
   }
@@ -114,7 +116,6 @@ public class CommonUtil {
       final EventHubProducerClient eventHubClientFlowTx,
       final EventHubProducerClient eventHubClientReportedIUV,
       FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents) {
 
@@ -132,7 +133,6 @@ public class CommonUtil {
           reportedIUVEventList,
           flussoRendicontazione.getIdentificativoFlusso(),
           flussoRendicontazione.getMetadata(),
-          context,
           sendFlowEvent,
           sendPaymentEvents);
 
@@ -145,8 +145,7 @@ public class CommonUtil {
               ErrorCodes.COMMON_E2,
               flussoRendicontazione.getIdentificativoFlusso(),
               e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
-
+      logger.error(errorMessage);
       return false;
     }
   }
@@ -155,7 +154,6 @@ public class CommonUtil {
       EventHubProducerClient eventHubClientFlowTx,
       EventHubProducerClient eventHubClientReportedIUV,
       Flow flow,
-      ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents) {
 
@@ -171,7 +169,6 @@ public class CommonUtil {
           reportedIUVEventList,
           flow.getFdr(),
           flow.getMetadata(),
-          context,
           sendFlowEvent,
           sendPaymentEvents);
 
@@ -182,8 +179,7 @@ public class CommonUtil {
           String.format(
               "[%s] Error processing or sending data to event hub: %s. Details: %s",
               ErrorCodes.COMMON_E2, flow.getFdr(), e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
-
+      logger.error(errorMessage);
       return false;
     }
   }
@@ -195,7 +191,6 @@ public class CommonUtil {
       List<ReportedIUVEventModel> reportedIUVEventList,
       String flowName,
       Map<String, String> metadata,
-      ExecutionContext context,
       boolean sendFlowEvent,
       boolean sendPaymentEvents)
       throws JsonProcessingException {
@@ -220,22 +215,18 @@ public class CommonUtil {
     boolean flowEventSent = true;
     if (sendFlowEvent) {
       flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, context);
+          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier);
     } else {
-      context.getLogger().info(() -> "Skipping sending flow event to EventHub");
+      logger.info("Skipping sending flow event to EventHub");
     }
 
     boolean allEventChunksSent = true;
     if (sendPaymentEvents) {
       allEventChunksSent =
           sendEventBatchToHub(
-              reportedIUVEventJsonChunks,
-              eventHubClientReportedIUV,
-              flowName,
-              serviceIdentifier,
-              context);
+              reportedIUVEventJsonChunks, eventHubClientReportedIUV, flowName, serviceIdentifier);
     } else {
-      context.getLogger().info(() -> "Skipping sending payments events to EventHub");
+      logger.info("Skipping sending payments events to EventHub");
     }
 
     return flowEventSent && allEventChunksSent;
@@ -246,17 +237,14 @@ public class CommonUtil {
       String jsonPayload,
       EventHubProducerClient eventHubClient,
       String flowName,
-      String serviceIdentifier,
-      ExecutionContext context) {
+      String serviceIdentifier) {
 
     EventData eventData = new EventData(jsonPayload);
     eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
 
     EventDataBatch eventBatch = eventHubClient.createBatch();
     if (!eventBatch.tryAdd(eventData)) {
-      context
-          .getLogger()
-          .warning(() -> String.format("Failed to add event to batch for flow ID: %s", flowName));
+      logger.warn("Failed to add event to batch for flow ID: {}", flowName);
       return false;
     }
 
@@ -264,13 +252,11 @@ public class CommonUtil {
       eventHubClient.send(eventBatch);
       return true;
     } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
+      logger.error(
+          "[{}] Failed to add event to batch for flow ID: {}. Details: {}",
+          ErrorCodes.COMMON_E1,
+          flowName,
+          e.getMessage());
       return false;
     }
   }
@@ -280,20 +266,14 @@ public class CommonUtil {
       List<String> jsonPayloads,
       EventHubProducerClient eventHubClient,
       String flowName,
-      String serviceIdentifier,
-      ExecutionContext context) {
+      String serviceIdentifier) {
 
     try {
 
       // Creating an empty event batch
       EventDataBatch evhEventBatch = eventHubClient.createBatch();
       int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "Defining batches with maximum dimension of [%s] bytes.", batchMaxSize));
+      logger.debug("Defining batches with maximum dimension of [{}] bytes.", batchMaxSize);
 
       for (String jsonPayload : jsonPayloads) {
 
@@ -323,13 +303,11 @@ public class CommonUtil {
       return true;
 
     } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
+      logger.error(
+          "[{}] Failed to add event to batch for flow ID: {}. Details: {}",
+          ErrorCodes.COMMON_E1,
+          flowName,
+          e.getMessage());
       return false;
     }
   }

@@ -98,6 +98,7 @@ microservice-chart: &microservice-chart
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
+    LOG_LEVEL: "INFO"
     # WARNING: in order to avoid the re-schedulation of blob conversion, we are using an existing queue with a casual name on PROD
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhub56ccffd76f42jg"
   envFieldRef: &envFieldRef

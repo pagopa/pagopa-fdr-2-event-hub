@@ -18,20 +18,22 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobProperties;
 import com.microsoft.azure.functions.ExecutionContext;
+import it.gov.pagopa.fdr.to.eventhub.BlobProcessingFunction;
+import it.gov.pagopa.fdr.to.eventhub.HttpBlobRecoveryFunction;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
-import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @ExtendWith(MockitoExtension.class)
 class CommonUtilTest {
@@ -52,7 +54,8 @@ class CommonUtilTest {
   @BeforeEach
   void setUp() {
 
-    lenient().when(mockContext.getLogger()).thenReturn(mockLogger);
+    lenient().when(LoggerFactory.getLogger(HttpBlobRecoveryFunction.class)).thenReturn(mockLogger);
+    lenient().when(LoggerFactory.getLogger(BlobProcessingFunction.class)).thenReturn(mockLogger);
     CommonUtil.setBlobServiceClientWrapper(mockBlobServiceClientWrapper);
     when(mockBlobServiceClientWrapper.getBlobContainerClient(anyString(), anyString()))
         .thenReturn(mockBlobContainerClient);
@@ -67,12 +70,12 @@ class CommonUtilTest {
         CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockContext);
 
     assertNull(result);
-    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
+    ArgumentCaptor<Logger> logCaptor = ArgumentCaptor.forClass(Logger.class);
+    verify(mockLogger, atLeastOnce()).error(logCaptor.capture().toString());
 
-    logCaptor.getAllValues().stream()
-        .map(Supplier::get)
-        .anyMatch(log -> log.contains("Blob not found"));
+    /*logCaptor.getAllValues().stream()
+    .map(Logger::get)
+    .anyMatch(log -> log.contains("Blob not found"));*/
   }
 
   @Test
@@ -112,6 +115,6 @@ class CommonUtilTest {
         CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockContext);
 
     assertNull(result);
-    verify(mockLogger).severe("Error accessing blob: Storage error");
+    verify(mockLogger).error("Error accessing blob: Storage error");
   }
 }
