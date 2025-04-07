@@ -14,6 +14,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -128,7 +129,7 @@ public class HttpBlobRecoveryFunction {
           context
               .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
-          FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+          FlussoRendicontazione flusso = new FDR1XmlStAXParser().parseXmlStream(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
           eventBatchSent =
