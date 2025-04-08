@@ -8,12 +8,19 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.models.ListBlobsOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.HttpStatus;
+
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlowMapper;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
@@ -29,10 +36,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.zip.GZIPInputStream;
+
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 
@@ -40,11 +54,22 @@ import lombok.experimental.UtilityClass;
 public class CommonUtil {
 
   public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
-
   private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
+  private static final String CONTENT_TYPE = "Content-Type";
+  private static final String APPLICATION_JSON = "application/json";
 
   @Setter
   private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
+
+  public static boolean getBooleanQueryParam(
+      HttpRequestMessage<Optional<String>> request, String paramName, boolean defaultValue) {
+    return Boolean.parseBoolean(
+        request.getQueryParameters().getOrDefault(paramName, String.valueOf(defaultValue)));
+  }
+
+  public static String getJsonField(JsonNode node, String fieldName) {
+    return Optional.ofNullable(node.get(fieldName)).map(JsonNode::asText).orElse(null);
+  }
 
   public static EventHubProducerClient createEventHubClient(
       String connectionString, String eventHubName) {
@@ -59,14 +84,12 @@ public class CommonUtil {
   }
 
   public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {
-    if (blobMetadata == null
-        || blobMetadata.isEmpty()
-        || !blobMetadata.containsKey("sessionId")
-        || !blobMetadata.containsKey("insertedTimestamp")) {
-      throw new IllegalArgumentException(
-          "Invalid blob metadata: sessionId or insertedTimestamp is missing.");
-    }
-    return !("false".equalsIgnoreCase(blobMetadata.get("elaborate")));
+    return blobMetadata != null
+        && !blobMetadata.isEmpty()
+        && blobMetadata.containsKey("sessionId")
+        && blobMetadata.containsKey("insertedTimestamp")
+        && (blobMetadata.get("elaborate") == null
+            || !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
   public static boolean isGzip(byte[] content) {
@@ -102,11 +125,73 @@ public class CommonUtil {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       blobClient.downloadStream(outputStream);
 
-      return new BlobFileData(outputStream.toByteArray(), metadata);
+      return BlobFileData.builder()
+          .fileName(blobName)
+          .fileContent(outputStream.toByteArray())
+          .metadata(metadata)
+          .build();
 
     } catch (Exception e) {
       context.getLogger().severe("Error accessing blob: " + e.getMessage());
       return null;
+    }
+  }
+
+  public static List<BlobFileData> getBlobFilesInDateRange(
+      String storageEnvVar,
+      String containerName,
+      String prefixFormat, // Prefix format e.g.: "yyyy-MM-dd"
+      LocalDate from,
+      LocalDate to,
+      ExecutionContext context) {
+    try {
+      BlobContainerClient containerClient =
+          blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
+
+      List<BlobFileData> blobFiles = new ArrayList<>();
+
+      // Iterates over the dates in the range and searches for blobs for each generated prefix
+      LocalDate currentDate = from;
+      while (currentDate.isBefore(to) || currentDate.isEqual(to)) {
+        String datePrefix = currentDate.format(DateTimeFormatter.ofPattern(prefixFormat));
+        ListBlobsOptions options = new ListBlobsOptions().setPrefix(datePrefix);
+
+        for (BlobItem blobItem : containerClient.listBlobs(options, null)) {
+          BlobClient blobClient = containerClient.getBlobClient(blobItem.getName());
+
+          try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            blobClient.downloadStream(outputStream);
+            Map<String, String> metadata =
+                Optional.ofNullable(blobClient.getProperties().getMetadata())
+                    .orElse(new HashMap<>());
+
+            List<String> unprocessableFileDetail = new ArrayList<>();
+            if (!validateBlobMetadata(metadata)) {
+              unprocessableFileDetail.add(
+                  String.format(
+                      "Skipped file %s in container %s due to missing required metadata or because"
+                          + " it is in an unprocessable state",
+                      blobItem.getName(), containerName));
+            }
+
+            BlobFileData blobFileData =
+                BlobFileData.builder()
+                    .fileName(blobItem.getName())
+                    .fileContent(outputStream.toByteArray())
+                    .metadata(metadata)
+                    .unprocessableFileDetail(unprocessableFileDetail)
+                    .build();
+            blobFiles.add(blobFileData);
+          }
+        }
+
+        // Skip to next date in range
+        currentDate = currentDate.plusDays(1);
+      }
+      return blobFiles;
+    } catch (Exception e) {
+      context.getLogger().severe("Error accessing blob: " + e.getMessage());
+      return Collections.emptyList();
     }
   }
 
@@ -186,6 +271,47 @@ public class CommonUtil {
 
       return false;
     }
+  }
+
+  public static HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.OK, message);
+  }
+
+  public static HttpResponseMessage multiStatus(HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.MULTI_STATUS, message);
+  }
+
+  public static HttpResponseMessage badRequest(HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.BAD_REQUEST, message);
+  }
+
+  public static HttpResponseMessage notFound(HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.NOT_FOUND, message);
+  }
+
+  public static HttpResponseMessage unprocessableEntity(
+      HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.UNPROCESSABLE_ENTITY, message);
+  }
+
+  public static HttpResponseMessage serviceUnavailable(
+      HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.SERVICE_UNAVAILABLE, message);
+  }
+
+  public static HttpResponseMessage serverError(HttpRequestMessage<?> request, String message) {
+    return response(request, HttpStatus.INTERNAL_SERVER_ERROR, message);
+  }
+
+  private HttpResponseMessage response(
+      HttpRequestMessage<?> request, HttpStatus status, String message) {
+    String formattedMessage =
+        message.endsWith("\"") || message.endsWith("]") ? message : message + "\"";
+    return request
+        .createResponseBuilder(status)
+        .header(CONTENT_TYPE, APPLICATION_JSON)
+        .body("{\"message\": \"" + formattedMessage + "}")
+        .build();
   }
 
   private static boolean prepareAndSendEventsToEventHub(

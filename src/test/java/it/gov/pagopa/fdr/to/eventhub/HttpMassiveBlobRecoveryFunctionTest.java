@@ -1,7 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -26,6 +25,7 @@ import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,33 +36,33 @@ import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
-import uk.org.webcompere.systemstubs.jupiter.SystemStub;
-import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
-@ExtendWith({MockitoExtension.class, SystemStubsExtension.class})
-class HttpBlobRecoveryFunctionTest {
+@ExtendWith(MockitoExtension.class)
+class HttpMassiveBlobRecoveryFunctionTest {
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private final AtomicReference<HttpStatus> statusToReturn = new AtomicReference<>();
-  @SystemStub private final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-  @Mock private EventHubProducerClient mockEventHubClientFlowTx;
-  @Mock private EventHubProducerClient mockEventHubClientReportedIUV;
-  @Mock private ExecutionContext mockContext;
-  @Mock private HttpRequestMessage<Optional<String>> mockRequest;
-  @Mock private FDR1XmlStAXParser mockFDR1XmlParser;
-  private HttpBlobRecoveryFunction function;
+
+  private HttpMassiveBlobRecoveryFunction function;
   private HttpResponseMessage.Builder mockResponseBuilder;
   private HttpResponseMessage mockResponse;
+
+  @Mock private EventHubProducerClient mockEventHubClientFlowTx;
+  @Mock private EventHubProducerClient mockEventHubClientReportedIUV;
+  @Mock private FDR1XmlStAXParser mockFDR1XmlParser;
+  @Mock private ExecutionContext mockContext;
+  @Mock private HttpRequestMessage<Optional<String>> mockRequest;
 
   @BeforeEach
   void setUp() {
     function =
-        new HttpBlobRecoveryFunction(mockEventHubClientFlowTx, mockEventHubClientReportedIUV,mockFDR1XmlParser);
+        new HttpMassiveBlobRecoveryFunction(
+            mockEventHubClientFlowTx, mockEventHubClientReportedIUV,mockFDR1XmlParser);
     Logger logger = mock(Logger.class);
     lenient().when(mockContext.getLogger()).thenReturn(logger);
 
@@ -86,52 +86,23 @@ class HttpBlobRecoveryFunctionTest {
         .thenReturn(mockResponseBuilder);
   }
 
-  @Test
-  void testMissingRequestBody() {
-
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "", // Empty body
+        "invalid json", // Invalid JSON format
+        "{\"fileName\": \"test.xml\"}", // Missing 'container' field
+        "{\"fileName\": \"test.xml\", \"container\": \"fdr1-flows\", \"dateFrom\": \"2025-02-20\","
+            + " \"dateTo\": \"2025-02-20\"}" // Mutually exclusive filename and data fields
+      })
+  void testInvalidRequests(String requestBody) {
     statusToReturn.set(HttpStatus.BAD_REQUEST);
+    when(mockRequest.getBody())
+        .thenReturn(Optional.ofNullable(requestBody.isEmpty() ? null : requestBody));
 
-    when(mockRequest.getBody()).thenReturn(Optional.empty());
     HttpResponseMessage response = function.run(mockRequest, mockContext);
+
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatus());
-  }
-
-  @Test
-  void testInvalidJsonFormat() {
-
-    statusToReturn.set(HttpStatus.BAD_REQUEST);
-
-    when(mockRequest.getBody()).thenReturn(Optional.of("invalid-json"));
-    HttpResponseMessage response = function.run(mockRequest, mockContext);
-    assertEquals(HttpStatus.BAD_REQUEST, response.getStatus());
-  }
-
-  @Test
-  void testFileNotFound() throws Exception {
-
-    when(mockResponse.getStatus()).thenReturn(HttpStatus.NOT_FOUND);
-
-    String requestBody =
-        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
-    when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
-
-    try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
-      mockedUtil
-          .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
-          .thenReturn(null);
-      mockedUtil
-          .when(() -> CommonUtil.notFound(any(HttpRequestMessage.class), anyString()))
-          .thenReturn(mockResponse);
-      mockedUtil
-          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
-          .thenReturn("test.xml");
-      mockedUtil
-          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
-          .thenReturn("fdr1-flows");
-
-      HttpResponseMessage response = function.run(mockRequest, mockContext);
-      assertEquals(HttpStatus.NOT_FOUND, response.getStatus());
-    }
   }
 
   @Test
@@ -143,14 +114,20 @@ class HttpBlobRecoveryFunctionTest {
         objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
+    // empty metadata
+    Map<String, String> metadata = new HashMap<>();
     BlobFileData mockBlobFileData =
-        new BlobFileData("", new byte[] {}, new HashMap<>(), new ArrayList<>());
+        new BlobFileData(
+            "fileName",
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
+            metadata,
+            new ArrayList<>());
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
-      mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(false);
+
       mockedUtil
           .when(() -> CommonUtil.unprocessableEntity(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
@@ -162,12 +139,13 @@ class HttpBlobRecoveryFunctionTest {
           .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
+
       assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatus());
     }
   }
 
   @Test
-  void testFDR1SuccessfulProcessing() throws Exception {
+  void testFDR1FilenameRequestOK() throws Exception {
 
     when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
 
@@ -208,12 +186,72 @@ class HttpBlobRecoveryFunctionTest {
           .thenReturn("fdr1-flows");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
+
       assertEquals(HttpStatus.OK, response.getStatus());
     }
   }
 
   @Test
-  void testFDR3SuccessfulProcessing() throws Exception {
+  void testFDR1DateRangeRequestOK() throws Exception {
+
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
+
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of("dateFrom", "2025-04-02", "dateTo", "2025-04-05", "container", "fdr1-flows"));
+    when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key", "value");
+    BlobFileData mockBlobFileData =
+        new BlobFileData(
+            "fileName",
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
+            metadata,
+            new ArrayList<>());
+    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+
+    try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
+      mockedUtil
+          .when(
+              () ->
+                  CommonUtil.getBlobFilesInDateRange(
+                      anyString(),
+                      anyString(),
+                      anyString(),
+                      any(LocalDate.class),
+                      any(LocalDate.class),
+                      any(ExecutionContext.class)))
+          .thenReturn(Arrays.asList(mockBlobFileData));
+      mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
+      mockedUtil
+          .when(
+              () ->
+                  CommonUtil.processXmlBlobAndSendToEventHub(
+                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+          .thenReturn(true);
+      mockedUtil
+          .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr1-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
+
+      HttpResponseMessage response = function.run(mockRequest, mockContext);
+
+      assertEquals(HttpStatus.OK, response.getStatus());
+    }
+  }
+
+  @Test
+  void testFDR3FilenameRequestOK() throws Exception {
 
     when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
 
@@ -246,24 +284,26 @@ class HttpBlobRecoveryFunctionTest {
           .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
       mockedUtil
-          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
-          .thenReturn("test.xml");
-      mockedUtil
           .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
           .thenReturn("fdr3-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
+          .thenReturn("test.json");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
+
       assertEquals(HttpStatus.OK, response.getStatus());
     }
   }
 
   @Test
-  void testEventHubProcessingFailure() throws Exception {
+  void testFDR3DateRangeRequestOK() throws Exception {
 
-    when(mockResponse.getStatus()).thenReturn(HttpStatus.SERVICE_UNAVAILABLE);
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.OK);
 
     String requestBody =
-        objectMapper.writeValueAsString(Map.of("fileName", "test.xml", "container", "fdr1-flows"));
+        objectMapper.writeValueAsString(
+            Map.of("dateFrom", "2025-04-02", "dateTo", "2025-04-05", "container", "fdr3-flows"));
     when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
 
     Map<String, String> metadata = new HashMap<>();
@@ -273,14 +313,80 @@ class HttpBlobRecoveryFunctionTest {
             "fileName",
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata,
-            Arrays.asList("evh error"));
+            new ArrayList<>());
+
+    try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
+      mockedUtil
+          .when(
+              () ->
+                  CommonUtil.getBlobFilesInDateRange(
+                      anyString(),
+                      anyString(),
+                      anyString(),
+                      any(LocalDate.class),
+                      any(LocalDate.class),
+                      any(ExecutionContext.class)))
+          .thenReturn(Arrays.asList(mockBlobFileData));
+      mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
+      mockedUtil.when(() -> CommonUtil.parseJSON(any())).thenReturn(mock(Flow.class));
+      mockedUtil
+          .when(
+              () ->
+                  CommonUtil.processJsonBlobAndSendToEventHub(
+                      any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+          .thenReturn(true);
+      mockedUtil
+          .when(() -> CommonUtil.ok(any(HttpRequestMessage.class), anyString()))
+          .thenReturn(mockResponse);
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
+          .thenReturn("fdr3-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
+
+      HttpResponseMessage response = function.run(mockRequest, mockContext);
+
+      assertEquals(HttpStatus.OK, response.getStatus());
+    }
+  }
+
+  @Test
+  void testEventHubProcessingFailure() throws Exception {
+
+    when(mockResponse.getStatus()).thenReturn(HttpStatus.MULTI_STATUS);
+
+    String requestBody =
+        objectMapper.writeValueAsString(
+            Map.of("dateFrom", "2025-04-02", "dateTo", "2025-04-05", "container", "fdr1-flows"));
+    when(mockRequest.getBody()).thenReturn(Optional.of(requestBody));
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key", "value");
+    BlobFileData mockBlobFileData =
+        new BlobFileData(
+            "fileName",
+            SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
+            metadata,
+            new ArrayList<>());
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
     when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
-          .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
-          .thenReturn(mockBlobFileData);
+          .when(
+              () ->
+                  CommonUtil.getBlobFilesInDateRange(
+                      anyString(),
+                      anyString(),
+                      anyString(),
+                      any(LocalDate.class),
+                      any(LocalDate.class),
+                      any(ExecutionContext.class)))
+          .thenReturn(Arrays.asList(mockBlobFileData));
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil
           .when(
@@ -289,52 +395,21 @@ class HttpBlobRecoveryFunctionTest {
                       any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(false);
       mockedUtil
-          .when(() -> CommonUtil.serviceUnavailable(any(HttpRequestMessage.class), anyString()))
+          .when(() -> CommonUtil.multiStatus(any(HttpRequestMessage.class), anyString()))
           .thenReturn(mockResponse);
-      mockedUtil
-          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("fileName")))
-          .thenReturn("test.xml");
       mockedUtil
           .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("container")))
           .thenReturn("fdr1-flows");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateFrom")))
+          .thenReturn("2025-04-02");
+      mockedUtil
+          .when(() -> CommonUtil.getJsonField(any(JsonNode.class), eq("dateTo")))
+          .thenReturn("2025-04-05");
 
       HttpResponseMessage response = function.run(mockRequest, mockContext);
-      assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatus());
-    }
-  }
 
-  @Test
-  void testConstructorInitializesClients() {
-
-    try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
-
-      // Simulate environment variables
-      environmentVariables.set("EVENT_HUB_FLOWTX_CONNECTION_STRING", "fake-flowtx-conn-string");
-      environmentVariables.set("EVENT_HUB_FLOWTX_NAME", "fake-flowtx-name");
-      environmentVariables.set(
-          "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
-      environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
-
-      EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
-      EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
-      mockedCommonUtil
-          .when(
-              () -> CommonUtil.createEventHubClient("fake-flowtx-conn-string", "fake-flowtx-name"))
-          .thenReturn(mockClient1);
-      mockedCommonUtil
-          .when(
-              () ->
-                  CommonUtil.createEventHubClient(
-                      "fake-reportediuv-conn-string", "fake-reportediuv-name"))
-          .thenReturn(mockClient2);
-
-      // Instantiate the class
-      HttpBlobRecoveryFunction httpBlobRecoveryFunction = new HttpBlobRecoveryFunction();
-
-      assertNotNull(httpBlobRecoveryFunction.getEventHubClientFlowTx());
-      assertNotNull(httpBlobRecoveryFunction.getEventHubClientReportedIUV());
-      assertEquals(mockClient1, httpBlobRecoveryFunction.getEventHubClientFlowTx());
-      assertEquals(mockClient2, httpBlobRecoveryFunction.getEventHubClientReportedIUV());
+      assertEquals(HttpStatus.MULTI_STATUS, response.getStatus());
     }
   }
 }

@@ -89,6 +89,7 @@ microservice-chart: &microservice-chart
     FUNCTIONS_WORKER_RUNTIME: "java"
     BLOB_STORAGE_FDR1_CONTAINER: "fdr1-flows"
     BLOB_STORAGE_FDR3_CONTAINER: "fdr3-flows"
+    BLOB_FILTER_PREFIX: "yyyy-MM-dd"
     EVENT_HUB_FLOWTX_NAME: "fdr-qi-flows"
     EVENT_HUB_REPORTEDIUV_NAME: "fdr-qi-reported-iuv"
     ASPNETCORE_URLS: "http://*:8080"
@@ -182,6 +183,12 @@ recovery:
     path: /pagopa-fdr-to-event-hub-recovery-service/(.*)
   resources:
     !!merge <<: *resources
+    requests:
+      memory: "128Mi"
+      cpu: "0.2"
+    limits:
+      memory: "384Mi"
+      cpu: "0.3"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
@@ -190,10 +197,12 @@ recovery:
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhubrecovery"
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "HTTPBlobRecovery"
+    AzureFunctionsJobHost__functions__2: "HTTPMassiveBlobRecovery"
     # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__HTTPBlobRecovery: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Function__HTTPMassiveBlobRecovery: "Debug"
   envFieldRef:
     !!merge <<: *envFieldRef
   envSecret:
