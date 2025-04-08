@@ -198,10 +198,12 @@ recovery:
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhubrecovery"
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "HTTPBlobRecovery"
+    AzureFunctionsJobHost__functions__2: "HTTPMassiveBlobRecovery"
     # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Function__HTTPBlobRecovery: "Debug"
+    # AzureFunctionsJobHost__logging__logLevel__Function__HTTPMassiveBlobRecovery: "Debug"
   envFieldRef:
     !!merge <<: *envFieldRef
   envSecret:
