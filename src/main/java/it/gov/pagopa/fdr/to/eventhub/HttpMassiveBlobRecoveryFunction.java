@@ -13,6 +13,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -25,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLStreamException;
 
 import lombok.Getter;
@@ -45,6 +45,7 @@ public class HttpMassiveBlobRecoveryFunction {
       System.getenv().getOrDefault("BLOB_FILTER_PREFIX", "yyyy-MM-dd");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
+  private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
 
   public HttpMassiveBlobRecoveryFunction() {
     this.eventHubClientFlowTx =
@@ -60,9 +61,11 @@ public class HttpMassiveBlobRecoveryFunction {
 
   public HttpMassiveBlobRecoveryFunction(
       EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV) {
+      EventHubProducerClient eventHubClientReportedIUV,
+      FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
+    this.fdr1XmlParser =  fdr1XmlParser;
   }
 
   @FunctionName("HTTPMassiveBlobRecovery")
@@ -219,7 +222,7 @@ public class HttpMassiveBlobRecoveryFunction {
       boolean sendFlowEvent,
       boolean sendPaymentEvents,
       ExecutionContext context)
-      throws IOException, ParserConfigurationException, SAXException, XMLStreamException {
+      throws IOException, SAXException, XMLStreamException {
 
     String error = "";
     boolean isValidGzipFile = CommonUtil.isGzip(fileData.getFileContent());
@@ -233,7 +236,7 @@ public class HttpMassiveBlobRecoveryFunction {
 
       if (fdr1Container.equals(container)) {
         context.getLogger().info("Processing data from FdR1 container.");
-        FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+        FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(decompressedStream);
         flusso.setMetadata(fileData.getMetadata());
         flowName = flusso.getIdentificativoFlusso();
         eventBatchSent =

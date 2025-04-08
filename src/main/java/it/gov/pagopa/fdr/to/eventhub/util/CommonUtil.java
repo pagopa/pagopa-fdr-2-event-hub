@@ -29,7 +29,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 import java.io.ByteArrayInputStream;
@@ -47,10 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.GZIPInputStream;
-
-import javax.xml.stream.XMLStreamException;
-
-import org.xml.sax.SAXException;
 
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
@@ -106,11 +101,6 @@ public class CommonUtil {
 
   public static InputStream decompressGzip(byte[] compressedContent) throws IOException {
     return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
-  }
-
-  public static FlussoRendicontazione parseXml(InputStream xmlStream)
-      throws SAXException, XMLStreamException {
-    return new FDR1XmlStAXParser().parseXmlStream(xmlStream);
   }
 
   public static Flow parseJSON(InputStream jsonStream) throws IOException {

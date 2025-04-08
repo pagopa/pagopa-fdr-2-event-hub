@@ -21,8 +21,11 @@ import com.microsoft.azure.functions.HttpStatus;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
+
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,6 +54,7 @@ class HttpBlobRecoveryFunctionTest {
   @Mock private EventHubProducerClient mockEventHubClientReportedIUV;
   @Mock private ExecutionContext mockContext;
   @Mock private HttpRequestMessage<Optional<String>> mockRequest;
+  @Mock private FDR1XmlStAXParser mockFDR1XmlParser;
   private HttpBlobRecoveryFunction function;
   private HttpResponseMessage.Builder mockResponseBuilder;
   private HttpResponseMessage mockResponse;
@@ -58,7 +62,7 @@ class HttpBlobRecoveryFunctionTest {
   @BeforeEach
   void setUp() {
     function =
-        new HttpBlobRecoveryFunction(mockEventHubClientFlowTx, mockEventHubClientReportedIUV);
+        new HttpBlobRecoveryFunction(mockEventHubClientFlowTx, mockEventHubClientReportedIUV,mockFDR1XmlParser);
     Logger logger = mock(Logger.class);
     lenient().when(mockContext.getLogger()).thenReturn(logger);
 
@@ -180,13 +184,13 @@ class HttpBlobRecoveryFunctionTest {
             metadata,
             new ArrayList<>());
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->
@@ -271,13 +275,13 @@ class HttpBlobRecoveryFunctionTest {
             metadata,
             Arrays.asList("evh error"));
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->

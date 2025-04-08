@@ -13,6 +13,7 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,6 +34,7 @@ public class HttpBlobRecoveryFunction {
       System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
+  private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
 
   public HttpBlobRecoveryFunction() {
     this.eventHubClientFlowTx =
@@ -48,9 +50,11 @@ public class HttpBlobRecoveryFunction {
 
   public HttpBlobRecoveryFunction(
       EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV) {
+      EventHubProducerClient eventHubClientReportedIUV,
+      FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
+    this.fdr1XmlParser =  fdr1XmlParser;
   }
 
   @FunctionName("HTTPBlobRecovery")
@@ -121,7 +125,7 @@ public class HttpBlobRecoveryFunction {
           context
               .getLogger()
               .info(() -> "Retrieving and sending data on EventHub from FdR1 container.");
-          FlussoRendicontazione flusso = CommonUtil.parseXml(decompressedStream);
+          FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(decompressedStream);
           flusso.setMetadata(fileData.getMetadata());
           flowName = flusso.getIdentificativoFlusso();
           eventBatchSent =
