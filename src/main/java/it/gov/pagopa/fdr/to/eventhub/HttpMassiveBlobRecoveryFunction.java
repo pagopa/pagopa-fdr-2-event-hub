@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLStreamException;
+
 import lombok.Getter;
 import org.xml.sax.SAXException;
 
@@ -217,7 +219,7 @@ public class HttpMassiveBlobRecoveryFunction {
       boolean sendFlowEvent,
       boolean sendPaymentEvents,
       ExecutionContext context)
-      throws IOException, ParserConfigurationException, SAXException {
+      throws IOException, ParserConfigurationException, SAXException, XMLStreamException {
 
     String error = "";
     boolean isValidGzipFile = CommonUtil.isGzip(fileData.getFileContent());
