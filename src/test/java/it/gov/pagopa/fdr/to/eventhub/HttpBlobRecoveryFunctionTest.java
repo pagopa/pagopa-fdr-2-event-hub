@@ -179,14 +179,12 @@ class HttpBlobRecoveryFunctionTest {
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata,
             new ArrayList<>());
-    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->
@@ -270,14 +268,12 @@ class HttpBlobRecoveryFunctionTest {
             SampleContentFileUtil.createGzipCompressedData(new byte[] {1, 2, 3}.toString()),
             metadata,
             Arrays.asList("evh error"));
-    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil
           .when(() -> CommonUtil.getBlobFile(anyString(), anyString(), anyString(), any()))
           .thenReturn(mockBlobFileData);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
-      mockedUtil.when(() -> CommonUtil.parseXml(any())).thenReturn(mockFlusso);
       mockedUtil
           .when(
               () ->
