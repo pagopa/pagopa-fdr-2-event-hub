@@ -193,8 +193,8 @@ recovery:
       memory: "512Mi"
       cpu: "0.3"
     limits:
-      memory: "3Gi"
-      cpu: "2"
+      memory: "1024Mi" # increase for massime if needed
+      cpu: "0.8"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
