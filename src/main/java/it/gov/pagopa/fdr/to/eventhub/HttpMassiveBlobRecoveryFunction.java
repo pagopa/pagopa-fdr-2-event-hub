@@ -101,7 +101,7 @@ public class HttpMassiveBlobRecoveryFunction {
 
       context
           .getLogger()
-          .fine(
+          .info(
               () ->
                   String.format(
                       "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",

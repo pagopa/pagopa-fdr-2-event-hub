@@ -53,410 +53,419 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class CommonUtil {
 
-  public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
-  private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
-  private static final String CONTENT_TYPE = "Content-Type";
-  private static final String APPLICATION_JSON = "application/json";
+	public static final String LOG_DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+	private static final String SERVICE_IDENTIFIER = "serviceIdentifier";
+	private static final String CONTENT_TYPE = "Content-Type";
+	private static final String APPLICATION_JSON = "application/json";
 
-  @Setter
-  private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
+	@Setter
+	private BlobServiceClientWrapper blobServiceClientWrapper = new BlobServiceClientWrapperImpl();
 
-  public static boolean getBooleanQueryParam(
-      HttpRequestMessage<Optional<String>> request, String paramName, boolean defaultValue) {
-    return Boolean.parseBoolean(
-        request.getQueryParameters().getOrDefault(paramName, String.valueOf(defaultValue)));
-  }
+	public static boolean getBooleanQueryParam(
+			HttpRequestMessage<Optional<String>> request, String paramName, boolean defaultValue) {
+		return Boolean.parseBoolean(
+				request.getQueryParameters().getOrDefault(paramName, String.valueOf(defaultValue)));
+	}
 
-  public static String getJsonField(JsonNode node, String fieldName) {
-    return Optional.ofNullable(node.get(fieldName)).map(JsonNode::asText).orElse(null);
-  }
+	public static String getJsonField(JsonNode node, String fieldName) {
+		return Optional.ofNullable(node.get(fieldName)).map(JsonNode::asText).orElse(null);
+	}
 
-  public static EventHubProducerClient createEventHubClient(
-      String connectionString, String eventHubName) {
-    return new EventHubClientBuilder()
-        .connectionString(connectionString, eventHubName)
-        .retryOptions(
-            new AmqpRetryOptions()
-                .setMaxRetries(3)
-                .setDelay(Duration.ofSeconds(2))
-                .setMode(AmqpRetryMode.EXPONENTIAL))
-        .buildProducerClient();
-  }
+	public static EventHubProducerClient createEventHubClient(
+			String connectionString, String eventHubName) {
+		return new EventHubClientBuilder()
+				.connectionString(connectionString, eventHubName)
+				.retryOptions(
+						new AmqpRetryOptions()
+						.setMaxRetries(3)
+						.setDelay(Duration.ofSeconds(2))
+						.setMode(AmqpRetryMode.EXPONENTIAL))
+				.buildProducerClient();
+	}
 
-  public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {
-    return blobMetadata != null
-        && !blobMetadata.isEmpty()
-        && blobMetadata.containsKey("sessionId")
-        && blobMetadata.containsKey("insertedTimestamp")
-        && (blobMetadata.get("elaborate") == null
-            || !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
-  }
+	public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {
+		return blobMetadata != null
+				&& !blobMetadata.isEmpty()
+				&& blobMetadata.containsKey("sessionId")
+				&& blobMetadata.containsKey("insertedTimestamp")
+				&& (blobMetadata.get("elaborate") == null
+				|| !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
+	}
 
-  public static boolean isGzip(byte[] content) {
-    if (content == null || content.length == 0) {
-      throw new IllegalArgumentException("Invalid input data for decompression: empty file");
-    }
-    return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
-  }
+	public static boolean isGzip(byte[] content) {
+		if (content == null || content.length == 0) {
+			throw new IllegalArgumentException("Invalid input data for decompression: empty file");
+		}
+		return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
+	}
 
-  public static InputStream decompressGzip(byte[] compressedContent) throws IOException {
-    return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
-  }
+	public static InputStream decompressGzip(byte[] compressedContent) throws IOException {
+		return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
+	}
 
-  public static Flow parseJSON(InputStream jsonStream) throws IOException {
-    return new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .readValue(jsonStream, Flow.class);
-  }
+	public static Flow parseJSON(InputStream jsonStream) throws IOException {
+		return new ObjectMapper()
+				.registerModule(new JavaTimeModule())
+				.readValue(jsonStream, Flow.class);
+	}
 
-  public static BlobFileData getBlobFile(
-      String storageEnvVar, String containerName, String blobName, ExecutionContext context) {
-    try {
-      BlobContainerClient containerClient =
-          blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
-      BlobClient blobClient = containerClient.getBlobClient(blobName);
+	public static BlobFileData getBlobFile(
+			String storageEnvVar, String containerName, String blobName, ExecutionContext context) {
+		try {
+			BlobContainerClient containerClient =
+					blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
+			BlobClient blobClient = containerClient.getBlobClient(blobName);
 
-      if (Boolean.FALSE.equals(blobClient.exists())) {
-        context.getLogger().severe(() -> "Blob not found: " + blobName);
-        return null;
-      }
+			if (Boolean.FALSE.equals(blobClient.exists())) {
+				context.getLogger().severe(() -> "Blob not found: " + blobName);
+				return null;
+			}
 
-      Map<String, String> metadata = blobClient.getProperties().getMetadata();
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      blobClient.downloadStream(outputStream);
+			Map<String, String> metadata = blobClient.getProperties().getMetadata();
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			blobClient.downloadStream(outputStream);
 
-      return BlobFileData.builder()
-          .fileName(blobName)
-          .fileContent(outputStream.toByteArray())
-          .metadata(metadata)
-          .build();
+			return BlobFileData.builder()
+					.fileName(blobName)
+					.fileContent(outputStream.toByteArray())
+					.metadata(metadata)
+					.build();
 
-    } catch (Exception e) {
-      context.getLogger().severe("Error accessing blob: " + e.getMessage());
-      return null;
-    }
-  }
+		} catch (Exception e) {
+			context.getLogger().severe("Error accessing blob: " + e.getMessage());
+			return null;
+		}
+	}
 
-  public static List<BlobFileData> getBlobFilesInDateRange(
-      String storageEnvVar,
-      String containerName,
-      String prefixFormat, // Prefix format e.g.: "yyyy-MM-dd"
-      LocalDate from,
-      LocalDate to,
-      ExecutionContext context) {
-    try {
-      BlobContainerClient containerClient =
-          blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
+	public static List<BlobFileData> getBlobFilesInDateRange(
+			String storageEnvVar,
+			String containerName,
+			String prefixFormat, // Prefix format e.g.: "yyyy-MM-dd"
+			LocalDate from,
+			LocalDate to,
+			ExecutionContext context) {
+		try {
+			BlobContainerClient containerClient =
+					blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
 
-      List<BlobFileData> blobFiles = new ArrayList<>();
+			List<BlobFileData> blobFiles = new ArrayList<>();
 
-      // Iterates over the dates in the range and searches for blobs for each generated prefix
-      LocalDate currentDate = from;
-      while (currentDate.isBefore(to) || currentDate.isEqual(to)) {
-        String datePrefix = currentDate.format(DateTimeFormatter.ofPattern(prefixFormat));
-        ListBlobsOptions options = new ListBlobsOptions().setPrefix(datePrefix);
+			// Iterates over the dates in the range and searches for blobs for each generated prefix
+			LocalDate currentDate = from;
+			int totalCount = 0;
+			while (currentDate.isBefore(to) || currentDate.isEqual(to)) {
+				String datePrefix = currentDate.format(DateTimeFormatter.ofPattern(prefixFormat));
+				ListBlobsOptions options = new ListBlobsOptions().setPrefix(datePrefix);
 
-        for (BlobItem blobItem : containerClient.listBlobs(options, null)) {
-          BlobClient blobClient = containerClient.getBlobClient(blobItem.getName());
+				int dateCount = 0;
+				for (BlobItem blobItem : containerClient.listBlobs(options, null)) {
+					dateCount++;
+					totalCount++;
+					String msg = String.format("Processing blob #%d for %s: %s", dateCount, datePrefix, blobItem.getName());
+					context.getLogger().info(() -> msg);
 
-          try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            blobClient.downloadStream(outputStream);
-            Map<String, String> metadata =
-                Optional.ofNullable(blobClient.getProperties().getMetadata())
-                    .orElse(new HashMap<>());
+					BlobClient blobClient = containerClient.getBlobClient(blobItem.getName());
 
-            List<String> unprocessableFileDetail = new ArrayList<>();
-            if (!validateBlobMetadata(metadata)) {
-              unprocessableFileDetail.add(
-                  String.format(
-                      "Skipped file %s in container %s due to missing required metadata or because"
-                          + " it is in an unprocessable state",
-                      blobItem.getName(), containerName));
-            }
+					try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+						blobClient.downloadStream(outputStream);
+						Map<String, String> metadata =
+								Optional.ofNullable(blobClient.getProperties().getMetadata())
+								.orElse(new HashMap<>());
 
-            BlobFileData blobFileData =
-                BlobFileData.builder()
-                    .fileName(blobItem.getName())
-                    .fileContent(outputStream.toByteArray())
-                    .metadata(metadata)
-                    .unprocessableFileDetail(unprocessableFileDetail)
-                    .build();
-            blobFiles.add(blobFileData);
-          }
-        }
+						List<String> unprocessableFileDetail = new ArrayList<>();
+						if (!validateBlobMetadata(metadata)) {
+							unprocessableFileDetail.add(
+									String.format(
+											"Skipped file %s in container %s due to missing required metadata or because"
+													+ " it is in an unprocessable state",
+													blobItem.getName(), containerName));
+						}
 
-        // Skip to next date in range
-        currentDate = currentDate.plusDays(1);
-      }
-      return blobFiles;
-    } catch (Exception e) {
-      context.getLogger().severe("Error accessing blob: " + e.getMessage());
-      return Collections.emptyList();
-    }
-  }
+						BlobFileData blobFileData =
+								BlobFileData.builder()
+								.fileName(blobItem.getName())
+								.fileContent(outputStream.toByteArray())
+								.metadata(metadata)
+								.unprocessableFileDetail(unprocessableFileDetail)
+								.build();
+						blobFiles.add(blobFileData);
+					}
+				}
 
-  public static boolean processXmlBlobAndSendToEventHub(
-      final EventHubProducerClient eventHubClientFlowTx,
-      final EventHubProducerClient eventHubClientReportedIUV,
-      FlussoRendicontazione flussoRendicontazione,
-      ExecutionContext context,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents) {
+				String msg = String.format("Finished processing %d blobs for date %s. Total so far: %d", dateCount, datePrefix, totalCount);
+				context.getLogger().info(() -> msg);
+				// Skip to next date in range
+				currentDate = currentDate.plusDays(1);
+			}
+			return blobFiles;
+		} catch (Exception e) {
+			context.getLogger().severe("Error accessing blob: " + e.getMessage());
+			return Collections.emptyList();
+		}
+	}
 
-    try {
-      // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent =
-          FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-      List<ReportedIUVEventModel> reportedIUVEventList =
-          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
+	public static boolean processXmlBlobAndSendToEventHub(
+			final EventHubProducerClient eventHubClientFlowTx,
+			final EventHubProducerClient eventHubClientReportedIUV,
+			FlussoRendicontazione flussoRendicontazione,
+			ExecutionContext context,
+			boolean sendFlowEvent,
+			boolean sendPaymentEvents) {
 
-      return prepareAndSendEventsToEventHub(
-          eventHubClientFlowTx,
-          eventHubClientReportedIUV,
-          flowEvent,
-          reportedIUVEventList,
-          flussoRendicontazione.getIdentificativoFlusso(),
-          flussoRendicontazione.getMetadata(),
-          context,
-          sendFlowEvent,
-          sendPaymentEvents);
+		try {
+			// Convert FlussoRendicontazione to event models
+			FlowTxEventModel flowEvent =
+					FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+			List<ReportedIUVEventModel> reportedIUVEventList =
+					FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
 
-    } catch (Exception e) {
+			return prepareAndSendEventsToEventHub(
+					eventHubClientFlowTx,
+					eventHubClientReportedIUV,
+					flowEvent,
+					reportedIUVEventList,
+					flussoRendicontazione.getIdentificativoFlusso(),
+					flussoRendicontazione.getMetadata(),
+					context,
+					sendFlowEvent,
+					sendPaymentEvents);
 
-      // Log the exception with context
-      String errorMessage =
-          String.format(
-              "[%s] Error processing or sending data to event hub: %s. Details: %s",
-              ErrorCodes.COMMON_E2,
-              flussoRendicontazione.getIdentificativoFlusso(),
-              e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
+		} catch (Exception e) {
 
-      return false;
-    }
-  }
+			// Log the exception with context
+			String errorMessage =
+					String.format(
+							"[%s] Error processing or sending data to event hub: %s. Details: %s",
+							ErrorCodes.COMMON_E2,
+							flussoRendicontazione.getIdentificativoFlusso(),
+							e.getMessage());
+			context.getLogger().severe(() -> errorMessage);
 
-  public static boolean processJsonBlobAndSendToEventHub(
-      EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV,
-      Flow flow,
-      ExecutionContext context,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents) {
+			return false;
+		}
+	}
 
-    try {
-      // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent = FlowMapper.toFlowTxEventList(flow);
-      List<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventList(flow);
+	public static boolean processJsonBlobAndSendToEventHub(
+			EventHubProducerClient eventHubClientFlowTx,
+			EventHubProducerClient eventHubClientReportedIUV,
+			Flow flow,
+			ExecutionContext context,
+			boolean sendFlowEvent,
+			boolean sendPaymentEvents) {
 
-      return prepareAndSendEventsToEventHub(
-          eventHubClientFlowTx,
-          eventHubClientReportedIUV,
-          flowEvent,
-          reportedIUVEventList,
-          flow.getFdr(),
-          flow.getMetadata(),
-          context,
-          sendFlowEvent,
-          sendPaymentEvents);
+		try {
+			// Convert FlussoRendicontazione to event models
+			FlowTxEventModel flowEvent = FlowMapper.toFlowTxEventList(flow);
+			List<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventList(flow);
 
-    } catch (Exception e) {
+			return prepareAndSendEventsToEventHub(
+					eventHubClientFlowTx,
+					eventHubClientReportedIUV,
+					flowEvent,
+					reportedIUVEventList,
+					flow.getFdr(),
+					flow.getMetadata(),
+					context,
+					sendFlowEvent,
+					sendPaymentEvents);
 
-      // Log the exception with context
-      String errorMessage =
-          String.format(
-              "[%s] Error processing or sending data to event hub: %s. Details: %s",
-              ErrorCodes.COMMON_E2, flow.getFdr(), e.getMessage());
-      context.getLogger().severe(() -> errorMessage);
+		} catch (Exception e) {
 
-      return false;
-    }
-  }
+			// Log the exception with context
+			String errorMessage =
+					String.format(
+							"[%s] Error processing or sending data to event hub: %s. Details: %s",
+							ErrorCodes.COMMON_E2, flow.getFdr(), e.getMessage());
+			context.getLogger().severe(() -> errorMessage);
 
-  public static HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.OK, message);
-  }
+			return false;
+		}
+	}
 
-  public static HttpResponseMessage multiStatus(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.MULTI_STATUS, message);
-  }
+	public static HttpResponseMessage ok(HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.OK, message);
+	}
 
-  public static HttpResponseMessage badRequest(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.BAD_REQUEST, message);
-  }
+	public static HttpResponseMessage multiStatus(HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.MULTI_STATUS, message);
+	}
 
-  public static HttpResponseMessage notFound(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.NOT_FOUND, message);
-  }
+	public static HttpResponseMessage badRequest(HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.BAD_REQUEST, message);
+	}
 
-  public static HttpResponseMessage unprocessableEntity(
-      HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.UNPROCESSABLE_ENTITY, message);
-  }
+	public static HttpResponseMessage notFound(HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.NOT_FOUND, message);
+	}
 
-  public static HttpResponseMessage serviceUnavailable(
-      HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.SERVICE_UNAVAILABLE, message);
-  }
+	public static HttpResponseMessage unprocessableEntity(
+			HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.UNPROCESSABLE_ENTITY, message);
+	}
 
-  public static HttpResponseMessage serverError(HttpRequestMessage<?> request, String message) {
-    return response(request, HttpStatus.INTERNAL_SERVER_ERROR, message);
-  }
+	public static HttpResponseMessage serviceUnavailable(
+			HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.SERVICE_UNAVAILABLE, message);
+	}
 
-  private HttpResponseMessage response(
-      HttpRequestMessage<?> request, HttpStatus status, String message) {
-    String formattedMessage =
-        message.endsWith("\"") || message.endsWith("]") ? message : message + "\"";
-    return request
-        .createResponseBuilder(status)
-        .header(CONTENT_TYPE, APPLICATION_JSON)
-        .body("{\"message\": \"" + formattedMessage + "}")
-        .build();
-  }
+	public static HttpResponseMessage serverError(HttpRequestMessage<?> request, String message) {
+		return response(request, HttpStatus.INTERNAL_SERVER_ERROR, message);
+	}
 
-  private static boolean prepareAndSendEventsToEventHub(
-      EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV,
-      FlowTxEventModel flowEvent,
-      List<ReportedIUVEventModel> reportedIUVEventList,
-      String flowName,
-      Map<String, String> metadata,
-      ExecutionContext context,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents)
-      throws JsonProcessingException {
+	private HttpResponseMessage response(
+			HttpRequestMessage<?> request, HttpStatus status, String message) {
+		String formattedMessage =
+				message.endsWith("\"") || message.endsWith("]") ? message : message + "\"";
+		return request
+				.createResponseBuilder(status)
+				.header(CONTENT_TYPE, APPLICATION_JSON)
+				.body("{\"message\": \"" + formattedMessage + "}")
+				.build();
+	}
 
-    // Serialize the objects to JSON
-    JsonMapper objectMapper =
-        JsonMapper.builder()
-            .addModule(new JavaTimeModule())
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .build();
+	private static boolean prepareAndSendEventsToEventHub(
+			EventHubProducerClient eventHubClientFlowTx,
+			EventHubProducerClient eventHubClientReportedIUV,
+			FlowTxEventModel flowEvent,
+			List<ReportedIUVEventModel> reportedIUVEventList,
+			String flowName,
+			Map<String, String> metadata,
+			ExecutionContext context,
+			boolean sendFlowEvent,
+			boolean sendPaymentEvents)
+					throws JsonProcessingException {
 
-    String flowEventJson = objectMapper.writeValueAsString(flowEvent);
+		// Serialize the objects to JSON
+		JsonMapper objectMapper =
+				JsonMapper.builder()
+				.addModule(new JavaTimeModule())
+				.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+				.build();
 
-    // Break the list into smaller batches to avoid overshooting limit
-    List<String> reportedIUVEventJsonChunks = new LinkedList<>();
-    for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
-      reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
-    }
+		String flowEventJson = objectMapper.writeValueAsString(flowEvent);
 
-    String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
+		// Break the list into smaller batches to avoid overshooting limit
+		List<String> reportedIUVEventJsonChunks = new LinkedList<>();
+		for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
+			reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
+		}
 
-    boolean flowEventSent = true;
-    if (sendFlowEvent) {
-      flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, context);
-    } else {
-      context.getLogger().info(() -> "Skipping sending flow event to EventHub");
-    }
+		String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
 
-    boolean allEventChunksSent = true;
-    if (sendPaymentEvents) {
-      allEventChunksSent =
-          sendEventBatchToHub(
-              reportedIUVEventJsonChunks,
-              eventHubClientReportedIUV,
-              flowName,
-              serviceIdentifier,
-              context);
-    } else {
-      context.getLogger().info(() -> "Skipping sending payments events to EventHub");
-    }
+		boolean flowEventSent = true;
+		if (sendFlowEvent) {
+			flowEventSent =
+					sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, context);
+		} else {
+			context.getLogger().info(() -> "Skipping sending flow event to EventHub");
+		}
 
-    return flowEventSent && allEventChunksSent;
-  }
+		boolean allEventChunksSent = true;
+		if (sendPaymentEvents) {
+			allEventChunksSent =
+					sendEventBatchToHub(
+							reportedIUVEventJsonChunks,
+							eventHubClientReportedIUV,
+							flowName,
+							serviceIdentifier,
+							context);
+		} else {
+			context.getLogger().info(() -> "Skipping sending payments events to EventHub");
+		}
 
-  /** Send a message to the Event Hub */
-  private boolean sendEventToHub(
-      String jsonPayload,
-      EventHubProducerClient eventHubClient,
-      String flowName,
-      String serviceIdentifier,
-      ExecutionContext context) {
+		return flowEventSent && allEventChunksSent;
+	}
 
-    EventData eventData = new EventData(jsonPayload);
-    eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
+	/** Send a message to the Event Hub */
+	private boolean sendEventToHub(
+			String jsonPayload,
+			EventHubProducerClient eventHubClient,
+			String flowName,
+			String serviceIdentifier,
+			ExecutionContext context) {
 
-    EventDataBatch eventBatch = eventHubClient.createBatch();
-    if (!eventBatch.tryAdd(eventData)) {
-      context
-          .getLogger()
-          .warning(() -> String.format("Failed to add event to batch for flow ID: %s", flowName));
-      return false;
-    }
+		EventData eventData = new EventData(jsonPayload);
+		eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
 
-    try {
-      eventHubClient.send(eventBatch);
-      return true;
-    } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
-      return false;
-    }
-  }
+		EventDataBatch eventBatch = eventHubClient.createBatch();
+		if (!eventBatch.tryAdd(eventData)) {
+			context
+			.getLogger()
+			.warning(() -> String.format("Failed to add event to batch for flow ID: %s", flowName));
+			return false;
+		}
 
-  /** Send a batch of messages to the Event Hub */
-  private boolean sendEventBatchToHub(
-      List<String> jsonPayloads,
-      EventHubProducerClient eventHubClient,
-      String flowName,
-      String serviceIdentifier,
-      ExecutionContext context) {
+		try {
+			eventHubClient.send(eventBatch);
+			return true;
+		} catch (Exception e) {
+			context
+			.getLogger()
+			.severe(
+					() ->
+					String.format(
+							"[%s] Failed to add event to batch for flow ID: %s. Details: %s",
+							ErrorCodes.COMMON_E1, flowName, e.getMessage()));
+			return false;
+		}
+	}
 
-    try {
+	/** Send a batch of messages to the Event Hub */
+	private boolean sendEventBatchToHub(
+			List<String> jsonPayloads,
+			EventHubProducerClient eventHubClient,
+			String flowName,
+			String serviceIdentifier,
+			ExecutionContext context) {
 
-      // Creating an empty event batch
-      EventDataBatch evhEventBatch = eventHubClient.createBatch();
-      int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "Defining batches with maximum dimension of [%s] bytes.", batchMaxSize));
+		try {
 
-      for (String jsonPayload : jsonPayloads) {
+			// Creating an empty event batch
+			EventDataBatch evhEventBatch = eventHubClient.createBatch();
+			int batchMaxSize = evhEventBatch.getMaxSizeInBytes();
+			context
+			.getLogger()
+			.fine(
+					() ->
+					String.format(
+							"Defining batches with maximum dimension of [%s] bytes.", batchMaxSize));
 
-        // Generating event data from single payload
-        EventData eventData = new EventData(jsonPayload);
-        eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
+			for (String jsonPayload : jsonPayloads) {
 
-        // Try to add the event from the array to the batch
-        if (!evhEventBatch.tryAdd(eventData)) {
+				// Generating event data from single payload
+				EventData eventData = new EventData(jsonPayload);
+				eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
 
-          // If the batch is full, send it and then create a new batch
-          eventHubClient.send(evhEventBatch);
-          evhEventBatch = eventHubClient.createBatch();
+				// Try to add the event from the array to the batch
+				if (!evhEventBatch.tryAdd(eventData)) {
 
-          // Try to add that event that couldn't fit before.
-          if (!evhEventBatch.tryAdd(eventData)) {
-            throw new EventHubException(
-                "Event is too large for an empty batch. Max size: [" + batchMaxSize + "].");
-          }
-        }
-      }
-      // send the last batch of remaining events
-      if (evhEventBatch.getCount() > 0) {
-        eventHubClient.send(evhEventBatch);
-      }
+					// If the batch is full, send it and then create a new batch
+					eventHubClient.send(evhEventBatch);
+					evhEventBatch = eventHubClient.createBatch();
 
-      return true;
+					// Try to add that event that couldn't fit before.
+					if (!evhEventBatch.tryAdd(eventData)) {
+						throw new EventHubException(
+								"Event is too large for an empty batch. Max size: [" + batchMaxSize + "].");
+					}
+				}
+			}
+			// send the last batch of remaining events
+			if (evhEventBatch.getCount() > 0) {
+				eventHubClient.send(evhEventBatch);
+			}
 
-    } catch (Exception e) {
-      context
-          .getLogger()
-          .severe(
-              () ->
-                  String.format(
-                      "[%s] Failed to add event to batch for flow ID: %s. Details: %s",
-                      ErrorCodes.COMMON_E1, flowName, e.getMessage()));
-      return false;
-    }
-  }
+			return true;
+
+		} catch (Exception e) {
+			context
+			.getLogger()
+			.severe(
+					() ->
+					String.format(
+							"[%s] Failed to add event to batch for flow ID: %s. Details: %s",
+							ErrorCodes.COMMON_E1, flowName, e.getMessage()));
+			return false;
+		}
+	}
 }
