@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.10</version>
+	<version>1.0.10-1-processing_log</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
