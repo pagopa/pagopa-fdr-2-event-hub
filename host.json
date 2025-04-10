@@ -34,7 +34,8 @@
       "Host.Aggregator": "Error",     
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
-      "Function.HTTPBlobRecovery": "Information"
+      "Function.HTTPBlobRecovery": "Information",
+      "Function.HTTPMassiveBlobRecovery": "Information"
     },
     "applicationInsights": {
       "samplingSettings": {
