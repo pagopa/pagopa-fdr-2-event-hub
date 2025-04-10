@@ -28,14 +28,13 @@
     }
   },
   "logging": {
-    "fileLoggingMode": "debugOnly",
     "logLevel": {
-      "default": "None",
+      "default": "Error",
       "Host.Results": "Error",
+      "Host.Aggregator": "Error",     
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
-      "Function.HTTPBlobRecovery": "Information",
-      "Host.Aggregator": "Error"
+      "Function.HTTPBlobRecovery": "Information"
     },
     "applicationInsights": {
       "samplingSettings": {
