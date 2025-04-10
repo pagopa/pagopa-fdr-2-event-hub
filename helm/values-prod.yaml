@@ -71,23 +71,24 @@ microservice-chart: &microservice-chart
     limits:
       memory: "4Gi"
       cpu: "3"
-  autoscaling: &autoscaling
-    enable: true
-    minReplica: 1
-    maxReplica: 1
-    pollingInterval: 10 # seconds
-    cooldownPeriod: 50 # seconds
-    triggers:
-      - type: cpu
-        metadata:
-          # Required
-          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
-          value: "75"
-      - type: memory
-        metadata:
-          # Required
-          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
-          value: "75"
+  replicas: 1
+  # autoscaling: &autoscaling
+  #   enable: true
+  #   minReplica: 1
+  #   maxReplica: 1
+  #   pollingInterval: 10 # seconds
+  #   cooldownPeriod: 50 # seconds
+  #   triggers:
+  #     - type: cpu
+  #       metadata:
+  #         # Required
+  #         type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+  #         value: "75"
+  #     - type: memory
+  #       metadata:
+  #         # Required
+  #         type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+  #         value: "75"
   envConfig: &envConfig
     JAVA_OPTS: "-XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights

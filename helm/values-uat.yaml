@@ -71,23 +71,24 @@ microservice-chart: &microservice-chart
     limits:
       memory: "4Gi"
       cpu: "3"
-  autoscaling: &autoscaling
-    enable: true
-    minReplica: 1
-    maxReplica: 1
-    pollingInterval: 10 # seconds
-    cooldownPeriod: 50 # seconds
-    triggers:
-      - type: cpu
-        metadata:
-          # Required
-          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
-          value: "75"
-      - type: memory
-        metadata:
-          # Required
-          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
-          value: "75"
+  replicas: 1
+  # autoscaling: &autoscaling
+  #   enable: true
+  #   minReplica: 1
+  #   maxReplica: 1
+  #   pollingInterval: 10 # seconds
+  #   cooldownPeriod: 50 # seconds
+  #   triggers:
+  #     - type: cpu
+  #       metadata:
+  #         # Required
+  #         type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+  #         value: "75"
+  #     - type: memory
+  #       metadata:
+  #         # Required
+  #         type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+  #         value: "75"
   envConfig: &envConfig
     JAVA_OPTS: "-XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m"
     #JAVA_OPTS: "-XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=12345 -Dcom.sun.management.jmxremote.rmi.port=12345 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
