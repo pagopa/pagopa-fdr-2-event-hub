@@ -137,8 +137,8 @@ fdr1-blobtrigger:
     path: /fdr1-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
-  autoscaling:
-    !!merge <<: *autoscaling
+  # autoscaling:
+  #   !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr1blobtrigger'
@@ -163,8 +163,8 @@ fdr3-blobtrigger:
     path: /fdr3-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
-  autoscaling:
-    !!merge <<: *autoscaling
+  # autoscaling:
+  #   !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr3blobtrigger'
@@ -195,8 +195,8 @@ recovery:
     limits:
       memory: "384Mi"
       cpu: "0.3"
-  autoscaling:
-    !!merge <<: *autoscaling
+  # autoscaling:
+  #   !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubrecovery'
