@@ -23,7 +23,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
-
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -62,7 +61,7 @@ class HttpMassiveBlobRecoveryFunctionTest {
   void setUp() {
     function =
         new HttpMassiveBlobRecoveryFunction(
-            mockEventHubClientFlowTx, mockEventHubClientReportedIUV,mockFDR1XmlParser);
+            mockEventHubClientFlowTx, mockEventHubClientReportedIUV, mockFDR1XmlParser);
     Logger logger = mock(Logger.class);
     lenient().when(mockContext.getLogger()).thenReturn(logger);
 

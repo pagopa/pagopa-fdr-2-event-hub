@@ -24,7 +24,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
-
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,7 +61,8 @@ class HttpBlobRecoveryFunctionTest {
   @BeforeEach
   void setUp() {
     function =
-        new HttpBlobRecoveryFunction(mockEventHubClientFlowTx, mockEventHubClientReportedIUV,mockFDR1XmlParser);
+        new HttpBlobRecoveryFunction(
+            mockEventHubClientFlowTx, mockEventHubClientReportedIUV, mockFDR1XmlParser);
     Logger logger = mock(Logger.class);
     lenient().when(mockContext.getLogger()).thenReturn(logger);
 

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
-
 import lombok.Getter;
 import org.xml.sax.SAXException;
 
@@ -65,7 +64,7 @@ public class HttpMassiveBlobRecoveryFunction {
       FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
-    this.fdr1XmlParser =  fdr1XmlParser;
+    this.fdr1XmlParser = fdr1XmlParser;
   }
 
   @FunctionName("HTTPMassiveBlobRecovery")
