@@ -77,8 +77,9 @@ public class HttpMassiveBlobRecoveryFunction {
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
+    Optional<String> requestBodyOpt = request.getBody();
     // Check if body is present
-    if (request.getBody().isEmpty()) {
+    if (requestBodyOpt.isEmpty()) {
       return CommonUtil.badRequest(request, "Missing request body");
     }
 
@@ -87,7 +88,7 @@ public class HttpMassiveBlobRecoveryFunction {
     boolean sendPaymentEvents = CommonUtil.getBooleanQueryParam(request, "sendPaymentEvent", true);
 
     try {
-      JsonNode jsonNode = objectMapper.readTree(request.getBody().get());
+      JsonNode jsonNode = objectMapper.readTree(requestBodyOpt.get());
 
       String fileName = CommonUtil.getJsonField(jsonNode, JSON_FILENAME);
       String container = CommonUtil.getJsonField(jsonNode, JSON_CONTAINER);
