@@ -372,6 +372,24 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
+  void testFDR3BlobTriggerProcessingError() throws Exception {
+    when(context.getLogger()).thenReturn(mockLogger);
+    String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleJson);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    Exception thrown =
+        assertThrows(
+            Exception.class,
+            () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
+
+    assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
+  }
+
+  @Test
   void testConstructorInitializesClients() {
 
     try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
