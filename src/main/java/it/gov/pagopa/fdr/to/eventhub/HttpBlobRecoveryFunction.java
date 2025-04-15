@@ -54,7 +54,7 @@ public class HttpBlobRecoveryFunction {
       FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
-    this.fdr1XmlParser =  fdr1XmlParser;
+    this.fdr1XmlParser = fdr1XmlParser;
   }
 
   @FunctionName("HTTPBlobRecovery")

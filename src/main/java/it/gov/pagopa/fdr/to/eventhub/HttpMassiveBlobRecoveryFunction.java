@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
-
 import lombok.Getter;
 import org.xml.sax.SAXException;
 
@@ -65,7 +64,7 @@ public class HttpMassiveBlobRecoveryFunction {
       FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
-    this.fdr1XmlParser =  fdr1XmlParser;
+    this.fdr1XmlParser = fdr1XmlParser;
   }
 
   @FunctionName("HTTPMassiveBlobRecovery")
@@ -78,8 +77,9 @@ public class HttpMassiveBlobRecoveryFunction {
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
+    Optional<String> requestBodyOpt = request.getBody();
     // Check if body is present
-    if (request.getBody().isEmpty()) {
+    if (requestBodyOpt.isEmpty()) {
       return CommonUtil.badRequest(request, "Missing request body");
     }
 
@@ -88,7 +88,7 @@ public class HttpMassiveBlobRecoveryFunction {
     boolean sendPaymentEvents = CommonUtil.getBooleanQueryParam(request, "sendPaymentEvent", true);
 
     try {
-      JsonNode jsonNode = objectMapper.readTree(request.getBody().get());
+      JsonNode jsonNode = objectMapper.readTree(requestBodyOpt.get());
 
       String fileName = CommonUtil.getJsonField(jsonNode, JSON_FILENAME);
       String container = CommonUtil.getJsonField(jsonNode, JSON_CONTAINER);
