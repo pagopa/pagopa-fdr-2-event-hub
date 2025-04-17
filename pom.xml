@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.11-2-PIDM-388-add-cfg-2-recover</version>
+	<version>1.0.11-3-PIDM-388-add-cfg-2-recover</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
