@@ -32,11 +32,11 @@
     "logLevel": {
       "default": "None",
       "Host.Results": "Error",
+      "Host.Aggregator": "Error",      
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
       "Function.HTTPBlobRecovery": "Information",
-      "Function.HTTPMassiveBlobRecovery": "Information",
-      "Host.Aggregator": "Error"
+      "Function.HTTPMassiveBlobRecovery": "Information"
     },
     "applicationInsights": {
       "samplingSettings": {
