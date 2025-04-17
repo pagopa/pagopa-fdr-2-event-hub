@@ -191,11 +191,11 @@ recovery:
   resources:
     !!merge <<: *resources
     requests:
-      memory: "512Mi"
-      cpu: "0.3"
+      memory: "768Mi"
+      cpu: "0.5"
     limits:
-      memory: "1024Mi" # increase for massime if needed
-      cpu: "0.8"
+      memory: "4Gi"
+      cpu: "3"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
