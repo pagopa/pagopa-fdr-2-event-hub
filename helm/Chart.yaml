@@ -5,14 +5,14 @@ version: 0.82.0
 appVersion: 1.0.11
 dependencies:
   - name: microservice-chart
-    version: 7.1.1
+    version: 7.5.0
     repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
     alias: fdr1-blobtrigger
   - name: microservice-chart
-    version: 7.1.1
+    version: 7.5.0
     repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
     alias: fdr3-blobtrigger
   - name: microservice-chart
-    version: 7.1.1
+    version: 7.5.0
     repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
     alias: recovery
