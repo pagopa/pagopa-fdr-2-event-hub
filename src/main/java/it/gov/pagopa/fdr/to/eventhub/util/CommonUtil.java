@@ -1,5 +1,21 @@
 package it.gov.pagopa.fdr.to.eventhub.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.zip.GZIPInputStream;
+
 import com.azure.core.amqp.AmqpRetryMode;
 import com.azure.core.amqp.AmqpRetryOptions;
 import com.azure.messaging.eventhubs.EventData;
@@ -20,6 +36,7 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlowMapper;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
@@ -30,21 +47,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 
@@ -150,11 +152,18 @@ public class CommonUtil {
 
       // Iterates over the dates in the range and searches for blobs for each generated prefix
       LocalDate currentDate = from;
+      int totalCount = 0;
       while (currentDate.isBefore(to) || currentDate.isEqual(to)) {
         String datePrefix = currentDate.format(DateTimeFormatter.ofPattern(prefixFormat));
         ListBlobsOptions options = new ListBlobsOptions().setPrefix(datePrefix);
 
+        int dateCount = 0;
         for (BlobItem blobItem : containerClient.listBlobs(options, null)) {
+          dateCount++;
+					totalCount++;
+					String msg = String.format("Processing blob #%d for %s: %s", dateCount, datePrefix, blobItem.getName());
+					context.getLogger().info(() -> msg);
+
           BlobClient blobClient = containerClient.getBlobClient(blobItem.getName());
 
           try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -183,6 +192,8 @@ public class CommonUtil {
           }
         }
 
+				String msg = String.format("Finished processing %d blobs for date %s. Total so far: %d", dateCount, datePrefix, totalCount);
+				context.getLogger().info(() -> msg);
         // Skip to next date in range
         currentDate = currentDate.plusDays(1);
       }

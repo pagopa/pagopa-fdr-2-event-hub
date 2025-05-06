@@ -4,6 +4,7 @@
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.0.0, 5.0.0)"
   },
+  "functionTimeout": "-1",
   "extensions": {
     "blobs": {
       "maxDegreeOfParallelism": 1,
@@ -31,10 +32,11 @@
     "logLevel": {
       "default": "None",
       "Host.Results": "Error",
+      "Host.Aggregator": "Error",      
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
       "Function.HTTPBlobRecovery": "Information",
-      "Host.Aggregator": "Error"
+      "Function.HTTPMassiveBlobRecovery": "Information"
     },
     "applicationInsights": {
       "samplingSettings": {

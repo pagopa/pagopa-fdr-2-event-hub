@@ -1,20 +1,5 @@
 package it.gov.pagopa.fdr.to.eventhub;
 
-import com.azure.messaging.eventhubs.EventHubProducerClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.microsoft.azure.functions.ExecutionContext;
-import com.microsoft.azure.functions.HttpMethod;
-import com.microsoft.azure.functions.HttpRequestMessage;
-import com.microsoft.azure.functions.HttpResponseMessage;
-import com.microsoft.azure.functions.annotation.AuthorizationLevel;
-import com.microsoft.azure.functions.annotation.FunctionName;
-import com.microsoft.azure.functions.annotation.HttpTrigger;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
-import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
-import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,9 +11,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 import javax.xml.stream.XMLStreamException;
-import lombok.Getter;
+
 import org.xml.sax.SAXException;
+
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpMethod;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.HttpTrigger;
+
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
+import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
+import lombok.Getter;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpMassiveBlobRecoveryFunction {
@@ -101,7 +105,7 @@ public class HttpMassiveBlobRecoveryFunction {
 
       context
           .getLogger()
-          .fine(
+          .info(
               () ->
                   String.format(
                       "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",
