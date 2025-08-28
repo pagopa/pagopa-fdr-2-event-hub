@@ -9,17 +9,17 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.AppInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Azure Functions with Azure Http trigger. */
 public class Info {
 
-  private static final String ENVIRONMENT = System.getenv().getOrDefault("APP_ENVIRONMENT", "azure-fn");
+  private static final String ENVIRONMENT =
+      System.getenv().getOrDefault("APP_ENVIRONMENT", "azure-fn");
 
   private final Logger logger = LoggerFactory.getLogger(Info.class);
 
@@ -43,7 +43,8 @@ public class Info {
   public synchronized AppInfo getInfo() {
     String version = null;
     String name = null;
-    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream("application.properties")) {
+    try (InputStream inputStream =
+        this.getClass().getClassLoader().getResourceAsStream("application.properties")) {
       Properties properties = new Properties();
       if (inputStream != null) {
         properties.load(inputStream);
