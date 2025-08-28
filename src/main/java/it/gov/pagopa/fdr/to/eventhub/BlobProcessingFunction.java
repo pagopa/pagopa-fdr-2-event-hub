@@ -7,6 +7,7 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
+import it.gov.pagopa.fdr.to.eventhub.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdr.to.eventhub.exception.AlertAppException;
 import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
@@ -31,8 +32,10 @@ public class BlobProcessingFunction {
   private final String fdr3Container =
       System.getenv().getOrDefault("BLOB_STORAGE_FDR3_CONTAINER", "fdr3-flows");
   private static final String SESSION_ID_METADATA_KEY = "sessionId";
+
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
+  private final AppInsightTelemetryClient aiTelemetryClient;
 
   private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
 
@@ -46,15 +49,20 @@ public class BlobProcessingFunction {
         CommonUtil.createEventHubClient(
             System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"),
             System.getenv("EVENT_HUB_REPORTEDIUV_NAME"));
+
+    this.aiTelemetryClient = new AppInsightTelemetryClient();
   }
 
   // Constructor to inject the Event Hub clients
   public BlobProcessingFunction(
-      EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV,
-      FDR1XmlStAXParser fdr1XmlParser) {
+          EventHubProducerClient eventHubClientFlowTx,
+          EventHubProducerClient eventHubClientReportedIUV,
+          AppInsightTelemetryClient aiTelemetryClient,
+          FDR1XmlStAXParser fdr1XmlParser
+  ) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
+    this.aiTelemetryClient = aiTelemetryClient;
     this.fdr1XmlParser = fdr1XmlParser;
   }
 
@@ -125,6 +133,7 @@ public class BlobProcessingFunction {
               blobName,
               blobMetadata.get(SESSION_ID_METADATA_KEY),
               retryIndex);
+      this.aiTelemetryClient.createCustomEvent(ErrorCodes.FDR1_E1, exceptionDetails, e);
       throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
     }
   }
@@ -198,6 +207,7 @@ public class BlobProcessingFunction {
               blobName,
               blobMetadata.get(SESSION_ID_METADATA_KEY),
               retryIndex);
+      this.aiTelemetryClient.createCustomEvent(ErrorCodes.FDR3_E1, exceptionDetails, e);
       throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
     }
   }

@@ -48,6 +48,11 @@
 			<artifactId>azure-storage-blob</artifactId>
 			<version>${azure.storage.blob.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.microsoft.azure</groupId>
+			<artifactId>applicationinsights-core</artifactId>
+			<version>2.6.4</version>
+		</dependency>
 
 		<!-- Jackson -->
 		<dependency>
