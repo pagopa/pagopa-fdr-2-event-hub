@@ -18,8 +18,6 @@ import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
@@ -89,10 +87,11 @@ public class HttpBlobRecoveryFunction {
         return CommonUtil.badRequest(request, "Missing required fields: fileName, container");
       }
 
-      logger.info("[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
-                      LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                      container,
-                      fileName);
+      logger.info(
+          "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
+          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          container,
+          fileName);
 
       BlobFileData fileData =
           CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, logger);

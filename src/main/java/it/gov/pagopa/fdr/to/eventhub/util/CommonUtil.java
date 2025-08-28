@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -431,5 +432,9 @@ public class CommonUtil {
           "[{}] Failed to add event to batch for flow ID: {}.", ErrorCodes.COMMON_E1, flowName, e);
       return false;
     }
+  }
+
+  public static String getFormattedDateTimeNowIfLogLevelEnabled(Logger logger) {
+    return logger.isInfoEnabled() ? LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)) : "";
   }
 }

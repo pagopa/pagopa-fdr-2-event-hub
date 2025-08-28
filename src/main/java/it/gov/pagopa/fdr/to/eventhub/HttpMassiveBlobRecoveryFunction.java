@@ -19,7 +19,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -34,7 +33,8 @@ import org.xml.sax.SAXException;
 /** Azure Functions with Azure Http trigger. */
 public class HttpMassiveBlobRecoveryFunction {
 
-  private final org.slf4j.Logger logger = LoggerFactory.getLogger(HttpMassiveBlobRecoveryFunction.class);
+  private final org.slf4j.Logger logger =
+      LoggerFactory.getLogger(HttpMassiveBlobRecoveryFunction.class);
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final String JSON_FILENAME = "fileName";
@@ -102,10 +102,11 @@ public class HttpMassiveBlobRecoveryFunction {
           this.checkBodyContentAccuracy(request, fileName, container, fromStr, toStr);
       if (checkBodyRes != null) return checkBodyRes;
 
-      logger.info("[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
-                      LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                      container,
-                      fileName);
+      logger.info(
+          "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
+          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          container,
+          fileName);
 
       List<BlobFileData> filesToProcess = new ArrayList<>();
 
@@ -146,8 +147,7 @@ public class HttpMassiveBlobRecoveryFunction {
               .collect(Collectors.toList());
       for (BlobFileData fileData : filesToProcess) {
         if (fileData.getUnprocessableFileDetail().isEmpty()) {
-          errors.add(
-              processBlobFile(fileData, container, sendFlowEvent, sendPaymentEvents));
+          errors.add(processBlobFile(fileData, container, sendFlowEvent, sendPaymentEvents));
         }
       }
 
@@ -215,10 +215,7 @@ public class HttpMassiveBlobRecoveryFunction {
   }
 
   private String processBlobFile(
-      BlobFileData fileData,
-      String container,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents)
+      BlobFileData fileData, String container, boolean sendFlowEvent, boolean sendPaymentEvents)
       throws IOException, SAXException, XMLStreamException {
 
     String error = "";
