@@ -17,6 +17,8 @@ import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import lombok.Getter;
 import org.slf4j.LoggerFactory;
@@ -93,7 +95,7 @@ public class BlobProcessingFunction {
 
     logger.info(
         "[FDR1] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
-        CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+        LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
         fdr1Container,
         blobName,
         content.length);
@@ -106,7 +108,7 @@ public class BlobProcessingFunction {
 
       logger.info(
           "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr1Container,
           blobName,
           content.length);
@@ -124,7 +126,7 @@ public class BlobProcessingFunction {
 
       logger.info(
           "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr1Container,
           blobName,
           content.length);
@@ -171,7 +173,7 @@ public class BlobProcessingFunction {
 
     logger.info(
         "[FDR3] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
-        CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+        LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
         fdr3Container,
         blobName,
         content.length);
@@ -183,7 +185,7 @@ public class BlobProcessingFunction {
 
       logger.info(
           "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr3Container,
           blobName,
           content.length);
@@ -203,7 +205,7 @@ public class BlobProcessingFunction {
 
       logger.info(
           "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr3Container,
           blobName,
           content.length);

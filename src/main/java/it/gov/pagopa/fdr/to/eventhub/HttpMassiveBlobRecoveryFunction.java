@@ -19,8 +19,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -104,7 +106,7 @@ public class HttpMassiveBlobRecoveryFunction {
 
       logger.info(
           "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           container,
           fileName);
 

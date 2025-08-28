@@ -18,6 +18,8 @@ import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
@@ -89,7 +91,7 @@ public class HttpBlobRecoveryFunction {
 
       logger.info(
           "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
-          CommonUtil.getFormattedDateTimeNowIfLogLevelEnabled(logger),
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           container,
           fileName);
 
