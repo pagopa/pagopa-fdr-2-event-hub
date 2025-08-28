@@ -9,13 +9,19 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.model.AppInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.logging.Logger;
 
 /** Azure Functions with Azure Http trigger. */
 public class Info {
+
+  private static final String ENVIRONMENT = System.getenv().getOrDefault("APP_ENVIRONMENT", "azure-fn");
+
+  private final Logger logger = LoggerFactory.getLogger(Info.class);
 
   @FunctionName("Info")
   public HttpResponseMessage run(
@@ -27,34 +33,27 @@ public class Info {
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
+    logger.info("SAGAGADSFGADFGKAJDKLòFJALSKDJFLAKSDJòFKLJAòKSLD");
     return request
         .createResponseBuilder(HttpStatus.OK)
         .header("Content-Type", "application/json")
-        .body(
-            getInfo(
-                context.getLogger(),
-                "/META-INF/maven/it.gov.pagopa.fdr.to.eventhub/pagopa-fdr-to-event-hub/pom.properties"))
+        .body(getInfo())
         .build();
   }
 
-  public synchronized AppInfo getInfo(Logger logger, String path) {
+  public synchronized AppInfo getInfo() {
     String version = null;
     String name = null;
-    try {
+    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream("application.properties")) {
       Properties properties = new Properties();
-      InputStream inputStream = loadResource(path);
       if (inputStream != null) {
         properties.load(inputStream);
         version = properties.getProperty("version", null);
-        name = properties.getProperty("artifactId", null);
+        name = properties.getProperty("name", null);
       }
     } catch (Exception e) {
-      logger.severe("Impossible to retrieve information from pom.properties file.");
+      logger.error("Impossible to retrieve information from pom.properties file.", e);
     }
-    return AppInfo.builder().version(version).environment("azure-fn").name(name).build();
-  }
-
-  public InputStream loadResource(String path) {
-    return getClass().getResourceAsStream(path);
+    return AppInfo.builder().version(version).environment(ENVIRONMENT).name(name).build();
   }
 }

@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
 
 @ExtendWith(MockitoExtension.class)
 class HttpMassiveBlobRecoveryFunctionTest {
@@ -62,8 +62,6 @@ class HttpMassiveBlobRecoveryFunctionTest {
     function =
         new HttpMassiveBlobRecoveryFunction(
             mockEventHubClientFlowTx, mockEventHubClientReportedIUV, mockFDR1XmlParser);
-    Logger logger = mock(Logger.class);
-    lenient().when(mockContext.getLogger()).thenReturn(logger);
 
     mockResponseBuilder = mock(HttpResponseMessage.Builder.class);
     mockResponse = mock(HttpResponseMessage.class);
@@ -221,7 +219,7 @@ class HttpMassiveBlobRecoveryFunctionTest {
                       anyString(),
                       any(LocalDate.class),
                       any(LocalDate.class),
-                      any(ExecutionContext.class)))
+                      any(Logger.class)))
           .thenReturn(Arrays.asList(mockBlobFileData));
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil
@@ -324,7 +322,7 @@ class HttpMassiveBlobRecoveryFunctionTest {
                       anyString(),
                       any(LocalDate.class),
                       any(LocalDate.class),
-                      any(ExecutionContext.class)))
+                      any(Logger.class)))
           .thenReturn(Arrays.asList(mockBlobFileData));
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.parseJSON(any())).thenReturn(mock(Flow.class));
@@ -384,7 +382,7 @@ class HttpMassiveBlobRecoveryFunctionTest {
                       anyString(),
                       any(LocalDate.class),
                       any(LocalDate.class),
-                      any(ExecutionContext.class)))
+                      any(Logger.class)))
           .thenReturn(Arrays.asList(mockBlobFileData));
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil

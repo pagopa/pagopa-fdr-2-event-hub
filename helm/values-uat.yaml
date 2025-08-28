@@ -89,6 +89,7 @@ microservice-chart: &microservice-chart
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "75"
   envConfig: &envConfig
+    APP_ENVIRONMENT: "uat"
     JAVA_OPTS: "-XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m"
     #JAVA_OPTS: "-XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=12345 -Dcom.sun.management.jmxremote.rmi.port=12345 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
     WEBSITE_SITE_NAME: "pagopafdrtoeventhub" # required to show cloud role name in application insights

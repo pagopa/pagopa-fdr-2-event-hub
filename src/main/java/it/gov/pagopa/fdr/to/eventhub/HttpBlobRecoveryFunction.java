@@ -23,9 +23,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
+import org.slf4j.LoggerFactory;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpBlobRecoveryFunction {
+
+  private final org.slf4j.Logger logger = LoggerFactory.getLogger(HttpBlobRecoveryFunction.class);
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final String JSON_FILENAME = "fileName";
@@ -86,18 +89,13 @@ public class HttpBlobRecoveryFunction {
         return CommonUtil.badRequest(request, "Missing required fields: fileName, container");
       }
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",
+      logger.info("[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
                       LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                       container,
-                      fileName));
+                      fileName);
 
       BlobFileData fileData =
-          CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, context);
+          CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, logger);
 
       if (Objects.isNull(fileData)) {
         return CommonUtil.notFound(
@@ -133,7 +131,7 @@ public class HttpBlobRecoveryFunction {
                   eventHubClientFlowTx,
                   eventHubClientReportedIUV,
                   flusso,
-                  context,
+                  logger,
                   sendFlowEvent,
                   sendPaymentEvents);
 
@@ -150,7 +148,7 @@ public class HttpBlobRecoveryFunction {
                   eventHubClientFlowTx,
                   eventHubClientReportedIUV,
                   flusso,
-                  context,
+                  logger,
                   sendFlowEvent,
                   sendPaymentEvents);
         }
@@ -173,7 +171,7 @@ public class HttpBlobRecoveryFunction {
     } catch (IOException e) {
       return CommonUtil.badRequest(request, "Invalid JSON format");
     } catch (Exception e) {
-      context.getLogger().severe("[HTTP FDR] Unexpected error: " + e.getMessage());
+      logger.error("[HTTP FDR] Unexpected error", e);
       return CommonUtil.serverError(request, "Internal Server Error");
     }
   }
