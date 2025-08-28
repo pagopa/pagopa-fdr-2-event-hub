@@ -435,6 +435,8 @@ public class CommonUtil {
   }
 
   public static String getFormattedDateTimeNowIfLogLevelEnabled(Logger logger) {
-    return logger.isInfoEnabled() ? LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN)) : "";
+    return logger.isInfoEnabled()
+        ? LocalDateTime.now().format(DateTimeFormatter.ofPattern(LOG_DATETIME_PATTERN))
+        : "";
   }
 }
