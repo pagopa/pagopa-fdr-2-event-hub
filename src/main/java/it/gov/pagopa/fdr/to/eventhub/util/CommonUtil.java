@@ -295,8 +295,10 @@ public class CommonUtil {
 
   private HttpResponseMessage response(
       HttpRequestMessage<?> request, HttpStatus status, String message) {
-    String formattedMessage =
-        message.endsWith("\"") || message.endsWith("]") ? message : message + "\"";
+    String formattedMessage = "";
+    if (message != null) {
+      formattedMessage = message.endsWith("\"") || message.endsWith("]") ? message : message + "\"";
+    }
     return request
         .createResponseBuilder(status)
         .header(CONTENT_TYPE, APPLICATION_JSON)
