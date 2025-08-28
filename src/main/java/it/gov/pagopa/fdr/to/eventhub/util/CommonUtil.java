@@ -136,13 +136,12 @@ public class CommonUtil {
   }
 
   public static List<BlobFileData> getBlobFilesInDateRange(
-          String storageEnvVar,
-          String containerName,
-          String prefixFormat, // Prefix format e.g.: "yyyy-MM-dd"
-          LocalDate from,
-          LocalDate to,
-          Logger logger
-          ) {
+      String storageEnvVar,
+      String containerName,
+      String prefixFormat, // Prefix format e.g.: "yyyy-MM-dd"
+      LocalDate from,
+      LocalDate to,
+      Logger logger) {
     try {
       BlobContainerClient containerClient =
           blobServiceClientWrapper.getBlobContainerClient(storageEnvVar, containerName);
@@ -221,10 +220,11 @@ public class CommonUtil {
           sendPaymentEvents);
 
     } catch (Exception e) {
-      logger.error("[{}] Error processing or sending data to event hub: {}",
-              ErrorCodes.COMMON_E2,
-              flussoRendicontazione.getIdentificativoFlusso(),
-              e);
+      logger.error(
+          "[{}] Error processing or sending data to event hub: {}",
+          ErrorCodes.COMMON_E2,
+          flussoRendicontazione.getIdentificativoFlusso(),
+          e);
       return false;
     }
   }
@@ -254,7 +254,11 @@ public class CommonUtil {
           sendPaymentEvents);
 
     } catch (Exception e) {
-      logger.error("[{}] Error processing or sending data to event hub: {}.", ErrorCodes.COMMON_E2, flow.getFdr(), e);
+      logger.error(
+          "[{}] Error processing or sending data to event hub: {}.",
+          ErrorCodes.COMMON_E2,
+          flow.getFdr(),
+          e);
       return false;
     }
   }
@@ -374,7 +378,8 @@ public class CommonUtil {
       eventHubClient.send(eventBatch);
       return true;
     } catch (Exception e) {
-      logger.error("[{}] Failed to add event to batch for flow ID: {}.", ErrorCodes.COMMON_E1, flowName, e);
+      logger.error(
+          "[{}] Failed to add event to batch for flow ID: {}.", ErrorCodes.COMMON_E1, flowName, e);
       return false;
     }
   }
@@ -422,7 +427,8 @@ public class CommonUtil {
       return true;
 
     } catch (Exception e) {
-      logger.error("[{}] Failed to add event to batch for flow ID: {}.", ErrorCodes.COMMON_E1, flowName, e);
+      logger.error(
+          "[{}] Failed to add event to batch for flow ID: {}.", ErrorCodes.COMMON_E1, flowName, e);
       return false;
     }
   }

@@ -55,11 +55,10 @@ public class BlobProcessingFunction {
 
   // Constructor to inject the Event Hub clients
   public BlobProcessingFunction(
-          EventHubProducerClient eventHubClientFlowTx,
-          EventHubProducerClient eventHubClientReportedIUV,
-          AppInsightTelemetryClient aiTelemetryClient,
-          FDR1XmlStAXParser fdr1XmlParser
-  ) {
+      EventHubProducerClient eventHubClientFlowTx,
+      EventHubProducerClient eventHubClientReportedIUV,
+      AppInsightTelemetryClient aiTelemetryClient,
+      FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
     this.aiTelemetryClient = aiTelemetryClient;
@@ -83,19 +82,23 @@ public class BlobProcessingFunction {
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
-      logger.warn("[FDR1] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
-                  fdr1Container, blobName, content.length);
+      logger.warn(
+          "[FDR1] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
+          fdr1Container,
+          blobName,
+          content.length);
       return; // Skip execution
     }
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = CommonUtil.isGzip(content);
 
-    logger.info("[FDR1] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                fdr1Container,
-                blobName,
-                content.length);
+    logger.info(
+        "[FDR1] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
+        LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+        fdr1Container,
+        blobName,
+        content.length);
 
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
@@ -103,11 +106,12 @@ public class BlobProcessingFunction {
       FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(decompressedStream);
       flusso.setMetadata(blobMetadata);
 
-      logger.info("[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                  LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                  fdr1Container,
-                  blobName,
-                  content.length);
+      logger.info(
+          "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+          fdr1Container,
+          blobName,
+          content.length);
 
       // Waits for confirmation of sending the entire flow to the Event Hub
       boolean eventBatchSent =
@@ -120,11 +124,12 @@ public class BlobProcessingFunction {
                 flusso.getIdentificativoFlusso()));
       }
 
-      logger.info("[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                  LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                  fdr1Container,
-                  blobName,
-                  content.length);
+      logger.info(
+          "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+          fdr1Container,
+          blobName,
+          content.length);
     } catch (Exception e) {
       String exceptionDetails =
           getExceptionDetails(
@@ -155,30 +160,35 @@ public class BlobProcessingFunction {
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
-      logger.warn("[FDR3] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
-                  fdr3Container, blobName, content.length);
+      logger.warn(
+          "[FDR3] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
+          fdr3Container,
+          blobName,
+          content.length);
       return; // Skip execution
     }
 
     // verify that the file is present and that it is a compressed file
     boolean isValidGzipFile = CommonUtil.isGzip(content);
 
-    logger.info("[FDR3] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                fdr3Container,
-                blobName,
-                content.length);
+    logger.info(
+        "[FDR3] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
+        LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+        fdr3Container,
+        blobName,
+        content.length);
 
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
 
       Flow flow = CommonUtil.parseJSON(decompressedStream);
 
-      logger.info("[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                  LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                  fdr3Container,
-                  blobName,
-                  content.length);
+      logger.info(
+          "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+          fdr3Container,
+          blobName,
+          content.length);
 
       flow.setMetadata(blobMetadata);
 
@@ -193,11 +203,12 @@ public class BlobProcessingFunction {
                 flow.getFdr()));
       }
 
-      logger.info("[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                  LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
-                  fdr3Container,
-                  blobName,
-                  content.length);
+      logger.info(
+          "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern(CommonUtil.LOG_DATETIME_PATTERN)),
+          fdr3Container,
+          blobName,
+          content.length);
 
     } catch (Exception e) {
       String exceptionDetails =

@@ -66,7 +66,10 @@ class BlobProcessingFunctionTest {
   void setup() {
     function =
         new BlobProcessingFunction(
-            eventHubClientFlowTx, eventHubClientReportedIUV, aiTelemetryClientMock, mockFDR1XmlParser);
+            eventHubClientFlowTx,
+            eventHubClientReportedIUV,
+            aiTelemetryClientMock,
+            mockFDR1XmlParser);
     lenient().when(eventHubClientFlowTx.createBatch()).thenReturn(mock(EventDataBatch.class));
     lenient().when(eventHubClientReportedIUV.createBatch()).thenReturn(mock(EventDataBatch.class));
   }
@@ -97,7 +100,8 @@ class BlobProcessingFunctionTest {
                       any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(true);
 
-      assertDoesNotThrow(() -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+      assertDoesNotThrow(
+          () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
     }
   }
 
@@ -121,7 +125,8 @@ class BlobProcessingFunctionTest {
                       any(), any(), any(), any(), anyBoolean(), anyBoolean()))
           .thenReturn(true);
 
-      assertDoesNotThrow(() -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+      assertDoesNotThrow(
+          () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
     }
   }
 
@@ -168,9 +173,8 @@ class BlobProcessingFunctionTest {
 
     AlertAppException thrown =
         assertThrows(
-                AlertAppException.class,
-                () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context)
-        );
+            AlertAppException.class,
+            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -191,9 +195,8 @@ class BlobProcessingFunctionTest {
 
     AlertAppException thrown =
         assertThrows(
-                AlertAppException.class,
-                () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context)
-        );
+            AlertAppException.class,
+            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -205,8 +208,7 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1ValidateBlobMetadata_NullMetadata() {
     assertDoesNotThrow(
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context)
-    );
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -217,8 +219,7 @@ class BlobProcessingFunctionTest {
   void testFDR1ValidateBlobMetadata_EmptyMetadata() {
     Map<String, String> emptyMetadata = new HashMap<>();
     assertDoesNotThrow(
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context)
-    );
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -232,8 +233,7 @@ class BlobProcessingFunctionTest {
     // "insertedTimestamp" key is missing
 
     assertDoesNotThrow(
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context)
-    );
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -248,8 +248,7 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "false");
 
     assertDoesNotThrow(
-            () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context)
-    );
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -269,9 +268,8 @@ class BlobProcessingFunctionTest {
 
     AlertAppException thrown =
         assertThrows(
-                AlertAppException.class,
-                () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context)
-        );
+            AlertAppException.class,
+            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
     verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
@@ -333,8 +331,7 @@ class BlobProcessingFunctionTest {
           .thenReturn(true);
 
       assertDoesNotThrow(
-              () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context)
-      );
+          () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
 
       verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
     }
@@ -351,9 +348,8 @@ class BlobProcessingFunctionTest {
 
     AlertAppException thrown =
         assertThrows(
-                AlertAppException.class,
-                () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context)
-        );
+            AlertAppException.class,
+            () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
     verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
@@ -369,7 +365,9 @@ class BlobProcessingFunctionTest {
       environmentVariables.set(
           "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
       environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
-      environmentVariables.set("APPLICATIONINSIGHTS_CONNECTION_STRING", "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
+      environmentVariables.set(
+          "APPLICATIONINSIGHTS_CONNECTION_STRING",
+          "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
 
       EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
       EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
