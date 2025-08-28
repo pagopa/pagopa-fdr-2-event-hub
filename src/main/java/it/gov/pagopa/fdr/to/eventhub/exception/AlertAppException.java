@@ -28,7 +28,7 @@ public class AlertAppException extends RuntimeException {
   public String toString() {
     String exceptionPrefix = "[ALERT][Fdr2EventHub][LAST_RETRY]";
     return String.format(
-        "%s[%s]:details=%s,\nmessage=%s",
+        "%s[%s]:details=%s,%nmessage=%s",
         exceptionPrefix, this.getClass(), details, super.toString());
   }
 

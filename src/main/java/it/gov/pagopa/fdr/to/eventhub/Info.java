@@ -33,7 +33,6 @@ public class Info {
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
 
-    logger.info("SAGAGADSFGADFGKAJDKLòFJALSKDJFLAKSDJòFKLJAòKSLD");
     return request
         .createResponseBuilder(HttpStatus.OK)
         .header("Content-Type", "application/json")
