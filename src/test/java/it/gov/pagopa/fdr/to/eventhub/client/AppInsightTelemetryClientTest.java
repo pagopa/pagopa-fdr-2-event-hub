@@ -21,9 +21,11 @@ class AppInsightTelemetryClientTest {
   @InjectMocks private AppInsightTelemetryClient sut;
 
   @Test
-  void createCustomEventWithSuccess() {
+  void createCustomEventForAlertWithSuccess() {
     assertDoesNotThrow(
-        () -> sut.createCustomEvent(ErrorCodes.FDR1_E1, "error detail", new Exception("test")));
+        () ->
+            sut.createCustomEventForAlert(
+                ErrorCodes.FDR1_E1, "error detail", new Exception("test")));
 
     verify(telemetryClientMock).trackEvent(eq("FDR_TO_EVH_ALERT"), anyMap(), eq(null));
   }

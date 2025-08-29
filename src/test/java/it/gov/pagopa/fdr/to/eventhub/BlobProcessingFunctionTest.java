@@ -158,7 +158,7 @@ class BlobProcessingFunctionTest {
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
-    verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -180,7 +180,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(ArrayList.class));
     verify(eventHubClientReportedIUV, never()).send(any(ArrayList.class));
-    verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -202,7 +202,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
-    verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -212,7 +212,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
-    verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -223,7 +223,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
-    verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -237,7 +237,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
-    verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -252,7 +252,7 @@ class BlobProcessingFunctionTest {
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
-    verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -272,7 +272,7 @@ class BlobProcessingFunctionTest {
             () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
-    verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -333,7 +333,7 @@ class BlobProcessingFunctionTest {
       assertDoesNotThrow(
           () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
 
-      verify(aiTelemetryClientMock, never()).createCustomEvent(any(), anyString(), any());
+      verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
     }
   }
 
@@ -352,7 +352,7 @@ class BlobProcessingFunctionTest {
             () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
-    verify(aiTelemetryClientMock).createCustomEvent(any(), anyString(), any());
+    verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test

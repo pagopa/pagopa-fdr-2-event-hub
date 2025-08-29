@@ -29,7 +29,7 @@ public class AppInsightTelemetryClient {
    * @param details details of the custom event
    * @param e exception added to the custom event
    */
-  public void createCustomEvent(ErrorCodes errorCode, String details, Exception e) {
+  public void createCustomEventForAlert(ErrorCodes errorCode, String details, Exception e) {
     Map<String, String> props =
         Map.of(
             "type",

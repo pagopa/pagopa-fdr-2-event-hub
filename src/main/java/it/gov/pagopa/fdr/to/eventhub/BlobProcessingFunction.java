@@ -138,7 +138,7 @@ public class BlobProcessingFunction {
               blobName,
               blobMetadata.get(SESSION_ID_METADATA_KEY),
               retryIndex);
-      this.aiTelemetryClient.createCustomEvent(ErrorCodes.FDR1_E1, exceptionDetails, e);
+      this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR1_E1, exceptionDetails, e);
       throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
     }
   }
@@ -218,7 +218,7 @@ public class BlobProcessingFunction {
               blobName,
               blobMetadata.get(SESSION_ID_METADATA_KEY),
               retryIndex);
-      this.aiTelemetryClient.createCustomEvent(ErrorCodes.FDR3_E1, exceptionDetails, e);
+      this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1, exceptionDetails, e);
       throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
     }
   }
