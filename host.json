@@ -29,7 +29,7 @@
   "logging": {
     "fileLoggingMode": "debugOnly",
     "logLevel": {
-      "default": "Information",
+      "default": "Error",
       "Host.Results": "Error",
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
