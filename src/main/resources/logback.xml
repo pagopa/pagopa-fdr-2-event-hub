@@ -21,7 +21,7 @@
         </then>
     </if>
 
-    <root level="${LOG_LEVEL:-ERROR}">
+    <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT" />
     </root>
 
