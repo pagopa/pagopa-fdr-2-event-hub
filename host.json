@@ -33,6 +33,7 @@
       "Function.ProcessFDR1BlobFiles": "Information",
       "Function.ProcessFDR3BlobFiles": "Information",
       "Function.HTTPBlobRecovery": "Information",
+      "Function.Info": "Error",
       "Host.Aggregator": "Error"
     },
     "applicationInsights": {
