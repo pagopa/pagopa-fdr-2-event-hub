@@ -55,5 +55,4 @@ public class ReportedIUVEventModel {
 
   @JsonProperty("ID_TRANSFER")
   private Long idTransfer;
-
 }
