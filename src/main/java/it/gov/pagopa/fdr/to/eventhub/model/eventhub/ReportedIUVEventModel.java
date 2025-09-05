@@ -52,4 +52,8 @@ public class ReportedIUVEventModel {
 
   @JsonProperty("INSERTED_TIMESTAMP")
   private LocalDateTime insertedTimestamp;
+
+  @JsonProperty("ID_TRANSFER")
+  private Long idTransfer;
+
 }
