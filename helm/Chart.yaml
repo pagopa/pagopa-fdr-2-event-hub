@@ -2,7 +2,7 @@ apiVersion: v2
 name: pagopa-fdr-to-event-hub
 description: Microservice fdr to event hub
 version: 0.83.0
-appVersion: 1.0.11-1-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk
+appVersion: 1.0.12-1-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk
 dependencies:
   - name: microservice-chart
     version: 7.5.0

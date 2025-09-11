@@ -113,6 +113,7 @@ public class FlowMapper {
             singoloPagamento ->
                 ReportedIUVEventModel.builder()
                     .iuv(singoloPagamento.getIuv())
+                    .idTransfer(singoloPagamento.getIdTransfer())
                     .iur(singoloPagamento.getIur())
                     .amount(singoloPagamento.getPay())
                     .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
