@@ -4,7 +4,7 @@
     "title": "pagopa-fdr-2-event-hub API",
     "description": "A Microservice for the ingestion of FDR data flows into FdR QI",
     "termsOfService": "https://www.pagopa.gov.it/",
-    "version": "1.0.12-1-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk"
+    "version": "1.0.12-2-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk"
   },
   "servers": [
     {
