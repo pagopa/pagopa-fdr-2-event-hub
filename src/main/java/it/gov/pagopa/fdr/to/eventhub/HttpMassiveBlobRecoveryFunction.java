@@ -22,16 +22,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
 import lombok.Getter;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
 
 /** Azure Functions with Azure Http trigger. */
 public class HttpMassiveBlobRecoveryFunction {
+
+  private final org.slf4j.Logger logger =
+      LoggerFactory.getLogger(HttpMassiveBlobRecoveryFunction.class);
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final String JSON_FILENAME = "fileName";
@@ -99,21 +104,17 @@ public class HttpMassiveBlobRecoveryFunction {
           this.checkBodyContentAccuracy(request, fileName, container, fromStr, toStr);
       if (checkBodyRes != null) return checkBodyRes;
 
-      context
-          .getLogger()
-          .fine(
-              () ->
-                  String.format(
-                      "[HTTP FDR] Triggered at: %s for Blob container: %s, name: %s",
-                      LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                      container,
-                      fileName));
+      logger.info(
+          "[HTTP FDR] Triggered at: {} for Blob container: {}, name: {}",
+          LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
+          container,
+          fileName);
 
       List<BlobFileData> filesToProcess = new ArrayList<>();
 
       if (fileName != null) {
         BlobFileData fileData =
-            CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, context);
+            CommonUtil.getBlobFile("FDR_SA_CONNECTION_STRING", container, fileName, logger);
         if (fileData == null) {
           return CommonUtil.notFound(
               request, String.format("File %s not found in container %s", fileName, container));
@@ -138,7 +139,7 @@ public class HttpMassiveBlobRecoveryFunction {
                 blobFilterPrefix,
                 fromDateTime,
                 toDateTime,
-                context);
+                logger);
       }
 
       // initialize the list with any errors that occurred during blob file recovery
@@ -148,8 +149,7 @@ public class HttpMassiveBlobRecoveryFunction {
               .collect(Collectors.toList());
       for (BlobFileData fileData : filesToProcess) {
         if (fileData.getUnprocessableFileDetail().isEmpty()) {
-          errors.add(
-              processBlobFile(fileData, container, sendFlowEvent, sendPaymentEvents, context));
+          errors.add(processBlobFile(fileData, container, sendFlowEvent, sendPaymentEvents));
         }
       }
 
@@ -164,7 +164,7 @@ public class HttpMassiveBlobRecoveryFunction {
     } catch (IllegalArgumentException e) {
       return CommonUtil.badRequest(request, e.getMessage());
     } catch (Exception e) {
-      context.getLogger().severe("[HTTP FDR] Unexpected error: " + e.getMessage());
+      logger.error("[HTTP FDR] Unexpected error", e);
       return CommonUtil.serverError(request, "Internal Server Error");
     }
   }
@@ -217,11 +217,7 @@ public class HttpMassiveBlobRecoveryFunction {
   }
 
   private String processBlobFile(
-      BlobFileData fileData,
-      String container,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents,
-      ExecutionContext context)
+      BlobFileData fileData, String container, boolean sendFlowEvent, boolean sendPaymentEvents)
       throws IOException, SAXException, XMLStreamException {
 
     String error = "";
@@ -235,7 +231,7 @@ public class HttpMassiveBlobRecoveryFunction {
       String flowName;
 
       if (fdr1Container.equals(container)) {
-        context.getLogger().info("Processing data from FdR1 container.");
+        logger.info("Processing data from FdR1 container.");
         FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(decompressedStream);
         flusso.setMetadata(fileData.getMetadata());
         flowName = flusso.getIdentificativoFlusso();
@@ -244,11 +240,11 @@ public class HttpMassiveBlobRecoveryFunction {
                 eventHubClientFlowTx,
                 eventHubClientReportedIUV,
                 flusso,
-                context,
+                logger,
                 sendFlowEvent,
                 sendPaymentEvents);
       } else {
-        context.getLogger().info("Processing data from FdR3 container.");
+        logger.info("Processing data from FdR3 container.");
         Flow flusso = CommonUtil.parseJSON(decompressedStream);
         flusso.setMetadata(fileData.getMetadata());
         flowName = flusso.getFdr();
@@ -257,7 +253,7 @@ public class HttpMassiveBlobRecoveryFunction {
                 eventHubClientFlowTx,
                 eventHubClientReportedIUV,
                 flusso,
-                context,
+                logger,
                 sendFlowEvent,
                 sendPaymentEvents);
       }

@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -38,8 +40,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
-import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +48,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
 
 @ExtendWith(MockitoExtension.class)
 class CommonUtilTest {
@@ -68,7 +69,6 @@ class CommonUtilTest {
   @BeforeEach
   void setUp() {
 
-    lenient().when(mockContext.getLogger()).thenReturn(mockLogger);
     CommonUtil.setBlobServiceClientWrapper(mockBlobServiceClientWrapper);
     lenient()
         .when(mockBlobServiceClientWrapper.getBlobContainerClient(anyString(), anyString()))
@@ -81,15 +81,13 @@ class CommonUtilTest {
     when(mockBlobClient.exists()).thenReturn(false);
 
     BlobFileData result =
-        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockContext);
+        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockLogger);
 
     assertNull(result);
-    ArgumentCaptor<Supplier<String>> logCaptor = ArgumentCaptor.forClass(Supplier.class);
-    verify(mockLogger, atLeastOnce()).severe(logCaptor.capture());
+    ArgumentCaptor<String> logCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockLogger, atLeastOnce()).error(logCaptor.capture(), anyString());
 
-    logCaptor.getAllValues().stream()
-        .map(Supplier::get)
-        .anyMatch(log -> log.contains("Blob not found"));
+    assertTrue(logCaptor.getAllValues().stream().anyMatch(log -> log.contains("Blob not found")));
   }
 
   @Test
@@ -113,7 +111,7 @@ class CommonUtilTest {
         .downloadStream(any(ByteArrayOutputStream.class));
 
     BlobFileData result =
-        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockContext);
+        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockLogger);
 
     assertNotNull(result);
     assertArrayEquals(mockData, result.getFileContent());
@@ -126,10 +124,10 @@ class CommonUtilTest {
         .thenThrow(new RuntimeException("Storage error"));
 
     BlobFileData result =
-        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockContext);
+        CommonUtil.getBlobFile(STORAGE_ENV_VAR, CONTAINER_NAME, BLOB_NAME, mockLogger);
 
     assertNull(result);
-    verify(mockLogger).severe("Error accessing blob: Storage error");
+    verify(mockLogger).error(eq("Error accessing blob"), any(Exception.class));
   }
 
   @Test
@@ -159,7 +157,7 @@ class CommonUtilTest {
 
     List<BlobFileData> result =
         CommonUtil.getBlobFilesInDateRange(
-            storageEnvVar, containerName, prefixFormat, from, to, mockContext);
+            storageEnvVar, containerName, prefixFormat, from, to, mockLogger);
     assertNotNull(result);
     assertFalse(result.isEmpty());
   }
