@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.12-2-PAGOPA-2800-fd-r-sampling-dei-log-su-ai-e-elk</version>
+	<version>1.0.13</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
