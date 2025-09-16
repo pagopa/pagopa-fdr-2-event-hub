@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -18,6 +19,7 @@ import static org.mockito.Mockito.when;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.RetryContext;
 import it.gov.pagopa.fdr.to.eventhub.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdr.to.eventhub.exception.AlertAppException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
@@ -57,7 +59,8 @@ class BlobProcessingFunctionTest {
   @Captor ArgumentCaptor<String> logCaptor;
   @Mock private EventHubProducerClient eventHubClientFlowTx;
   @Mock private EventHubProducerClient eventHubClientReportedIUV;
-  @Mock private ExecutionContext context;
+  @Mock private ExecutionContext executionContext;
+  @Mock private RetryContext retryContext;
   @Mock private FDR1XmlStAXParser mockFDR1XmlParser;
   @Mock private AppInsightTelemetryClient aiTelemetryClientMock;
   private BlobProcessingFunction function;
@@ -101,7 +104,9 @@ class BlobProcessingFunctionTest {
           .thenReturn(true);
 
       assertDoesNotThrow(
-          () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+          () ->
+              function.processFDR1BlobFiles(
+                  compressedData, "sampleBlob", metadata, executionContext));
     }
   }
 
@@ -126,7 +131,9 @@ class BlobProcessingFunctionTest {
           .thenReturn(true);
 
       assertDoesNotThrow(
-          () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+          () ->
+              function.processFDR1BlobFiles(
+                  compressedData, "sampleBlob", metadata, executionContext));
     }
   }
 
@@ -138,13 +145,15 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "true");
     assertThrows(
         IllegalArgumentException.class,
-        () -> function.processFDR1BlobFiles(null, "sampleBlob", metadata, context));
+        () -> function.processFDR1BlobFiles(null, "sampleBlob", metadata, executionContext));
   }
 
   @Test
   void testFDR1ProcessBlobWithInvalidGzipData() throws SAXException, XMLStreamException {
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
     when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(1).when(retryContext).getMaxretrycount();
     byte[] invalidData = "invalidData".getBytes(StandardCharsets.UTF_8);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
@@ -154,7 +163,9 @@ class BlobProcessingFunctionTest {
     AlertAppException thrown =
         assertThrows(
             AlertAppException.class,
-            () -> function.processFDR1BlobFiles(invalidData, "sampleBlob", metadata, context));
+            () ->
+                function.processFDR1BlobFiles(
+                    invalidData, "sampleBlob", metadata, executionContext));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -165,6 +176,8 @@ class BlobProcessingFunctionTest {
   void testFDR1ProcessBlobWithEmptyXml() throws Exception {
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
     when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(1).when(retryContext).getMaxretrycount();
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -174,7 +187,9 @@ class BlobProcessingFunctionTest {
     AlertAppException thrown =
         assertThrows(
             AlertAppException.class,
-            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+            () ->
+                function.processFDR1BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -187,6 +202,8 @@ class BlobProcessingFunctionTest {
   void testFDR1ProcessBlobWithMalformedXml() throws Exception {
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
     when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(1).when(retryContext).getMaxretrycount();
     Map<String, String> metadata = new HashMap<>();
     metadata.put("sessionId", "1234");
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
@@ -196,7 +213,9 @@ class BlobProcessingFunctionTest {
     AlertAppException thrown =
         assertThrows(
             AlertAppException.class,
-            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+            () ->
+                function.processFDR1BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -208,7 +227,7 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1ValidateBlobMetadata_NullMetadata() {
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, context));
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -219,7 +238,9 @@ class BlobProcessingFunctionTest {
   void testFDR1ValidateBlobMetadata_EmptyMetadata() {
     Map<String, String> emptyMetadata = new HashMap<>();
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", emptyMetadata, context));
+        () ->
+            function.processFDR1BlobFiles(
+                new byte[] {}, "testBlob", emptyMetadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -233,7 +254,9 @@ class BlobProcessingFunctionTest {
     // "insertedTimestamp" key is missing
 
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", invalidMetadata, context));
+        () ->
+            function.processFDR1BlobFiles(
+                new byte[] {}, "testBlob", invalidMetadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -248,7 +271,7 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "false");
 
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, context));
+        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -259,6 +282,8 @@ class BlobProcessingFunctionTest {
   void testFDR1BlobTriggerProcessingError() throws Exception {
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
     when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(1).when(retryContext).getMaxretrycount();
     String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
     byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
     Map<String, String> metadata = new HashMap<>();
@@ -269,10 +294,36 @@ class BlobProcessingFunctionTest {
     AlertAppException thrown =
         assertThrows(
             AlertAppException.class,
-            () -> function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, context));
+            () ->
+                function.processFDR1BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
     verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
+  }
+
+  @Test
+  void testFDR1BlobTriggerProcessingErrorNotLastRetry() throws Exception {
+    FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(5).when(retryContext).getMaxretrycount();
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleXml);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    AlertAppException thrown =
+        assertThrows(
+            AlertAppException.class,
+            () ->
+                function.processFDR1BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
+
+    assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
@@ -331,7 +382,9 @@ class BlobProcessingFunctionTest {
           .thenReturn(true);
 
       assertDoesNotThrow(
-          () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
+          () ->
+              function.processFDR3BlobFiles(
+                  compressedData, "sampleBlob", metadata, executionContext));
 
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
     }
@@ -346,13 +399,41 @@ class BlobProcessingFunctionTest {
     metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
     metadata.put("elaborate", "true");
 
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(1).when(retryContext).getMaxretrycount();
+
     AlertAppException thrown =
         assertThrows(
             AlertAppException.class,
-            () -> function.processFDR3BlobFiles(compressedData, "sampleBlob", metadata, context));
+            () ->
+                function.processFDR3BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
 
     assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
     verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
+  }
+
+  @Test
+  void testFDR3BlobTriggerProcessingErrorNotLastRetry() throws Exception {
+    String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
+    byte[] compressedData = SampleContentFileUtil.createGzipCompressedData(sampleJson);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    doReturn(retryContext).when(executionContext).getRetryContext();
+    doReturn(5).when(retryContext).getMaxretrycount();
+
+    AlertAppException thrown =
+        assertThrows(
+            AlertAppException.class,
+            () ->
+                function.processFDR3BlobFiles(
+                    compressedData, "sampleBlob", metadata, executionContext));
+
+    assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
+    verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
   }
 
   @Test
