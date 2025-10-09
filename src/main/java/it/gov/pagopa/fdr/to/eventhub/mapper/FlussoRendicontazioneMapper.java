@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -112,25 +113,25 @@ public class FlussoRendicontazioneMapper {
    * @return List of ReportedIUVEventModel.
    */
   public static List<ReportedIUVEventModel> toReportedIUVEventList(FlussoRendicontazione flusso) {
-    return flusso.getFlussoRiversamento().getDatiSingoliPagamenti().stream()
-        .map(
-            singoloPagamento ->
-                ReportedIUVEventModel.builder()
-                    .iuv(singoloPagamento.getIdentificativoUnivocoVersamento())
-                    .iur(singoloPagamento.getIdentificativoUnivocoRiscossione())
-                    .amount(BigDecimal.valueOf(singoloPagamento.getSingoloImportoPagato()))
-                    .outcomeCode(singoloPagamento.getCodiceEsitoSingoloPagamento())
-                    .idsp(singoloPagamento.getIndiceDatiSingoloPagamento())
-                    .singlePaymentOutcomeDate(
-                        parseDate(singoloPagamento.getDataEsitoSingoloPagamento()))
-                    .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
-                    .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
-                    .domainId(flusso.getIdentificativoDominio())
-                    .intPsp(flusso.getIdentificativoIntermediarioPSP())
-                    .uniqueId(flusso.getMetadata().get("sessionId"))
-                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-                    .psp(flusso.getIdentificativoPSP())
-                    .build())
-        .toList();
+      List<ReportedIUVEventModel> listaPagamenti = new ArrayList<>();
+      for (DatiSingoloPagamento singoloPagamento : flusso.getFlussoRiversamento().getDatiSingoliPagamenti()) {
+          listaPagamenti.add(ReportedIUVEventModel.builder()
+                  .iuv(singoloPagamento.getIdentificativoUnivocoVersamento())
+                  .iur(singoloPagamento.getIdentificativoUnivocoRiscossione())
+                  .amount(BigDecimal.valueOf(singoloPagamento.getSingoloImportoPagato()))
+                  .outcomeCode(singoloPagamento.getCodiceEsitoSingoloPagamento())
+                  .idsp(singoloPagamento.getIndiceDatiSingoloPagamento())
+                  .singlePaymentOutcomeDate(
+                          parseDate(singoloPagamento.getDataEsitoSingoloPagamento()))
+                  .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
+                  .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
+                  .domainId(flusso.getIdentificativoDominio())
+                  .intPsp(flusso.getIdentificativoIntermediarioPSP())
+                  .uniqueId(flusso.getMetadata().get("sessionId"))
+                  .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
+                  .psp(flusso.getIdentificativoPSP())
+                  .build());
+      }
+      return listaPagamenti;
   }
 }
