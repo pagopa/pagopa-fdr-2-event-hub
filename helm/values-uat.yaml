@@ -33,14 +33,14 @@ microservice-chart: &microservice-chart
     initialDelaySeconds: 30
     periodSeconds: 30
     failureThreshold: 10
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
   deployment:
     create: true
     replicas: 1 # (default) same as HPA minReplica
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 0
+        maxSurge: 1
   serviceMonitor:
     create: true
     endpoints:
