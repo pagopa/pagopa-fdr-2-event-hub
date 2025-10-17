@@ -61,11 +61,15 @@ public class FlussoRendicontazioneMapper {
         return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
       }
     } catch (DateTimeParseException e1) {
-      try {
-        return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
-      } catch (DateTimeParseException e2) {
-        throw new IllegalArgumentException("Date format not supported: " + dateStr);
-      }
+        try {
+            return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
+        } catch (DateTimeParseException e2) {
+            try {
+                return LocalDateTime.parse(dateStr.substring(0, 10) + "T00:00:00", DATE_TIME_FORMATTER);
+            } catch (DateTimeParseException e3) {
+                throw new IllegalArgumentException("Date format not supported: " + dateStr);
+            }
+        }
     }
   }
 
