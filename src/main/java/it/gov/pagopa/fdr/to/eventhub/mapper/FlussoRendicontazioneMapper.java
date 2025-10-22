@@ -73,6 +73,7 @@ public class FlussoRendicontazioneMapper {
                 throw new IllegalArgumentException("Date format not supported: " + dateStr);
             }
         }
+      }
     }
   }
 
