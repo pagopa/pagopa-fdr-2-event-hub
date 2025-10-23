@@ -201,7 +201,7 @@ recovery:
       memory: "512Mi"
       cpu: "0.3"
     limits:
-      memory: "1024Mi" # increase for massime if needed
+      memory: "1024Mi" # increase for massive if needed
       cpu: "0.8"
   autoscaling:
     !!merge <<: *autoscaling
