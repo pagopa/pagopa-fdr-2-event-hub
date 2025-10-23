@@ -36,13 +36,8 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
@@ -205,19 +200,31 @@ public class CommonUtil {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
           FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-      List<ReportedIUVEventModel> reportedIUVEventList =
-          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
+//      List<ReportedIUVEventModel> reportedIUVEventList =
+//          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
+//      return prepareAndSendEventsToEventHub(
+//          eventHubClientFlowTx,
+//          eventHubClientReportedIUV,
+//          flowEvent,
+//          reportedIUVEventList,
+//          flussoRendicontazione.getIdentificativoFlusso(),
+//          flussoRendicontazione.getMetadata(),
+//          logger,
+//          sendFlowEvent,
+//          sendPaymentEvents);
+      Stream<ReportedIUVEventModel> reportedIUVEventStream =
+              FlussoRendicontazioneMapper.toReportedIUVEventStream(flussoRendicontazione);
 
-      return prepareAndSendEventsToEventHub(
-          eventHubClientFlowTx,
-          eventHubClientReportedIUV,
-          flowEvent,
-          reportedIUVEventList,
-          flussoRendicontazione.getIdentificativoFlusso(),
-          flussoRendicontazione.getMetadata(),
-          logger,
-          sendFlowEvent,
-          sendPaymentEvents);
+      return prepareAndSendEventsToEventHubFC(
+              eventHubClientFlowTx,
+              eventHubClientReportedIUV,
+              flowEvent,
+              reportedIUVEventStream,
+              flussoRendicontazione.getIdentificativoFlusso(),
+              flussoRendicontazione.getMetadata(),
+              logger,
+              sendFlowEvent,
+              sendPaymentEvents);
 
     } catch (Exception e) {
       logger.error(
@@ -304,6 +311,100 @@ public class CommonUtil {
         .header(CONTENT_TYPE, APPLICATION_JSON)
         .body("{\"message\": \"" + formattedMessage + "}")
         .build();
+  }
+
+  private static boolean prepareAndSendEventsToEventHubFC(
+          EventHubProducerClient eventHubClientFlowTx,
+          EventHubProducerClient eventHubClientReportedIUV,
+          FlowTxEventModel flowEvent,
+          Stream<ReportedIUVEventModel> reportedIUVEventStream,
+          String flowName,
+          Map<String, String> metadata,
+          Logger logger,
+          boolean sendFlowEvent,
+          boolean sendPaymentEvents)
+          throws JsonProcessingException {
+
+    // TODO objectMapper can be shared and reused ? (in a function?)
+    JsonMapper objectMapper =
+            JsonMapper.builder()
+                    .addModule(new JavaTimeModule())
+                    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+                    .build();
+
+    // flow event
+    String flowEventJson = objectMapper.writeValueAsString(flowEvent);
+    String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
+
+    boolean flowEventSent = true;
+    if (sendFlowEvent) {
+      flowEventSent = sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
+    } else {
+      logger.info("Skipping sending flow event to EventHub");
+    }
+
+    // payment events
+    boolean allPaymentEventsSent = true;
+    if (sendPaymentEvents) {
+      logger.info("Starting to send payment events in batches...");
+
+      // evaluate stream instead of list to avoid OOM for large flows
+
+      try (Stream<ReportedIUVEventModel> stream = reportedIUVEventStream) {
+        // create batch using EventDataBatch: a class for aggregating EventData into a single, size-limited, batch.
+        // It is treated as a single message when sent to the Azure Event Hubs service.
+        // EventDataBatch is recommended in scenarios requiring high throughput for publishing events.
+
+        EventDataBatch currentBatch = eventHubClientReportedIUV.createBatch();
+        Iterator<ReportedIUVEventModel> iterator = stream.iterator();
+
+        while (iterator.hasNext()) {
+          ReportedIUVEventModel eventModel = iterator.next();
+
+          // serialize only one event at a time
+          String eventJson = objectMapper.writeValueAsString(eventModel);
+          EventData eventData = new EventData(eventJson);
+
+          // try to add the event to the current batch
+          // if it returns false, the batch is full (or the event is too large),
+          // so send the current batch and create a new one
+          if (!currentBatch.tryAdd(eventData)) {
+            if (currentBatch.getCount() > 0) {
+              eventHubClientReportedIUV.send(currentBatch);
+              logger.debug("Sent a batch of " + currentBatch.getCount() + " payment events.");
+            }
+
+            // create a new batch
+            currentBatch = eventHubClientReportedIUV.createBatch();
+
+            // try to add the new event to the new batch
+            if (!currentBatch.tryAdd(eventData)) {
+              // if the event doesn't fit even in an empty batch, it's too large
+              logger.error("Payment event is too large for a single batch. Skipping. IUV: " + eventModel.getIuv());
+              allPaymentEventsSent = false;
+            }
+          }
+        }
+
+        // send last batch if it has events
+        if (currentBatch.getCount() > 0) {
+          eventHubClientReportedIUV.send(currentBatch);
+          logger.debug("Sent final batch of " + currentBatch.getCount() + " payment events.");
+        }
+
+        logger.debug("Finished sending all payment events.");
+
+      } catch (Exception e) {
+        // catch errors during sending or serialization
+        logger.error("Error while processing or sending payment events stream: " + e.getMessage());
+        allPaymentEventsSent = false;
+      }
+
+    } else {
+      logger.info("Skipping sending payments events to EventHub");
+    }
+
+    return flowEventSent && allPaymentEventsSent;
   }
 
   private static boolean prepareAndSendEventsToEventHub(
