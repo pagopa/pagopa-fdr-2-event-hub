@@ -32,4 +32,29 @@ public class FlussoRiversamento {
   private double importoTotalePagamenti;
 
   @Builder.Default private List<DatiSingoloPagamento> datiSingoliPagamenti = new ArrayList<>();
+
+  public void releaseResources() {
+    // clear and nullify heavy maps/collections
+    if (this.datiSingoliPagamenti != null) {
+      this.datiSingoliPagamenti.clear();
+      this.datiSingoliPagamenti = null;
+    }
+
+    // nullify string fields
+    this.versioneOggetto = null;
+    this.identificativoFlusso = null;
+    this.dataOraFlusso = null;
+    this.identificativoUnivocoRegolamento = null;
+    this.dataRegolamento = null;
+
+    if (this.istitutoMittente != null) {
+      this.istitutoMittente.releaseResources();
+      this.istitutoMittente = null;
+    }
+
+    if (this.istitutoRicevente != null) {
+      this.istitutoRicevente.releaseResources();
+      this.istitutoRicevente = null;
+    }
+  }
 }

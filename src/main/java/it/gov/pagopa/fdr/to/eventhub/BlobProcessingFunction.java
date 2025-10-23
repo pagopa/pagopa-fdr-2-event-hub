@@ -77,6 +77,8 @@ public class BlobProcessingFunction {
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
+    int contentLength = content.length;
+
     int retryIndex =
         context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
@@ -86,7 +88,7 @@ public class BlobProcessingFunction {
           "[FDR1] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
           fdr1Container,
           blobName,
-          content.length);
+          contentLength);
       return; // Skip execution
     }
 
@@ -98,38 +100,48 @@ public class BlobProcessingFunction {
         LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
         fdr1Container,
         blobName,
-        content.length);
+        contentLength);
 
     try (InputStream decompressedStream =
         isValidGzipFile ? CommonUtil.decompressGzip(content) : new ByteArrayInputStream(content)) {
 
+      // help GC for large files
+      content = null;
+
       FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(decompressedStream);
       flusso.setMetadata(blobMetadata);
+
+      String flowId = flusso.getIdentificativoFlusso();
 
       logger.info(
           "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
           LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr1Container,
           blobName,
-          content.length);
+          contentLength);
 
       // Waits for confirmation of sending the entire flow to the Event Hub
-      boolean eventBatchSent =
-          CommonUtil.processXmlBlobAndSendToEventHub(
-              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, logger, true, true);
+      boolean eventBatchSent = CommonUtil.processXmlBlobAndSendToEventHub(
+              eventHubClientFlowTx, eventHubClientReportedIUV, flusso, logger,
+              true, true);
+
       if (!eventBatchSent) {
         throw new EventHubException(
             String.format(
                 "EventHub has not confirmed sending the entire batch of events for flow ID: %s",
-                flusso.getIdentificativoFlusso()));
+                flowId));
       }
+
+      // help GC for large files
+      flusso.releaseResources();
+      flusso = null;
 
       logger.info(
           "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
           LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
           fdr1Container,
           blobName,
-          content.length);
+          contentLength);
     } catch (Exception e) {
       String exceptionDetails =
           getExceptionDetails(

@@ -16,4 +16,11 @@ public class Istituto {
   private String codiceIdentificativoUnivoco;
 
   private String denominazione;
+
+  public void releaseResources() {
+    // nullify string fields
+    this.tipoIdentificativoUnivoco = null;
+    this.codiceIdentificativoUnivoco = null;
+    this.denominazione = null;
+  }
 }
