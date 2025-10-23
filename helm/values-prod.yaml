@@ -145,13 +145,12 @@ fdr1-blobtrigger:
     path: /fdr1-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
-    resources: &resources
-      requests:
-        memory: "2"
-        cpu: "0.5"
-      limits:
-        memory: "4Gi"
-        cpu: "4"
+    requests:
+      memory: "2"
+      cpu: "0.5"
+    limits:
+      memory: "4Gi"
+      cpu: "4"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
@@ -178,13 +177,12 @@ fdr3-blobtrigger:
     path: /fdr3-blobtrigger-notused/(.*)
   resources:
     !!merge <<: *resources
-    resources: &resources
-      requests:
-        memory: "1Gi"
-        cpu: "400m"
-      limits:
-        memory: "2Gi"
-        cpu: "600m"
+    requests:
+      memory: "1Gi"
+      cpu: "400m"
+    limits:
+      memory: "2Gi"
+      cpu: "600m"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
