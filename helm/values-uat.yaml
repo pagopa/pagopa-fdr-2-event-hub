@@ -196,12 +196,12 @@ recovery:
     path: /pagopa-fdr-to-event-hub-recovery-service/(.*)
   resources:
     !!merge <<: *resources
-    requests:
-      memory: "512Mi"
-      cpu: "0.3"
-    limits:
-      memory: "1024Mi" # increase for massime if needed
-      cpu: "0.8"
+#    requests:
+#      memory: "512Mi"
+#      cpu: "0.3"
+#    limits:
+#      memory: "1024Mi" # increase for massive if needed
+#      cpu: "0.8"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
