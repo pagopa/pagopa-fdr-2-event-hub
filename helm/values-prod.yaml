@@ -146,10 +146,10 @@ fdr1-blobtrigger:
   resources:
     !!merge <<: *resources
     requests:
-      memory: "2Gi"
+      memory: "2.5Gi"
       cpu: "2"
     limits:
-      memory: "4Gi"
+      memory: "6Gi"
       cpu: "4"
   autoscaling:
     !!merge <<: *autoscaling
@@ -178,11 +178,11 @@ fdr3-blobtrigger:
   resources:
     !!merge <<: *resources
     requests:
-      memory: "1Gi"
-      cpu: "400m"
+      memory: "1.5Gi"
+      cpu: "1"
     limits:
-      memory: "2Gi"
-      cpu: "600m"
+      memory: "3Gi"
+      cpu: "2"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
