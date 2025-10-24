@@ -141,9 +141,15 @@ fdr1-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
-    path: /fdr1-blobtrigger-notused/(.*)
+    create: false
   resources:
     !!merge <<: *resources
+    requests:
+      memory: "2.5Gi"
+      cpu: "2"
+    limits:
+      memory: "6Gi"
+      cpu: "4"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
@@ -167,9 +173,15 @@ fdr3-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
-    path: /fdr3-blobtrigger-notused/(.*)
+    create: false
   resources:
     !!merge <<: *resources
+    requests:
+      memory: "1.5Gi"
+      cpu: "1"
+    limits:
+      memory: "3Gi"
+      cpu: "2"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
@@ -196,12 +208,12 @@ recovery:
     path: /pagopa-fdr-to-event-hub-recovery-service/(.*)
   resources:
     !!merge <<: *resources
-    #    requests:
-    #      memory: "512Mi"
-    #      cpu: "0.3"
-    #    limits:
-    #      memory: "1024Mi" # increase for massive if needed
-    #      cpu: "0.8"
+    requests:
+      memory: "512Mi"
+      cpu: "0.3"
+    limits:
+      memory: "1024Mi" # increase for massive if needed
+      cpu: "0.8"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:

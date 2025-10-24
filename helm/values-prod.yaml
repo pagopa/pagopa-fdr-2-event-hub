@@ -142,7 +142,7 @@ fdr1-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
-    path: /fdr1-blobtrigger-notused/(.*)
+    create: false
   resources:
     !!merge <<: *resources
     requests:
@@ -174,7 +174,7 @@ fdr3-blobtrigger:
   !!merge <<: *microservice-chart
   ingress:
     !!merge <<: *ingress
-    path: /fdr3-blobtrigger-notused/(.*)
+    create: false
   resources:
     !!merge <<: *resources
     requests:

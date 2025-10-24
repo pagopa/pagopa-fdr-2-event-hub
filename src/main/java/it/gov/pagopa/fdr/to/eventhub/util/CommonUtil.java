@@ -27,21 +27,27 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
+import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.slf4j.Logger;
+import org.xml.sax.SAXException;
+
+import javax.xml.stream.XMLStreamException;
+
+import static it.gov.pagopa.fdr.to.eventhub.exception.AlertAppException.getExceptionDetails;
 
 @UtilityClass
 public class CommonUtil {
@@ -83,6 +89,41 @@ public class CommonUtil {
         && blobMetadata.containsKey("insertedTimestamp")
         && (blobMetadata.get("elaborate") == null
             || !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
+  }
+
+  public static Pair<InputStream, Boolean> isGzipStream(InputStream input) throws IOException {
+    // wrappa stream in a PushbackInputStream with a buffer of 2 bytes
+    PushbackInputStream pbStream = new PushbackInputStream(input, 2);
+    byte[] header = new byte[2];
+    int bytesRead = 0;
+    boolean isGzip = false;
+    try {
+      // read the first two bytes
+      bytesRead = pbStream.read(header);
+      if (bytesRead == 2) {
+        // check for GZIP magic numbers
+        final byte GZIP_MAGIC_1 = (byte) 0x1f;
+        final byte GZIP_MAGIC_2 = (byte) 0x8b;
+        isGzip = (header[0] == GZIP_MAGIC_1 && header[1] == GZIP_MAGIC_2);
+      }
+    } finally {
+      // reset the stream to include the bytes read
+      if (bytesRead > 0) {
+        pbStream.unread(header, 0, bytesRead);
+      }
+    }
+
+    // return the stream and the result
+    return new Pair<>(pbStream, isGzip);
+  }
+
+  public static class Pair<K, V> {
+    public final K key;
+    public final V value;
+    public Pair(K key, V value) {
+      this.key = key;
+      this.value = value;
+    }
   }
 
   public static boolean isGzip(byte[] content) {
