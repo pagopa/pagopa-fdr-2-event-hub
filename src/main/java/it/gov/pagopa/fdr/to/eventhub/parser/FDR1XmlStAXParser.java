@@ -24,6 +24,6 @@ public class FDR1XmlStAXParser {
     }
 
 //    return new FlussoRendicontazioneTagParser().parse(factory, xmlStream);
-    return new FlussoRendicontazioneTagParser2().parse(factory, xmlStream);
+    return new FlussoRendicontazioneTagParser().parse(factory, xmlStream);
   }
 }

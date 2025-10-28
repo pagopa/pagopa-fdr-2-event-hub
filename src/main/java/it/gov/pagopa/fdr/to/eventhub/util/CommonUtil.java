@@ -27,27 +27,19 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
-import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
 
 import java.io.*;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.slf4j.Logger;
-import org.xml.sax.SAXException;
-
-import javax.xml.stream.XMLStreamException;
-
-import static it.gov.pagopa.fdr.to.eventhub.exception.AlertAppException.getExceptionDetails;
 
 @UtilityClass
 public class CommonUtil {
@@ -126,6 +118,7 @@ public class CommonUtil {
     }
   }
 
+  // TODO refactor to use isGzipStream
   public static boolean isGzip(byte[] content) {
     if (content == null || content.length == 0) {
       throw new IllegalArgumentException("Invalid input data for decompression: empty file");
@@ -133,6 +126,7 @@ public class CommonUtil {
     return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
   }
 
+  // TODO invalidate
   public static InputStream decompressGzip(byte[] compressedContent) throws IOException {
     return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
   }
@@ -241,22 +235,11 @@ public class CommonUtil {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent =
           FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-//      List<ReportedIUVEventModel> reportedIUVEventList =
-//          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
-//      return prepareAndSendEventsToEventHub(
-//          eventHubClientFlowTx,
-//          eventHubClientReportedIUV,
-//          flowEvent,
-//          reportedIUVEventList,
-//          flussoRendicontazione.getIdentificativoFlusso(),
-//          flussoRendicontazione.getMetadata(),
-//          logger,
-//          sendFlowEvent,
-//          sendPaymentEvents);
+
       Stream<ReportedIUVEventModel> reportedIUVEventStream =
               FlussoRendicontazioneMapper.toReportedIUVEventStream(flussoRendicontazione);
 
-      return prepareAndSendEventsToEventHubFC(
+      return prepareAndSendEventsToEventHub(
               eventHubClientFlowTx,
               eventHubClientReportedIUV,
               flowEvent,
@@ -288,7 +271,7 @@ public class CommonUtil {
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent = FlowMapper.toFlowTxEventList(flow);
-      List<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventList(flow);
+      Stream<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventStream(flow);
 
       return prepareAndSendEventsToEventHub(
           eventHubClientFlowTx,
@@ -354,7 +337,7 @@ public class CommonUtil {
         .build();
   }
 
-  private static boolean prepareAndSendEventsToEventHubFC(
+  private static boolean prepareAndSendEventsToEventHub(
           EventHubProducerClient eventHubClientFlowTx,
           EventHubProducerClient eventHubClientReportedIUV,
           FlowTxEventModel flowEvent,
@@ -446,59 +429,6 @@ public class CommonUtil {
     }
 
     return flowEventSent && allPaymentEventsSent;
-  }
-
-  private static boolean prepareAndSendEventsToEventHub(
-      EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV,
-      FlowTxEventModel flowEvent,
-      List<ReportedIUVEventModel> reportedIUVEventList,
-      String flowName,
-      Map<String, String> metadata,
-      Logger logger,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents)
-      throws JsonProcessingException {
-
-    // Serialize the objects to JSON
-    JsonMapper objectMapper =
-        JsonMapper.builder()
-            .addModule(new JavaTimeModule())
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .build();
-
-    String flowEventJson = objectMapper.writeValueAsString(flowEvent);
-
-    // Break the list into smaller batches to avoid overshooting limit
-    List<String> reportedIUVEventJsonChunks = new LinkedList<>();
-    for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
-      reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
-    }
-
-    String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
-
-    boolean flowEventSent = true;
-    if (sendFlowEvent) {
-      flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
-    } else {
-      logger.info("Skipping sending flow event to EventHub");
-    }
-
-    boolean allEventChunksSent = true;
-    if (sendPaymentEvents) {
-      allEventChunksSent =
-          sendEventBatchToHub(
-              reportedIUVEventJsonChunks,
-              eventHubClientReportedIUV,
-              flowName,
-              serviceIdentifier,
-              logger);
-    } else {
-      logger.info("Skipping sending payments events to EventHub");
-    }
-
-    return flowEventSent && allEventChunksSent;
   }
 
   /** Send a message to the Event Hub */

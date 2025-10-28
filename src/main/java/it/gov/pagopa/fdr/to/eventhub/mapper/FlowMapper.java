@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
@@ -131,6 +133,31 @@ public class FlowMapper {
                     .psp(flusso.getSender().getPspId())
                     .build())
         .toList();
+  }
+
+  public static Stream<ReportedIUVEventModel> toReportedIUVEventStream(Flow flusso) {
+    return flusso.getPayments().stream()
+            .map(
+                    singoloPagamento ->
+                            ReportedIUVEventModel.builder()
+                                    .iuv(singoloPagamento.getIuv())
+                                    .idTransfer(singoloPagamento.getIdTransfer())
+                                    .iur(singoloPagamento.getIur())
+                                    .amount(singoloPagamento.getPay())
+                                    .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
+                                    .idsp(
+                                            singoloPagamento.getIndex() != null
+                                                    ? singoloPagamento.getIndex().toString()
+                                                    : null)
+                                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
+                                    .flowId(flusso.getFdr())
+                                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
+                                    .domainId(flusso.getReceiver().getOrganizationId())
+                                    .intPsp(flusso.getSender().getPspBrokerId())
+                                    .uniqueId(flusso.getMetadata().get("sessionId"))
+                                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
+                                    .psp(flusso.getSender().getPspId())
+                                    .build());
   }
 
   public static Integer convertPayStatus(String payStatus) {

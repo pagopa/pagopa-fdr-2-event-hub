@@ -3,119 +3,117 @@ package it.gov.pagopa.fdr.to.eventhub.parser;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.DatiSingoloPagamento;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRiversamento;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.Istituto;
-import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 class FlussoRiversamentoTagParser {
 
-  private final FlussoRiversamento completeFlow;
+  // NESSUN CAMPO DI ISTANZA. La classe è completamente stateless.
 
-  private final Map<String, String> rawData;
+  /**
+   * Esegue il parsing di un Flusso di Riversamento da uno stream GIA' DECODIFICATO.
+   */
+  public FlussoRiversamento parse(XMLInputFactory factory, InputStream decodedStream)
+          throws XMLStreamException {
 
-  private final StringBuilder value = new StringBuilder();
+    // 1. Tutto lo stato è locale al metodo
+    FlussoRiversamento completeFlow = new FlussoRiversamento();
+    completeFlow.setDatiSingoliPagamenti(new ArrayList<>());
 
-  private Map<String, String> analyzedIstitutoTag;
+    Map<String, String> rawData = new HashMap<>();
+    StringBuilder value = new StringBuilder();
+    Map<String, String> analyzedIstitutoTag = null;
+    Map<String, String> analyzedDatiPagamentoTag = null;
+    boolean insideDatiSingoliPagamentiTag = false;
 
-  private Map<String, String> analyzedDatiPagamentoTag;
+    XMLStreamReader reader = factory.createXMLStreamReader(decodedStream);
 
-  private boolean insideDatiSingoliPagamentiTag = false;
-
-  public FlussoRiversamentoTagParser() {
-    this.completeFlow = new FlussoRiversamento();
-    this.completeFlow.setDatiSingoliPagamenti(new ArrayList<>());
-    this.rawData = new HashMap<>();
-  }
-
-  public FlussoRiversamento parse(XMLInputFactory factory, String rawBase64Content)
-      throws XMLStreamException {
-
-    if (rawBase64Content == null || rawBase64Content.isEmpty()) {
-      return null;
-    }
-
-    byte[] decodedBytes = Base64.getDecoder().decode(rawBase64Content);
-    XMLStreamReader reader = factory.createXMLStreamReader(new ByteArrayInputStream(decodedBytes));
+    // 2. Loop di parsing
     while (reader.hasNext()) {
       int event = reader.next();
       switch (event) {
-        case XMLStreamConstants.START_ELEMENT -> this.startElement(reader);
-        case XMLStreamConstants.CHARACTERS -> this.characters(reader);
-        case XMLStreamConstants.END_ELEMENT -> this.endElement(reader);
+        case XMLStreamConstants.START_ELEMENT:
+          value.setLength(0);
+          String startTagName = normalizeTag(reader.getLocalName());
+
+          if ("istitutoMittente".equals(startTagName) || "istitutoRicevente".equals(startTagName)) {
+            analyzedIstitutoTag = new HashMap<>();
+          } else if ("datiSingoliPagamenti".equals(startTagName)) {
+            analyzedDatiPagamentoTag = new HashMap<>();
+            insideDatiSingoliPagamentiTag = true;
+          }
+          break;
+
+        case XMLStreamConstants.CHARACTERS:
+          value.append(reader.getText().trim());
+          break;
+
+        case XMLStreamConstants.END_ELEMENT:
+          String content = value.toString().trim();
+          String endTagName = normalizeTag(reader.getLocalName());
+
+          if (analyzedIstitutoTag != null) {
+            analyzedIstitutoTag.put(endTagName, content);
+            if ("istitutoMittente".equals(endTagName)) {
+              completeFlow.setIstitutoMittente(mapToIstituto(analyzedIstitutoTag));
+              analyzedIstitutoTag = null;
+            } else if ("istitutoRicevente".equals(endTagName)) {
+              completeFlow.setIstitutoRicevente(mapToIstituto(analyzedIstitutoTag));
+              analyzedIstitutoTag = null;
+            }
+          } else if (insideDatiSingoliPagamentiTag && analyzedDatiPagamentoTag != null) {
+            analyzedDatiPagamentoTag.put(endTagName, content);
+            if ("datiSingoliPagamenti".equals(endTagName)) {
+              completeFlow
+                      .getDatiSingoliPagamenti()
+                      .add(mapToDatiSingoloPagamento(analyzedDatiPagamentoTag));
+              analyzedDatiPagamentoTag = null;
+              insideDatiSingoliPagamentiTag = false;
+            }
+          } else {
+            rawData.put(endTagName, content);
+          }
+          break;
       }
     }
-    reader.close();
+    reader.close(); // Lo stream 'decodedStream' viene chiuso dal chiamante
 
-    return mapToFlussoRiversamento(this.rawData);
-  }
-
-  private void startElement(XMLStreamReader reader) {
-
-    value.setLength(0);
-    String tagName = normalizeTag(reader.getLocalName());
-
-    if ("istitutoMittente".equals(tagName) || "istitutoRicevente".equals(tagName)) {
-      analyzedIstitutoTag = new HashMap<>();
-    } else if ("datiSingoliPagamenti".equals(tagName)) {
-      analyzedDatiPagamentoTag = new HashMap<>();
-      insideDatiSingoliPagamentiTag = true;
-    }
-  }
-
-  private void characters(XMLStreamReader reader) {
-    value.append(reader.getText().trim());
-  }
-
-  private void endElement(XMLStreamReader reader) {
-
-    String content = value.toString().trim();
-    String tagName = normalizeTag(reader.getLocalName());
-
-    if (analyzedIstitutoTag != null) {
-      analyzedIstitutoTag.put(tagName, content);
-      if ("istitutoMittente".equals(tagName)) {
-        completeFlow.setIstitutoMittente(mapToIstituto(analyzedIstitutoTag));
-        analyzedIstitutoTag = null;
-      } else if ("istitutoRicevente".equals(tagName)) {
-        completeFlow.setIstitutoRicevente(mapToIstituto(analyzedIstitutoTag));
-        analyzedIstitutoTag = null;
-      }
-    } else if (insideDatiSingoliPagamentiTag && analyzedDatiPagamentoTag != null) {
-      analyzedDatiPagamentoTag.put(tagName, content);
-      if ("datiSingoliPagamenti".equals(tagName)) {
-        completeFlow
-            .getDatiSingoliPagamenti()
-            .add(mapToDatiSingoloPagamento(analyzedDatiPagamentoTag));
-        analyzedDatiPagamentoTag = null;
-        insideDatiSingoliPagamentiTag = false;
-      }
-    } else {
-      rawData.put(tagName, content);
-    }
+    // 3. Mappaggio finale
+    return mapToFlussoRiversamento(rawData, completeFlow);
   }
 
   private String normalizeTag(String qName) {
-    // Removes the namespace if present
     return qName.contains(":") ? qName.substring(qName.indexOf(":") + 1) : qName;
   }
 
-  private FlussoRiversamento mapToFlussoRiversamento(Map<String, String> fieldMap) {
-    completeFlow.setVersioneOggetto(fieldMap.get("versioneOggetto"));
-    completeFlow.setIdentificativoFlusso(fieldMap.get("identificativoFlusso"));
-    completeFlow.setDataOraFlusso(fieldMap.get("dataOraFlusso"));
-    completeFlow.setIdentificativoUnivocoRegolamento(
-        fieldMap.get("identificativoUnivocoRegolamento"));
-    completeFlow.setDataRegolamento(fieldMap.get("dataRegolamento"));
-    completeFlow.setNumeroTotalePagamenti(Integer.parseInt(fieldMap.get("numeroTotalePagamenti")));
-    completeFlow.setImportoTotalePagamenti(
-        Double.parseDouble(fieldMap.get("importoTotalePagamenti")));
-    return completeFlow;
+  // Il mapping ora riceve 'flow' come parametro
+  private FlussoRiversamento mapToFlussoRiversamento(Map<String, String> fieldMap, FlussoRiversamento flow) {
+    flow.setVersioneOggetto(fieldMap.get("versioneOggetto"));
+    flow.setIdentificativoFlusso(fieldMap.get("identificativoFlusso"));
+    flow.setDataOraFlusso(fieldMap.get("dataOraFlusso"));
+    flow.setIdentificativoUnivocoRegolamento(
+            fieldMap.get("identificativoUnivocoRegolamento"));
+    flow.setDataRegolamento(fieldMap.get("dataRegolamento"));
+
+    // Aggiungi controlli di nullità per evitare NullPointerException
+    String numTotale = fieldMap.get("numeroTotalePagamenti");
+    if (numTotale != null) {
+      flow.setNumeroTotalePagamenti(Integer.parseInt(numTotale));
+    }
+
+    String importoTotale = fieldMap.get("importoTotalePagamenti");
+    if (importoTotale != null) {
+      flow.setImportoTotalePagamenti(Double.parseDouble(importoTotale));
+    }
+
+    return flow;
   }
 
   private Istituto mapToIstituto(Map<String, String> fieldMap) {
@@ -132,14 +130,14 @@ class FlussoRiversamentoTagParser {
   private DatiSingoloPagamento mapToDatiSingoloPagamento(Map<String, String> fieldMap) {
     DatiSingoloPagamento datiSingoloPagamento = new DatiSingoloPagamento();
     datiSingoloPagamento.setIdentificativoUnivocoVersamento(
-        fieldMap.get("identificativoUnivocoVersamento"));
+            fieldMap.get("identificativoUnivocoVersamento"));
     datiSingoloPagamento.setIdentificativoUnivocoRiscossione(
-        fieldMap.get("identificativoUnivocoRiscossione"));
+            fieldMap.get("identificativoUnivocoRiscossione"));
     datiSingoloPagamento.setIndiceDatiSingoloPagamento(fieldMap.get("indiceDatiSingoloPagamento"));
     datiSingoloPagamento.setSingoloImportoPagato(
-        Double.parseDouble(fieldMap.get("singoloImportoPagato")));
+            Double.parseDouble(fieldMap.get("singoloImportoPagato")));
     datiSingoloPagamento.setCodiceEsitoSingoloPagamento(
-        Integer.parseInt(fieldMap.get("codiceEsitoSingoloPagamento")));
+            Integer.parseInt(fieldMap.get("codiceEsitoSingoloPagamento")));
     datiSingoloPagamento.setDataEsitoSingoloPagamento(fieldMap.get("dataEsitoSingoloPagamento"));
     return datiSingoloPagamento;
   }

@@ -12,7 +12,8 @@ public enum ErrorCodes {
   FDR1_E1("FDR1-E1", "Error processing Blob in processFDR1BlobFiles function"),
   FDR1_E1_1("FDR1-E1", "Error processing Blob in processFDR1BlobFiles function. Blob not in GZIP format"),
   // FDR3 Errors
-  FDR3_E1("FDR3-E1", "Error processing Blob in processFDR3BlobFiles function");
+  FDR3_E1("FDR3-E1", "Error processing Blob in processFDR3BlobFiles function"),
+  FDR3_E1_1("FDR3-E1", "Error processing Blob in processFDR3BlobFiles function. Blob not in GZIP format");
 
   private final String code;
   private final String message;

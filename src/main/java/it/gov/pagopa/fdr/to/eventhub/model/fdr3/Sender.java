@@ -26,4 +26,14 @@ public class Sender {
   private String channelId;
 
   private String password;
+
+  public void releaseResources() {
+    // nullify string fields
+    this.id = null;
+    this.pspId = null;
+    this.pspName = null;
+    this.pspBrokerId = null;
+    this.channelId = null;
+    this.password = null;
+  }
 }

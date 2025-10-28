@@ -46,4 +46,32 @@ public class Flow {
   private List<Payment> payments;
 
   private Map<String, String> metadata; // generated from blob file metadata
+
+  public void releaseResources() {
+    // clear and nullify heavy maps/collections
+    if (this.metadata != null) {
+      this.metadata.clear();
+      this.metadata = null;
+    }
+
+    if (this.payments != null) {
+      this.payments.clear();
+      this.payments = null;
+    }
+
+    // nullify string fields
+    this.fdr = null;
+    this.status = null;
+    this.regulation = null;
+    this.regulationDate = null;
+    this.bicCodePouringBank = null;
+    if (this.sender != null) {
+      this.sender.releaseResources();
+      this.sender = null;
+    }
+    if (this.receiver != null) {
+      this.receiver.releaseResources();
+      this.receiver = null;
+    }
+  }
 }

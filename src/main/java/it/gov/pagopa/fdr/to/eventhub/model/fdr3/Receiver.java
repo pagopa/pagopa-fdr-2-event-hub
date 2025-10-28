@@ -18,4 +18,11 @@ public class Receiver {
   private String organizationId;
 
   private String organizationName;
+
+  public void releaseResources() {
+    // nullify string fields
+    this.id = null;
+    this.organizationId = null;
+    this.organizationName = null;
+  }
 }
