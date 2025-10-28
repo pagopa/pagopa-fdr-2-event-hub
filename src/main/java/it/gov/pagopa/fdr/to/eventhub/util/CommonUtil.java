@@ -8,6 +8,8 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -63,7 +65,7 @@ public class CommonUtil {
   }
 
   public static EventHubProducerClient createEventHubClient(
-      String connectionString, String eventHubName) {
+          String connectionString, String eventHubName) {
     return new EventHubClientBuilder()
         .connectionString(connectionString, eventHubName)
         .retryOptions(
@@ -72,6 +74,12 @@ public class CommonUtil {
                 .setDelay(Duration.ofSeconds(2))
                 .setMode(AmqpRetryMode.EXPONENTIAL))
         .buildProducerClient();
+  }
+
+  public static BlobServiceClient createBlobServiceClient(String connectionString) {
+    return new BlobServiceClientBuilder()
+            .connectionString(connectionString)
+            .buildClient();
   }
 
   public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {

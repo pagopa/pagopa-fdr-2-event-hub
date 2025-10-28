@@ -20,7 +20,6 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -58,9 +57,7 @@ public class BlobProcessingFunction {
             System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"),
             System.getenv("EVENT_HUB_REPORTEDIUV_NAME"));
 
-    this.blobServiceClient = new BlobServiceClientBuilder()
-            .connectionString(System.getenv("FDR_SA_CONNECTION_STRING"))
-            .buildClient();
+    this.blobServiceClient = CommonUtil.createBlobServiceClient(System.getenv("FDR_SA_CONNECTION_STRING"));
 
     this.aiTelemetryClient = new AppInsightTelemetryClient();
   }
@@ -122,6 +119,9 @@ public class BlobProcessingFunction {
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
         FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(gzipStream);
+        if (flusso.getIdentificativoFlusso().isBlank()) {
+            throw new IllegalArgumentException("Flow is empty");
+        }
         flusso.setMetadata(blobMetadata);
 
         String flowId = flusso.getIdentificativoFlusso();
@@ -220,7 +220,7 @@ public class BlobProcessingFunction {
         blobName,
         contentLength);
 
-    String containerName = System.getenv("BLOB_STORAGE_FDR1_CONTAINER");
+    String containerName = System.getenv("BLOB_STORAGE_FDR3_CONTAINER");
     BlobClient blobClient = getBlobClient(containerName, blobName);
 
     try (InputStream originalInputStream = blobClient.openInputStream()) {
