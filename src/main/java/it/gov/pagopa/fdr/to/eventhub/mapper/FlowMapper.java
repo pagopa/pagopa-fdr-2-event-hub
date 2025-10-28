@@ -77,11 +77,9 @@ public class FlowMapper {
    */
   public static FlowTxEventModel toFlowTxEventList(Flow flusso) {
 
-    List<String> allDates =
-        flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
+    List<String> allDates = flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
 
-    // last fake date as alert if there are more than 'this.maxDistinctDates'
-    // dates
+    // last fake date as alert if there are more than 'this.maxDistinctDates' dates
     if (allDates.size() > maxDistinctDates) {
       allDates = allDates.stream().limit(maxDistinctDates).collect(Collectors.toList());
       allDates.add("9999-12-31");

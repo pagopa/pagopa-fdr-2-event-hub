@@ -200,8 +200,7 @@ public class BlobProcessingFunction {
     int contentLength = dontUse.length;
     dontUse = null; // help GC
 
-    int retryIndex =
-        context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
+    int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {

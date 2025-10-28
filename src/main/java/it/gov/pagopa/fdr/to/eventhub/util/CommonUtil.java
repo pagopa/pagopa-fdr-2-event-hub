@@ -241,11 +241,9 @@ public class CommonUtil {
 
     try {
       // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent =
-          FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+      FlowTxEventModel flowEvent = FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
 
-      Stream<ReportedIUVEventModel> reportedIUVEventStream =
-              FlussoRendicontazioneMapper.toReportedIUVEventStream(flussoRendicontazione);
+      Stream<ReportedIUVEventModel> reportedIUVEventStream = FlussoRendicontazioneMapper.toReportedIUVEventStream(flussoRendicontazione);
 
       return prepareAndSendEventsToEventHub(
               eventHubClientFlowTx,
