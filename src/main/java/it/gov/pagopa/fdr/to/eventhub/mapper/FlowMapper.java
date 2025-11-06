@@ -107,32 +107,6 @@ public class FlowMapper {
    * @param flusso to convert.
    * @return List of ReportedIUVEventModel.
    */
-  public static List<ReportedIUVEventModel> toReportedIUVEventList(Flow flusso) {
-    return flusso.getPayments().stream()
-        .map(
-            singoloPagamento ->
-                ReportedIUVEventModel.builder()
-                    .iuv(singoloPagamento.getIuv())
-                    .idTransfer(singoloPagamento.getIdTransfer())
-                    .iur(singoloPagamento.getIur())
-                    .amount(singoloPagamento.getPay())
-                    .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
-                    .idsp(
-                        singoloPagamento.getIndex() != null
-                            ? singoloPagamento.getIndex().toString()
-                            : null)
-                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
-                    .flowId(flusso.getFdr())
-                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
-                    .domainId(flusso.getReceiver().getOrganizationId())
-                    .intPsp(flusso.getSender().getPspBrokerId())
-                    .uniqueId(flusso.getMetadata().get("sessionId"))
-                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-                    .psp(flusso.getSender().getPspId())
-                    .build())
-        .toList();
-  }
-
   public static Stream<ReportedIUVEventModel> toReportedIUVEventStream(Flow flusso) {
     return flusso.getPayments().stream()
             .map(
