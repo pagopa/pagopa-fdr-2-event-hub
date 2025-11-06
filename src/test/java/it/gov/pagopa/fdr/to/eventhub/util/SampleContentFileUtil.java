@@ -2,11 +2,13 @@ package it.gov.pagopa.fdr.to.eventhub.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import lombok.experimental.UtilityClass;
 
@@ -29,5 +31,13 @@ public class SampleContentFileUtil {
       gzipOutputStream.write(input.getBytes(StandardCharsets.UTF_8));
     }
     return byteArrayOutputStream.toByteArray();
+  }
+
+  public static byte[] gzipCompress(String input) throws IOException {
+    ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzipOut = new GZIPOutputStream(byteOut)) {
+      gzipOut.write(input.getBytes(StandardCharsets.UTF_8));
+    }
+    return byteOut.toByteArray();
   }
 }

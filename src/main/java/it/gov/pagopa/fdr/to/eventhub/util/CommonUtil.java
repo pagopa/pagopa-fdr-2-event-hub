@@ -8,6 +8,8 @@ import com.azure.messaging.eventhubs.EventHubClientBuilder;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,20 +31,13 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapperImpl;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
@@ -70,7 +65,7 @@ public class CommonUtil {
   }
 
   public static EventHubProducerClient createEventHubClient(
-      String connectionString, String eventHubName) {
+          String connectionString, String eventHubName) {
     return new EventHubClientBuilder()
         .connectionString(connectionString, eventHubName)
         .retryOptions(
@@ -79,6 +74,12 @@ public class CommonUtil {
                 .setDelay(Duration.ofSeconds(2))
                 .setMode(AmqpRetryMode.EXPONENTIAL))
         .buildProducerClient();
+  }
+
+  public static BlobServiceClient createBlobServiceClient(String connectionString) {
+    return new BlobServiceClientBuilder()
+            .connectionString(connectionString)
+            .buildClient();
   }
 
   public static boolean validateBlobMetadata(Map<String, String> blobMetadata) {
@@ -90,6 +91,42 @@ public class CommonUtil {
             || !"false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 
+  public static Pair<InputStream, Boolean> isGzipStream(InputStream input) throws IOException {
+    // wrappa stream in a PushbackInputStream with a buffer of 2 bytes
+    PushbackInputStream pbStream = new PushbackInputStream(input, 2);
+    byte[] header = new byte[2];
+    int bytesRead = 0;
+    boolean isGzip = false;
+    try {
+      // read the first two bytes
+      bytesRead = pbStream.read(header);
+      if (bytesRead == 2) {
+        // check for GZIP magic numbers
+        final byte GZIP_MAGIC_1 = (byte) 0x1f;
+        final byte GZIP_MAGIC_2 = (byte) 0x8b;
+        isGzip = (header[0] == GZIP_MAGIC_1 && header[1] == GZIP_MAGIC_2);
+      }
+    } finally {
+      // reset the stream to include the bytes read
+      if (bytesRead > 0) {
+        pbStream.unread(header, 0, bytesRead);
+      }
+    }
+
+    // return the stream and the result
+    return new Pair<>(pbStream, isGzip);
+  }
+
+  public static class Pair<K, V> {
+    public final K key;
+    public final V value;
+    public Pair(K key, V value) {
+      this.key = key;
+      this.value = value;
+    }
+  }
+
+  // TODO refactor to use isGzipStream
   public static boolean isGzip(byte[] content) {
     if (content == null || content.length == 0) {
       throw new IllegalArgumentException("Invalid input data for decompression: empty file");
@@ -97,6 +134,7 @@ public class CommonUtil {
     return content.length > 2 && content[0] == (byte) 0x1F && content[1] == (byte) 0x8B;
   }
 
+  // TODO invalidate
   public static InputStream decompressGzip(byte[] compressedContent) throws IOException {
     return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
   }
@@ -203,21 +241,20 @@ public class CommonUtil {
 
     try {
       // Convert FlussoRendicontazione to event models
-      FlowTxEventModel flowEvent =
-          FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
-      List<ReportedIUVEventModel> reportedIUVEventList =
-          FlussoRendicontazioneMapper.toReportedIUVEventList(flussoRendicontazione);
+      FlowTxEventModel flowEvent = FlussoRendicontazioneMapper.toFlowTxEventList(flussoRendicontazione);
+
+      Stream<ReportedIUVEventModel> reportedIUVEventStream = FlussoRendicontazioneMapper.toReportedIUVEventStream(flussoRendicontazione);
 
       return prepareAndSendEventsToEventHub(
-          eventHubClientFlowTx,
-          eventHubClientReportedIUV,
-          flowEvent,
-          reportedIUVEventList,
-          flussoRendicontazione.getIdentificativoFlusso(),
-          flussoRendicontazione.getMetadata(),
-          logger,
-          sendFlowEvent,
-          sendPaymentEvents);
+              eventHubClientFlowTx,
+              eventHubClientReportedIUV,
+              flowEvent,
+              reportedIUVEventStream,
+              flussoRendicontazione.getIdentificativoFlusso(),
+              flussoRendicontazione.getMetadata(),
+              logger,
+              sendFlowEvent,
+              sendPaymentEvents);
 
     } catch (Exception e) {
       logger.error(
@@ -240,7 +277,7 @@ public class CommonUtil {
     try {
       // Convert FlussoRendicontazione to event models
       FlowTxEventModel flowEvent = FlowMapper.toFlowTxEventList(flow);
-      List<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventList(flow);
+      Stream<ReportedIUVEventModel> reportedIUVEventList = FlowMapper.toReportedIUVEventStream(flow);
 
       return prepareAndSendEventsToEventHub(
           eventHubClientFlowTx,
@@ -307,56 +344,97 @@ public class CommonUtil {
   }
 
   private static boolean prepareAndSendEventsToEventHub(
-      EventHubProducerClient eventHubClientFlowTx,
-      EventHubProducerClient eventHubClientReportedIUV,
-      FlowTxEventModel flowEvent,
-      List<ReportedIUVEventModel> reportedIUVEventList,
-      String flowName,
-      Map<String, String> metadata,
-      Logger logger,
-      boolean sendFlowEvent,
-      boolean sendPaymentEvents)
-      throws JsonProcessingException {
+          EventHubProducerClient eventHubClientFlowTx,
+          EventHubProducerClient eventHubClientReportedIUV,
+          FlowTxEventModel flowEvent,
+          Stream<ReportedIUVEventModel> reportedIUVEventStream,
+          String flowName,
+          Map<String, String> metadata,
+          Logger logger,
+          boolean sendFlowEvent,
+          boolean sendPaymentEvents)
+          throws JsonProcessingException {
 
-    // Serialize the objects to JSON
+    // TODO objectMapper can be shared and reused ? (in a function?)
     JsonMapper objectMapper =
-        JsonMapper.builder()
-            .addModule(new JavaTimeModule())
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .build();
+            JsonMapper.builder()
+                    .addModule(new JavaTimeModule())
+                    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+                    .build();
 
+    // flow event
     String flowEventJson = objectMapper.writeValueAsString(flowEvent);
-
-    // Break the list into smaller batches to avoid overshooting limit
-    List<String> reportedIUVEventJsonChunks = new LinkedList<>();
-    for (ReportedIUVEventModel eventModel : reportedIUVEventList) {
-      reportedIUVEventJsonChunks.add(objectMapper.writeValueAsString(eventModel));
-    }
-
     String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
 
     boolean flowEventSent = true;
     if (sendFlowEvent) {
-      flowEventSent =
-          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
+      flowEventSent = sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
     } else {
       logger.info("Skipping sending flow event to EventHub");
     }
 
-    boolean allEventChunksSent = true;
+    // payment events
+    boolean allPaymentEventsSent = true;
     if (sendPaymentEvents) {
-      allEventChunksSent =
-          sendEventBatchToHub(
-              reportedIUVEventJsonChunks,
-              eventHubClientReportedIUV,
-              flowName,
-              serviceIdentifier,
-              logger);
+      logger.info("Starting to send payment events in batches...");
+
+      // evaluate stream instead of list to avoid OOM for large flows
+
+      try (Stream<ReportedIUVEventModel> stream = reportedIUVEventStream) {
+        // create batch using EventDataBatch: a class for aggregating EventData into a single, size-limited, batch.
+        // It is treated as a single message when sent to the Azure Event Hubs service.
+        // EventDataBatch is recommended in scenarios requiring high throughput for publishing events.
+
+        EventDataBatch currentBatch = eventHubClientReportedIUV.createBatch();
+        Iterator<ReportedIUVEventModel> iterator = stream.iterator();
+
+        while (iterator.hasNext()) {
+          ReportedIUVEventModel eventModel = iterator.next();
+
+          // serialize only one event at a time
+          String eventJson = objectMapper.writeValueAsString(eventModel);
+          EventData eventData = new EventData(eventJson);
+
+          // try to add the event to the current batch
+          // if it returns false, the batch is full (or the event is too large),
+          // so send the current batch and create a new one
+          if (!currentBatch.tryAdd(eventData)) {
+            if (currentBatch.getCount() > 0) {
+              eventHubClientReportedIUV.send(currentBatch);
+              logger.debug("Sent a batch of " + currentBatch.getCount() + " payment events.");
+            }
+
+            // create a new batch
+            currentBatch = eventHubClientReportedIUV.createBatch();
+
+            // try to add the new event to the new batch
+            if (!currentBatch.tryAdd(eventData)) {
+              // if the event doesn't fit even in an empty batch, it's too large
+              logger.error("Payment event is too large for a single batch. Skipping. IUV: " + eventModel.getIuv());
+              allPaymentEventsSent = false;
+            }
+          }
+        }
+
+        // send last batch if it has events
+        if (currentBatch.getCount() > 0) {
+          eventHubClientReportedIUV.send(currentBatch);
+          logger.debug("Sent final batch of " + currentBatch.getCount() + " payment events.");
+        }
+
+        logger.debug("Finished sending all payment events.");
+
+      } catch (Exception e) {
+        // catch errors during sending or serialization
+        logger.error("Error while processing or sending payment events stream: " + e.getMessage());
+        allPaymentEventsSent = false;
+      }
+
     } else {
       logger.info("Skipping sending payments events to EventHub");
     }
 
-    return flowEventSent && allEventChunksSent;
+    return flowEventSent && allPaymentEventsSent;
   }
 
   /** Send a message to the Event Hub */

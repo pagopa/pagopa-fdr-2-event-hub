@@ -23,6 +23,7 @@ public class FDR1XmlStAXParser {
       throw new XmlParsingException("The XML stream is null");
     }
 
+//    return new FlussoRendicontazioneTagParser().parse(factory, xmlStream);
     return new FlussoRendicontazioneTagParser().parse(factory, xmlStream);
   }
 }

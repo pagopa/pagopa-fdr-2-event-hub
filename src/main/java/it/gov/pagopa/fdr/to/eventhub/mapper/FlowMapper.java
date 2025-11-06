@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
@@ -75,11 +77,9 @@ public class FlowMapper {
    */
   public static FlowTxEventModel toFlowTxEventList(Flow flusso) {
 
-    List<String> allDates =
-        flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
+    List<String> allDates = flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
 
-    // last fake date as alert if there are more than 'this.maxDistinctDates'
-    // dates
+    // last fake date as alert if there are more than 'this.maxDistinctDates' dates
     if (allDates.size() > maxDistinctDates) {
       allDates = allDates.stream().limit(maxDistinctDates).collect(Collectors.toList());
       allDates.add("9999-12-31");
@@ -107,30 +107,29 @@ public class FlowMapper {
    * @param flusso to convert.
    * @return List of ReportedIUVEventModel.
    */
-  public static List<ReportedIUVEventModel> toReportedIUVEventList(Flow flusso) {
+  public static Stream<ReportedIUVEventModel> toReportedIUVEventStream(Flow flusso) {
     return flusso.getPayments().stream()
-        .map(
-            singoloPagamento ->
-                ReportedIUVEventModel.builder()
-                    .iuv(singoloPagamento.getIuv())
-                    .idTransfer(singoloPagamento.getIdTransfer())
-                    .iur(singoloPagamento.getIur())
-                    .amount(singoloPagamento.getPay())
-                    .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
-                    .idsp(
-                        singoloPagamento.getIndex() != null
-                            ? singoloPagamento.getIndex().toString()
-                            : null)
-                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
-                    .flowId(flusso.getFdr())
-                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
-                    .domainId(flusso.getReceiver().getOrganizationId())
-                    .intPsp(flusso.getSender().getPspBrokerId())
-                    .uniqueId(flusso.getMetadata().get("sessionId"))
-                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-                    .psp(flusso.getSender().getPspId())
-                    .build())
-        .toList();
+            .map(
+                    singoloPagamento ->
+                            ReportedIUVEventModel.builder()
+                                    .iuv(singoloPagamento.getIuv())
+                                    .idTransfer(singoloPagamento.getIdTransfer())
+                                    .iur(singoloPagamento.getIur())
+                                    .amount(singoloPagamento.getPay())
+                                    .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
+                                    .idsp(
+                                            singoloPagamento.getIndex() != null
+                                                    ? singoloPagamento.getIndex().toString()
+                                                    : null)
+                                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
+                                    .flowId(flusso.getFdr())
+                                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
+                                    .domainId(flusso.getReceiver().getOrganizationId())
+                                    .intPsp(flusso.getSender().getPspBrokerId())
+                                    .uniqueId(flusso.getMetadata().get("sessionId"))
+                                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
+                                    .psp(flusso.getSender().getPspId())
+                                    .build());
   }
 
   public static Integer convertPayStatus(String payStatus) {
