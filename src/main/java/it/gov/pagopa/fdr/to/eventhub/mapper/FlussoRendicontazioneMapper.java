@@ -12,7 +12,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -121,30 +120,6 @@ public class FlussoRendicontazioneMapper {
    * @param flusso to convert.
    * @return List of ReportedIUVEventModel.
    */
-//  public static List<ReportedIUVEventModel> toReportedIUVEventList(FlussoRendicontazione flusso) {
-//    List<ReportedIUVEventModel> listaPagamenti = new ArrayList<>();
-//    for (DatiSingoloPagamento singoloPagamento :
-//        flusso.getFlussoRiversamento().getDatiSingoliPagamenti()) {
-//      listaPagamenti.add(
-//          ReportedIUVEventModel.builder()
-//              .iuv(singoloPagamento.getIdentificativoUnivocoVersamento())
-//              .iur(singoloPagamento.getIdentificativoUnivocoRiscossione())
-//              .amount(BigDecimal.valueOf(singoloPagamento.getSingoloImportoPagato()))
-//              .outcomeCode(singoloPagamento.getCodiceEsitoSingoloPagamento())
-//              .idsp(singoloPagamento.getIndiceDatiSingoloPagamento())
-//              .singlePaymentOutcomeDate(parseDate(singoloPagamento.getDataEsitoSingoloPagamento()))
-//              .flowId(flusso.getFlussoRiversamento().getIdentificativoFlusso())
-//              .flowDateTime(parseDate(flusso.getFlussoRiversamento().getDataOraFlusso()))
-//              .domainId(flusso.getIdentificativoDominio())
-//              .intPsp(flusso.getIdentificativoIntermediarioPSP())
-//              .uniqueId(flusso.getMetadata().get("sessionId"))
-//              .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
-//              .psp(flusso.getIdentificativoPSP())
-//              .build());
-//    }
-//    return listaPagamenti;
-//  }
-
   // stream is lazy evaluated, so it can be used to process large flows
   // so we avoid building the whole list in memory and, using foreach, we elaborate
   // only one ReportedIUVEventModel at a time
