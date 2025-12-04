@@ -36,7 +36,7 @@
       "Function.HTTPBlobRecovery": "Error",
       "Function.Info": "Error",
       "Host.Aggregator": "Error",
-      "com.azure.core.amqp": "Warning"
+      "com.azure.core.amqp": "Error"
     },
     "applicationInsights": {
       "samplingSettings": {
