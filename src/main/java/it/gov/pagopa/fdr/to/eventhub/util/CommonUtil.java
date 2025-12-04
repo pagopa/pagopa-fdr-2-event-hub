@@ -370,13 +370,13 @@ public class CommonUtil {
     if (sendFlowEvent) {
       flowEventSent = sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
     } else {
-      logger.info("Skipping sending flow event to EventHub");
+      logger.debug("Skipping sending flow event to EventHub");
     }
 
     // payment events
     boolean allPaymentEventsSent = true;
     if (sendPaymentEvents) {
-      logger.info("Starting to send payment events in batches...");
+      logger.debug("Starting to send payment events in batches...");
 
       // evaluate stream instead of list to avoid OOM for large flows
 
