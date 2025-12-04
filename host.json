@@ -34,7 +34,8 @@
       "Function.ProcessFDR3BlobFiles": "Error",
       "Function.HTTPBlobRecovery": "Error",
       "Function.Info": "Error",
-      "Host.Aggregator": "Error"
+      "Host.Aggregator": "Error",
+      "com.azure.core.amqp": "Error"
     },
     "applicationInsights": {
       "samplingSettings": {
