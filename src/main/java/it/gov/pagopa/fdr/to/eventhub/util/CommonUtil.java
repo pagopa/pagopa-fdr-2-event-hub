@@ -368,7 +368,8 @@ public class CommonUtil {
 
     boolean flowEventSent = true;
     if (sendFlowEvent) {
-      flowEventSent = sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
+      flowEventSent =
+          sendEventToHub(flowEventJson, eventHubClientFlowTx, flowName, serviceIdentifier, logger);
     } else {
       logger.debug("Skipping sending flow event to EventHub");
     }
