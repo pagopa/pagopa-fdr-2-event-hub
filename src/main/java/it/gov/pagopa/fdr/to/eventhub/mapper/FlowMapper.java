@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -118,9 +119,10 @@ public class FlowMapper {
                                     .amount(singoloPagamento.getPay())
                                     .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
                                     .idsp(
-                                            singoloPagamento.getIndex() != null
-                                                    ? singoloPagamento.getIndex().toString()
-                                                    : null)
+                                    	    Optional.ofNullable(singoloPagamento.getIdTransfer())
+                                    	            .map(Object::toString)
+                                    	            .orElse("1")
+                                    )
                                     .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
                                     .flowId(flusso.getFdr())
                                     .flowDateTime(parseDate(flusso.getFdrDate().toString()))

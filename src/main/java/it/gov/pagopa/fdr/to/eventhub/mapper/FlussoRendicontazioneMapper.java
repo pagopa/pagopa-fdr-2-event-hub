@@ -22,6 +22,7 @@ import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
+import java.time.LocalDate;
 
 @UtilityClass
 public class FlussoRendicontazioneMapper {
@@ -44,38 +45,44 @@ public class FlussoRendicontazioneMapper {
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
   }
-
+  
   public static LocalDateTime parseDate(String dateStr) {
-    if (dateStr == null || dateStr.isEmpty()) {
-      return null;
-    }
-    try {
-      Matcher matcher = pattern.matcher(dateStr);
+	  if (dateStr == null || dateStr.isBlank()) {
+	    return null;
+	  }
 
-      if (matcher.find()) {
-        // Parsing as ZonedDateTime and adjust to UTC+1
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateStr, DATE_TIME_FORMATTER);
-        ZonedDateTime adjustedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.ofHours(1));
-        return adjustedDateTime.toLocalDateTime();
-      } else {
-        return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
-      }
-    } catch (DateTimeParseException e1) {
-      try {
-        return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
-      } catch (DateTimeParseException e2) {
-        try {
-          return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
-        } catch (DateTimeParseException e3) {
-          try {
-            return LocalDateTime.parse(dateStr.substring(0, 10) + "T00:00:00", DATE_TIME_FORMATTER);
-          } catch (DateTimeParseException e4) {
-            throw new IllegalArgumentException("Date format not supported: " + dateStr);
-          }
-        }
-      }
-    }
-  }
+	  String s = dateStr.trim();
+
+	  try {
+	    Matcher matcher = pattern.matcher(s);
+
+	    if (matcher.find()) {
+	      // Case: string contains timezone info (e.g. 'Z' or +02:00).
+	      // Convert to the SAME INSTANT in UTC, then drop the zone.
+	      ZonedDateTime zdt = ZonedDateTime.parse(s, DATE_TIME_FORMATTER);
+	      return zdt.withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+	    }
+
+	    // Case: no timezone info.
+	    // If it's full datetime "yyyy-MM-ddTHH:mm:ss" -> parse as LocalDateTime.
+	    // If it's just date "yyyy-MM-dd" -> normalize to midnight (stable).
+	    if (s.length() == 10) { // "yyyy-MM-dd"
+	      return LocalDate.parse(s).atStartOfDay();
+	    }
+
+	    return LocalDateTime.parse(s, DATE_TIME_FORMATTER);
+
+	  } catch (DateTimeParseException e) {
+	    // Fallbacks (keep behavior similar but deterministic)
+	    try {
+	      // Try take first 10 chars as date and set midnight
+	      return LocalDate.parse(s.substring(0, 10)).atStartOfDay();
+	    } catch (Exception ex) {
+	      throw new IllegalArgumentException("Date format not supported: " + dateStr, e);
+	    }
+	  }
+	}
+
 
   /**
    * Converts FlussoRendicontazione into a list of FlowTxEventModel.
