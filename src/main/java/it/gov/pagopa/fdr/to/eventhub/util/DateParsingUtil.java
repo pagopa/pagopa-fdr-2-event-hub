@@ -42,13 +42,11 @@ public final class DateParsingUtil {
 			return LocalDateTime.parse(s, DATE_TIME_FORMATTER);
 
 		} catch (DateTimeParseException e) {
-			try {
-				if (s.length() >= 10) {
-					// fallback: yyyy-MM-dd + midnight
-					return LocalDate.parse(s.substring(0, 10)).atStartOfDay();
-				}
-			} catch (Exception ignored) {}
-			throw new IllegalArgumentException("Date format not supported: " + dateStr, e);
+		    if (s.length() >= 10) {
+		        // fallback: yyyy-MM-dd → midnight
+		        return LocalDate.parse(s.substring(0, 10)).atStartOfDay();
+		    }
+		    throw new IllegalArgumentException("Date format not supported: " + dateStr, e);
 		}
 
 	}
