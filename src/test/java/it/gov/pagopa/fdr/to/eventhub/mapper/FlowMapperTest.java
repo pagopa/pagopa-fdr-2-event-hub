@@ -43,6 +43,7 @@ class FlowMapperTest {
     Flow flow =
         Flow.builder()
             .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
             .published(Instant.parse("2025-03-06T10:01:36Z"))
             .regulation("REG")
             .regulationDate("2025-03-06")
@@ -60,6 +61,9 @@ class FlowMapperTest {
     FlowTxEventModel out = FlowMapper.toFlowTxEventList(flow);
 
     assertEquals(List.of("2025-03-06", "2025-03-07"), out.getAllDates());
+    assertTrue(out.getAllDates().stream().allMatch(d -> d.matches("\\d{4}-\\d{2}-\\d{2}")),
+    	    "ALL_DATES must be yyyy-MM-dd only, but was: " + out.getAllDates());
+    assertEquals(2, out.getAllDates().size(), "Expected distinct dates only");
     assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getFlowDateTime());
     assertEquals(LocalDateTime.of(2025, 3, 6, 0, 0), out.getRegulationDate());
   }
@@ -107,5 +111,6 @@ class FlowMapperTest {
     assertEquals("5", out.getIdsp());
     assertEquals(LocalDateTime.of(2025, 3, 6, 0, 0), out.getSinglePaymentOutcomeDate());
     assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getFlowDateTime());
+    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getInsertedTimestamp());
   }
 }
