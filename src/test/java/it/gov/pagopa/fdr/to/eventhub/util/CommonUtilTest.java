@@ -19,6 +19,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -30,16 +33,24 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
+import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.BlobFileData;
 import it.gov.pagopa.fdr.to.eventhub.wrapper.BlobServiceClientWrapper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -212,4 +223,124 @@ class CommonUtilTest {
 
     assertNotNull(result);
   }
+  
+  @Test
+  void testPrepareAndSendEventsToEventHub() throws Exception {
+
+    // mock EventHub clients & batches
+    EventHubProducerClient flowClient = mock(EventHubProducerClient.class);
+    EventHubProducerClient reportedClient = mock(EventHubProducerClient.class);
+
+    EventDataBatch flowBatch = mock(EventDataBatch.class);
+    EventDataBatch reportedBatch = mock(EventDataBatch.class);
+
+    when(flowClient.createBatch()).thenReturn(flowBatch);
+    when(reportedClient.createBatch()).thenReturn(reportedBatch);
+
+    // Capture EventData
+    ArgumentCaptor<EventData> flowEventCaptor = ArgumentCaptor.forClass(EventData.class);
+    ArgumentCaptor<EventData> paymentEventCaptor = ArgumentCaptor.forClass(EventData.class);
+
+    when(flowBatch.tryAdd(flowEventCaptor.capture())).thenReturn(true);
+    when(reportedBatch.tryAdd(paymentEventCaptor.capture())).thenReturn(true);
+
+    lenient().when(flowBatch.getCount()).thenReturn(1);
+    lenient().when(reportedBatch.getCount()).thenReturn(1);
+
+    doNothing().when(flowClient).send(any(EventDataBatch.class));
+    doNothing().when(reportedClient).send(any(EventDataBatch.class));
+
+    // build models with ALL_DATES date-only string
+    FlowTxEventModel flowEvent =
+        FlowTxEventModel.builder()
+            .flowId("FDR123")
+            .flowDateTime(LocalDateTime.of(2026, 1, 26, 15, 55, 44))
+            .insertedTimestamp(LocalDateTime.of(2026, 1, 26, 15, 55, 44))
+            .regulationDate(LocalDateTime.of(2026, 1, 23, 0, 0))
+            .causal("CAUSE")
+            .paymentsNum(5)
+            .amountPaid(new BigDecimal("50"))
+            .domainId("97532760580")
+            .psp("SELBIT2B")
+            .intPsp("02224410023")
+            .uniqueId("8f5ce65b-efd8-4ce2-9593-97b2300b315a")
+            .allDates(List.of("2026-01-25")) // date-only
+            .build();
+
+    ReportedIUVEventModel paymentEvent =
+        ReportedIUVEventModel.builder()
+            .iuv("501734800531673")
+            .iur("87096853380")
+            .amount(new BigDecimal("10"))
+            .outcomeCode(0)
+            .singlePaymentOutcomeDate(LocalDateTime.of(2026, 1, 25, 0, 0))
+            .idsp("1")
+            .flowId("FDR123")
+            .flowDateTime(LocalDateTime.of(2026, 1, 26, 15, 55, 44))
+            .domainId("97532760580")
+            .psp("SELBIT2B")
+            .intPsp("02224410023")
+            .uniqueId("8f5ce65b-efd8-4ce2-9593-97b2300b315a")
+            .insertedTimestamp(LocalDateTime.of(2026, 1, 26, 15, 55, 44))
+            .idTransfer(1L)
+            .build();
+
+    Stream<ReportedIUVEventModel> paymentStream = Stream.of(paymentEvent);
+
+    Map<String, String> metadata = Map.of(
+        "sessionId", "8f5ce65b-efd8-4ce2-9593-97b2300b315a",
+        "insertedTimestamp", "2026-01-26T15:55:44.7283250Z",
+        "serviceIdentifier", "NA"
+    );
+
+    // invoke private static prepareAndSendEventsToEventHub via reflection
+    Method m =
+        CommonUtil.class.getDeclaredMethod(
+            "prepareAndSendEventsToEventHub",
+            EventHubProducerClient.class,
+            EventHubProducerClient.class,
+            FlowTxEventModel.class,
+            Stream.class,
+            String.class,
+            Map.class,
+            Logger.class,
+            boolean.class,
+            boolean.class);
+
+    m.setAccessible(true);
+
+    Object result =
+        m.invoke(
+            null,
+            flowClient,
+            reportedClient,
+            flowEvent,
+            paymentStream,
+            "FDR123",
+            metadata,
+            mockLogger,
+            true,  // sendFlowEvent
+            true   // sendPaymentEvents
+        );
+
+    assertEquals(true, result);
+
+    String flowJson = flowEventCaptor.getValue().getBodyAsString();
+    assertNotNull(flowJson);
+
+    // contain date-only string
+    assertTrue(flowJson.contains("\"ALL_DATES\":[\"2026-01-25\"]"), flowJson);
+
+    // NOT contain midnight timestamp version inside ALL_DATES
+    assertFalse(flowJson.contains("2026-01-25T00:00:00"), flowJson);
+
+    String paymentJson = paymentEventCaptor.getValue().getBodyAsString();
+    assertNotNull(paymentJson);
+    assertTrue(paymentJson.contains("\"DATA_ESITO_SINGOLO_PAGAMENTO\""), paymentJson);
+
+    // Verify send for both hubs
+    verify(flowClient, atLeastOnce()).send(any(EventDataBatch.class));
+    verify(reportedClient, atLeastOnce()).send(any(EventDataBatch.class));
+  }
+
 }
