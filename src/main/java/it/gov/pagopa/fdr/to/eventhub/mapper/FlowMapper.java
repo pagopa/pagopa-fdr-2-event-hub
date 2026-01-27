@@ -4,16 +4,11 @@ import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.ReportedIUVEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Payment;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
+import it.gov.pagopa.fdr.to.eventhub.util.DateParsingUtil;
+
+import java.time.LocalDate;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,46 +22,10 @@ import org.modelmapper.convention.MatchingStrategies;
 public class FlowMapper {
 
   private static final ModelMapper modelMapper = new ModelMapper();
-  private static final String TIME_ZONE_REGEX = "([+\\-]\\d{2}:\\d{2}|Z)$";
-  private static final Pattern pattern = Pattern.compile(TIME_ZONE_REGEX);
-  private static final DateTimeFormatter DATE_TIME_FORMATTER =
-      new DateTimeFormatterBuilder()
-          .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
-          .optionalStart()
-          .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
-          .optionalEnd()
-          .optionalStart()
-          .appendPattern("XXX")
-          .optionalEnd()
-          .toFormatter();
   @Getter @Setter private static int maxDistinctDates = 110;
 
   static {
     modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-  }
-
-  public static LocalDateTime parseDate(String dateStr) {
-    if (dateStr == null || dateStr.isEmpty()) {
-      return null;
-    }
-    try {
-      Matcher matcher = pattern.matcher(dateStr);
-
-      if (matcher.find()) {
-        // Parsing as ZonedDateTime and adjust to UTC+1
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateStr, DATE_TIME_FORMATTER);
-        ZonedDateTime adjustedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.ofHours(1));
-        return adjustedDateTime.toLocalDateTime();
-      } else {
-        return LocalDateTime.parse(dateStr, DATE_TIME_FORMATTER);
-      }
-    } catch (DateTimeParseException e1) {
-      try {
-        return LocalDateTime.parse(dateStr + "T00:00:00", DATE_TIME_FORMATTER);
-      } catch (DateTimeParseException e2) {
-        throw new IllegalArgumentException("Date format not supported: " + dateStr);
-      }
-    }
   }
 
   /**
@@ -77,7 +36,13 @@ public class FlowMapper {
    */
   public static FlowTxEventModel toFlowTxEventList(Flow flusso) {
 
-    List<String> allDates = flusso.getPayments().stream().map(Payment::getPayDate).distinct().toList();
+	List<String> allDates =
+			    flusso.getPayments().stream()
+			        .map(Payment::getPayDate)               
+			        .map(DateParsingUtil::parseToLocalDate)
+			        .map(LocalDate::toString)                // "yyyy-MM-dd"
+			        .distinct()
+			        .toList();
 
     // last fake date as alert if there are more than 'this.maxDistinctDates' dates
     if (allDates.size() > maxDistinctDates) {
@@ -87,14 +52,14 @@ public class FlowMapper {
 
     return FlowTxEventModel.builder()
         .flowId(flusso.getFdr())
-        .flowDateTime(parseDate(flusso.getPublished().toString()))
-        .regulationDate(parseDate(flusso.getRegulationDate()))
+        .flowDateTime(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getPublished().toString()))
+        .regulationDate(DateParsingUtil.parseToLocalDate(flusso.getRegulationDate()).atStartOfDay())
         .paymentsNum(Math.toIntExact(flusso.getComputedTotPayments()))
         .amountPaid(flusso.getComputedSumPayments())
         .domainId(flusso.getReceiver().getOrganizationId())
         .intPsp(flusso.getSender().getPspBrokerId())
         .uniqueId(flusso.getMetadata().get("sessionId"))
-        .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
+        .insertedTimestamp(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getMetadata().get("insertedTimestamp")))
         .psp(flusso.getSender().getPspId())
         .causal(flusso.getRegulation())
         .allDates(allDates)
@@ -118,16 +83,17 @@ public class FlowMapper {
                                     .amount(singoloPagamento.getPay())
                                     .outcomeCode(convertPayStatus(singoloPagamento.getPayStatus()))
                                     .idsp(
-                                            singoloPagamento.getIndex() != null
-                                                    ? singoloPagamento.getIndex().toString()
-                                                    : null)
-                                    .singlePaymentOutcomeDate(parseDate(singoloPagamento.getPayDate()))
+                                    	    Optional.ofNullable(singoloPagamento.getIdTransfer())
+                                    	        .map(Object::toString)
+                                    	        .orElse(null)
+                                    )
+                                    .singlePaymentOutcomeDate(DateParsingUtil.parseToLocalDate(singoloPagamento.getPayDate()).atStartOfDay())
                                     .flowId(flusso.getFdr())
-                                    .flowDateTime(parseDate(flusso.getFdrDate().toString()))
+                                    .flowDateTime(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getFdrDate().toString()))
                                     .domainId(flusso.getReceiver().getOrganizationId())
                                     .intPsp(flusso.getSender().getPspBrokerId())
                                     .uniqueId(flusso.getMetadata().get("sessionId"))
-                                    .insertedTimestamp(parseDate(flusso.getMetadata().get("insertedTimestamp")))
+                                    .insertedTimestamp(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getMetadata().get("insertedTimestamp")))
                                     .psp(flusso.getSender().getPspId())
                                     .build());
   }
