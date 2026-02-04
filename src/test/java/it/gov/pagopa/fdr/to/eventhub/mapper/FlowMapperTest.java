@@ -44,7 +44,7 @@ class FlowMapperTest {
         Flow.builder()
             .fdr("FDR123")
             .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
-            .published(Instant.parse("2025-03-06T10:01:36Z"))
+            .published(Instant.parse("2025-03-06T12:34:56Z")) // PIDM-1459: different from fdrDate: must NOT be used
             .regulation("REG")
             .regulationDate("2025-03-06")
             .computedTotPayments(3L)

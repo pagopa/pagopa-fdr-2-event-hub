@@ -49,10 +49,11 @@ public class FlowMapper {
       allDates = allDates.stream().limit(maxDistinctDates).collect(Collectors.toList());
       allDates.add("9999-12-31");
     }
-
+    // FLUSSI_RENDICONTAZIONE table 
     return FlowTxEventModel.builder()
         .flowId(flusso.getFdr())
-        .flowDateTime(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getPublished().toString()))
+        // PIDM-1459: change to fdrDate instead of published. See https://pagopa.atlassian.net/wiki/spaces/IQCGJ/pages/695271671/FDR+-+how+to+convert+xml+to+json
+        .flowDateTime(DateParsingUtil.parseDateTimeToUtcLocal(flusso.getFdrDate().toString()))
         .regulationDate(DateParsingUtil.parseToLocalDate(flusso.getRegulationDate()).atStartOfDay())
         .paymentsNum(Math.toIntExact(flusso.getComputedTotPayments()))
         .amountPaid(flusso.getComputedSumPayments())
@@ -73,6 +74,7 @@ public class FlowMapper {
    * @return List of ReportedIUVEventModel.
    */
   public static Stream<ReportedIUVEventModel> toReportedIUVEventStream(Flow flusso) {
+	// IUV_RENDICONTATI table
     return flusso.getPayments().stream()
             .map(
                     singoloPagamento ->
