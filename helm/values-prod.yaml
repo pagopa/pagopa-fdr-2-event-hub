@@ -75,8 +75,8 @@ microservice-chart: &microservice-chart
       memory: "2.5Gi"
       cpu: "2"
     limits:
-      memory: "7Gi"
-      cpu: "6"
+      memory: "6Gi"
+      cpu: "4"
   autoscaling: &autoscaling
     enable: true
     minReplica: 1
@@ -145,7 +145,12 @@ fdr1-blobtrigger:
     !!merge <<: *ingress
     create: false
   resources:
-    !!merge <<: *resources
+    requests:
+      memory: "3Gi"
+      cpu: "2"
+    limits:
+      memory: "10Gi"
+      cpu: "6"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
@@ -171,7 +176,12 @@ fdr3-blobtrigger:
     !!merge <<: *ingress
     create: false
   resources:
-    !!merge <<: *resources
+    requests:
+      memory: "2.5Gi"
+      cpu: "2"
+    limits:
+      memory: "5Gi"
+      cpu: "6"
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
