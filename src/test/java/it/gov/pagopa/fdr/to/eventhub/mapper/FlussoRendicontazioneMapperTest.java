@@ -38,11 +38,11 @@ class FlussoRendicontazioneMapperTest {
 	}
 
 	@Test
-	void testParseDate_withoutTimezone_parsedAsIs() {
-		String date = "2025-03-06T11:01:36";
-		LocalDateTime localDateTime = DateParsingUtil.parseDateTimeToUtcLocal(date);
-		assertNotNull(localDateTime);
-		assertEquals(LocalDateTime.of(2025, 3, 6, 11, 1, 36), localDateTime);
+	void testParseDate_withoutTimezone_interpretedAsItalyAndConvertedToUtc() {
+	    String date = "2025-03-06T11:01:36";
+	    LocalDateTime localDateTime = DateParsingUtil.parseDateTimeToUtcLocal(date);
+	    assertNotNull(localDateTime);
+	    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), localDateTime);
 	}
 
 
@@ -93,6 +93,14 @@ class FlussoRendicontazioneMapperTest {
 	          .orElseThrow();
 
 	  assertEquals("3", out.getIdsp());
+	}
+	
+	@Test
+	void testParseDate_withExplicitOffset_convertedToUtc() {
+	    String date = "2026-04-10T12:59:12.989+06:00";
+	    LocalDateTime localDateTime = DateParsingUtil.parseDateTimeToUtcLocal(date);
+	    assertNotNull(localDateTime);
+	    assertEquals(LocalDateTime.of(2026, 4, 10, 6, 59, 12, 989_000_000), localDateTime);
 	}
 
 }
