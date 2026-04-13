@@ -29,11 +29,11 @@ class DateParsingUtilTest {
   }
 
   @Test
-  void testParseDateTimeToUtcLocal_withoutTimezone_parsedAsLocal() {
+  void testParseDateTimeToUtcLocal_withoutTimezone_interpretedAsItalyAndConvertedToUtc() {
     String date = "2025-03-06T11:01:36";
     LocalDateTime ldt = DateParsingUtil.parseDateTimeToUtcLocal(date);
     assertNotNull(ldt);
-    assertEquals(LocalDateTime.of(2025, 3, 6, 11, 1, 36), ldt);
+    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), ldt);
   }
 
   @Test
@@ -54,5 +54,21 @@ class DateParsingUtilTest {
   @Test
   void testParseToLocalDate_invalidTooShort_throws() {
     assertThrows(IllegalArgumentException.class, () -> DateParsingUtil.parseToLocalDate("2025-03"));
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_withExplicitPositiveOffset_convertedToUtc() {
+    String date = "2026-04-10T12:59:12.989+06:00";
+    LocalDateTime ldt = DateParsingUtil.parseDateTimeToUtcLocal(date);
+    assertNotNull(ldt);
+    assertEquals(LocalDateTime.of(2026, 4, 10, 6, 59, 12, 989_000_000), ldt);
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_withoutTimezone_interpretedAsRomeAndConvertedToUtc() {
+    String date = "2026-04-10T12:59:12.989";
+    LocalDateTime ldt = DateParsingUtil.parseDateTimeToUtcLocal(date);
+    assertNotNull(ldt);
+    assertEquals(LocalDateTime.of(2026, 4, 10, 10, 59, 12, 989_000_000), ldt);
   }
 }
