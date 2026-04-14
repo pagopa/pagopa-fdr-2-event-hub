@@ -59,6 +59,7 @@ public final class DateParsingUtil {
 
 	    } catch (DateTimeParseException e) {
 	        if (s.length() >= 10) {
+	            // fallback: yyyy-MM-dd → midnight
 	            return LocalDate.parse(s.substring(0, 10)).atStartOfDay();
 	        }
 	        throw new IllegalArgumentException("Date format not supported: " + dateStr, e);
