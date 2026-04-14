@@ -71,4 +71,37 @@ class DateParsingUtilTest {
     assertNotNull(ldt);
     assertEquals(LocalDateTime.of(2026, 4, 10, 10, 59, 12, 989_000_000), ldt);
   }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_null_returnsNull() {
+    assertNull(DateParsingUtil.parseDateTimeToUtcLocal(null));
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_blank_returnsNull() {
+    assertNull(DateParsingUtil.parseDateTimeToUtcLocal("   "));
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_trimsInputBeforeParsing() {
+    String date = "  2025-03-06T11:01:36+01:00  ";
+    LocalDateTime ldt = DateParsingUtil.parseDateTimeToUtcLocal(date);
+    assertNotNull(ldt);
+    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), ldt);
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_invalidDateTimeWithParsableDatePrefix_fallsBackToMidnight() {
+    String date = "2025-03-06abc";
+    LocalDateTime ldt = DateParsingUtil.parseDateTimeToUtcLocal(date);
+    assertNotNull(ldt);
+    assertEquals(LocalDateTime.of(2025, 3, 6, 0, 0), ldt);
+  }
+  
+  @Test
+  void testParseDateTimeToUtcLocal_invalidTooShort_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> DateParsingUtil.parseDateTimeToUtcLocal("2025-03"));
+  }
 }
