@@ -113,4 +113,189 @@ class FlowMapperTest {
     assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getFlowDateTime());
     assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getInsertedTimestamp());
   }
+  
+  @Test
+  void toFlowTxEventList_shouldConvertImplicitItalianFdrDateToUtc() {
+
+    Payment payment = Payment.builder().payDate("2025-03-06").build();
+
+    Sender sender =
+        Sender.builder()
+            .pspId("PSP1")
+            .pspBrokerId("BROKER1")
+            .build();
+
+    Receiver receiver =
+        Receiver.builder()
+            .organizationId("PA1")
+            .build();
+
+    Flow flow =
+        Flow.builder()
+            .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
+            .published(Instant.parse("2025-03-06T12:34:56Z"))
+            .regulation("REG")
+            .regulationDate("2025-03-06")
+            .computedTotPayments(1L)
+            .computedSumPayments(new BigDecimal("1.00"))
+            .sender(sender)
+            .receiver(receiver)
+            .metadata(Map.of("sessionId", "S1"))
+            .payments(List.of(payment))
+            .build();
+
+    FlowTxEventModel out = FlowMapper.toFlowTxEventList(flow);
+
+    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getFlowDateTime());
+  }
+  
+  @Test
+  void toFlowTxEventList_shouldPreserveBusinessDayForRegulationDateWithOffset() {
+
+    Payment payment = Payment.builder().payDate("2025-03-06").build();
+
+    Sender sender =
+        Sender.builder()
+            .pspId("PSP1")
+            .pspBrokerId("BROKER1")
+            .build();
+
+    Receiver receiver =
+        Receiver.builder()
+            .organizationId("PA1")
+            .build();
+
+    Flow flow =
+        Flow.builder()
+            .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
+            .regulation("REG")
+            .regulationDate("2025-03-06T00:00:00+01:00")
+            .computedTotPayments(1L)
+            .computedSumPayments(new BigDecimal("1.00"))
+            .sender(sender)
+            .receiver(receiver)
+            .metadata(Map.of("sessionId", "S1"))
+            .payments(List.of(payment))
+            .build();
+
+    FlowTxEventModel out = FlowMapper.toFlowTxEventList(flow);
+
+    assertEquals(LocalDateTime.of(2025, 3, 6, 0, 0), out.getRegulationDate());
+  }
+  
+  @Test
+  void toFlowTxEventList_shouldPreserveBusinessDayForPayDateWithItalianOffset() {
+
+    Payment payment = Payment.builder().payDate("2025-03-06T00:00:00+01:00").build();
+
+    Sender sender =
+        Sender.builder()
+            .pspId("PSP1")
+            .pspBrokerId("BROKER1")
+            .build();
+
+    Receiver receiver =
+        Receiver.builder()
+            .organizationId("PA1")
+            .build();
+
+    Flow flow =
+        Flow.builder()
+            .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
+            .regulation("REG")
+            .regulationDate("2025-03-06")
+            .computedTotPayments(1L)
+            .computedSumPayments(new BigDecimal("1.00"))
+            .sender(sender)
+            .receiver(receiver)
+            .metadata(Map.of("sessionId", "S1"))
+            .payments(List.of(payment))
+            .build();
+
+    FlowTxEventModel out = FlowMapper.toFlowTxEventList(flow);
+
+    assertEquals(List.of("2025-03-06"), out.getAllDates());
+  }
+  
+  @Test
+  void toReportedIUVEventStream_shouldPreserveBusinessDayForOutcomeDateWithItalianOffset() {
+
+    Payment payment =
+        Payment.builder()
+            .iuv("IUV1")
+            .iur("IUR1")
+            .pay(new BigDecimal("1.00"))
+            .payStatus("EXECUTED")
+            .idTransfer(5L)
+            .payDate("2025-03-06T00:00:00+01:00")
+            .build();
+
+    Sender sender =
+        Sender.builder()
+            .pspId("PSP1")
+            .pspBrokerId("BROKER1")
+            .build();
+
+    Receiver receiver =
+        Receiver.builder()
+            .organizationId("PA1")
+            .build();
+
+    Flow flow =
+        Flow.builder()
+            .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
+            .sender(sender)
+            .receiver(receiver)
+            .metadata(Map.of("sessionId", "S1"))
+            .payments(List.of(payment))
+            .build();
+
+    ReportedIUVEventModel out =
+        FlowMapper.toReportedIUVEventStream(flow).findFirst().orElseThrow();
+
+    assertEquals(LocalDateTime.of(2025, 3, 6, 0, 0), out.getSinglePaymentOutcomeDate());
+    assertEquals(LocalDateTime.of(2025, 3, 6, 10, 1, 36), out.getFlowDateTime());
+  }
+  
+  @Test
+  void toFlowTxEventList_shouldDeduplicateDatesAcrossDifferentRepresentationsOfSameBusinessDay() {
+
+    Payment p1 = Payment.builder().payDate("2025-03-06").build();
+    Payment p2 = Payment.builder().payDate("2025-03-06T00:00:00+01:00").build();
+    Payment p3 = Payment.builder().payDate("2025-03-06T23:59:59+01:00").build();
+
+    Sender sender =
+        Sender.builder()
+            .pspId("PSP1")
+            .pspBrokerId("BROKER1")
+            .build();
+
+    Receiver receiver =
+        Receiver.builder()
+            .organizationId("PA1")
+            .build();
+
+    Flow flow =
+        Flow.builder()
+            .fdr("FDR123")
+            .fdrDate(Instant.parse("2025-03-06T10:01:36Z"))
+            .regulation("REG")
+            .regulationDate("2025-03-06")
+            .computedTotPayments(3L)
+            .computedSumPayments(new BigDecimal("10.00"))
+            .sender(sender)
+            .receiver(receiver)
+            .metadata(Map.of("sessionId", "S1"))
+            .payments(List.of(p1, p2, p3))
+            .build();
+
+    FlowTxEventModel out = FlowMapper.toFlowTxEventList(flow);
+
+    assertEquals(List.of("2025-03-06"), out.getAllDates());
+    assertEquals(1, out.getAllDates().size());
+  }
 }
