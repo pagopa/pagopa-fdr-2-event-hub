@@ -29,6 +29,7 @@ public class ReportedIUVEventModel {
   @JsonProperty("DATA_ESITO_SINGOLO_PAGAMENTO")
   private LocalDateTime singlePaymentOutcomeDate;
 
+  //equal IdTransfer
   @JsonProperty("IDSP")
   private String idsp;
 
@@ -52,7 +53,4 @@ public class ReportedIUVEventModel {
 
   @JsonProperty("INSERTED_TIMESTAMP")
   private LocalDateTime insertedTimestamp;
-
-  @JsonProperty("ID_TRANSFER")
-  private Long idTransfer;
 }
