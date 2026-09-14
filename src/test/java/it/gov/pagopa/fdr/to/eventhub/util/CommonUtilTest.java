@@ -282,7 +282,6 @@ class CommonUtilTest {
             .intPsp("02224410023")
             .uniqueId("8f5ce65b-efd8-4ce2-9593-97b2300b315a")
             .insertedTimestamp(LocalDateTime.of(2026, 1, 26, 15, 55, 44))
-            .idTransfer(1L)
             .build();
 
     Stream<ReportedIUVEventModel> paymentStream = Stream.of(paymentEvent);
