@@ -146,10 +146,10 @@ fdr1-blobtrigger:
     create: false
   resources:
     requests:
-      memory: "3Gi"
+      memory: "12Gi"
       cpu: "2"
     limits:
-      memory: "10Gi"
+      memory: "12Gi"
       cpu: "6"
   autoscaling:
     !!merge <<: *autoscaling
