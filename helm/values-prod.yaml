@@ -162,7 +162,7 @@ fdr1-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR1BlobFiles: "Debug"
   envFieldRef:
     !!merge <<: *envFieldRef
   envSecret:
@@ -193,7 +193,7 @@ fdr3-blobtrigger:
     # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"
-    # AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
+    AzureFunctionsJobHost__logging__logLevel__Function__ProcessFDR3BlobFiles: "Debug"
   envFieldRef:
     !!merge <<: *envFieldRef
   envSecret:
