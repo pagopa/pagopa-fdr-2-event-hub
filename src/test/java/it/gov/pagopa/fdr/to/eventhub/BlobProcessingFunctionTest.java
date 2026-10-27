@@ -3,6 +3,7 @@ package it.gov.pagopa.fdr.to.eventhub;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
@@ -732,38 +733,113 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testConstructorInitializesClients() {
-    try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
+  void testConstructorInitializesAndReusesClients() {
 
-      // Simulate environment variables
-      environmentVariables.set("FDR_SA_CONNECTION_STRING", "fake-fdr-sa-conn-string");
-      environmentVariables.set("EVENT_HUB_FLOWTX_CONNECTION_STRING", "fake-flowtx-conn-string");
-      environmentVariables.set("EVENT_HUB_FLOWTX_NAME", "fake-flowtx-name");
-      environmentVariables.set("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
-      environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
-      environmentVariables.set("APPLICATIONINSIGHTS_CONNECTION_STRING", "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
+    environmentVariables.set(
+        "FDR_SA_CONNECTION_STRING",
+        "fake-fdr-sa-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_FLOWTX_CONNECTION_STRING",
+        "fake-flowtx-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_FLOWTX_NAME",
+        "fake-flowtx-name");
+    environmentVariables.set(
+        "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING",
+        "fake-reportediuv-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_REPORTEDIUV_NAME",
+        "fake-reportediuv-name");
+    environmentVariables.set(
+        "APPLICATIONINSIGHTS_CONNECTION_STRING",
+        "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
 
-      EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
-      EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
-      BlobServiceClient mockClient3 = mock(BlobServiceClient.class);
+    try (MockedStatic<CommonUtil> mockedCommonUtil =
+        Mockito.mockStatic(CommonUtil.class)) {
+
+      EventHubProducerClient flowTxClient =
+          mock(EventHubProducerClient.class);
+
+      EventHubProducerClient reportedIuvClient =
+          mock(EventHubProducerClient.class);
+
+      BlobServiceClient blobServiceClient =
+          mock(BlobServiceClient.class);
+
       mockedCommonUtil
-          .when(() -> CommonUtil.createEventHubClient("fake-flowtx-conn-string", "fake-flowtx-name")).thenReturn(mockClient1);
+          .when(() ->
+              CommonUtil.createEventHubClient(
+                  "fake-flowtx-conn-string",
+                  "fake-flowtx-name"))
+          .thenReturn(flowTxClient);
 
       mockedCommonUtil
-          .when(() -> CommonUtil.createEventHubClient("fake-reportediuv-conn-string", "fake-reportediuv-name")).thenReturn(mockClient2);
+          .when(() ->
+              CommonUtil.createEventHubClient(
+                  "fake-reportediuv-conn-string",
+                  "fake-reportediuv-name"))
+          .thenReturn(reportedIuvClient);
 
       mockedCommonUtil
-              .when(() -> CommonUtil.createBlobServiceClient("fake-fdr-sa-conn-string")).thenReturn(mockClient3);
+          .when(() ->
+              CommonUtil.createBlobServiceClient(
+                  "fake-fdr-sa-conn-string"))
+          .thenReturn(blobServiceClient);
 
-      // Instantiate the class
-      BlobProcessingFunction blobProcessingFunction = new BlobProcessingFunction();
+      // Prima istanza: inizializza ClientsHolder
+      BlobProcessingFunction first =
+          new BlobProcessingFunction();
 
-      assertNotNull(blobProcessingFunction.getEventHubClientFlowTx());
-      assertNotNull(blobProcessingFunction.getEventHubClientReportedIUV());
-      assertNotNull(blobProcessingFunction.getBlobServiceClient());
-      assertEquals(mockClient1, blobProcessingFunction.getEventHubClientFlowTx());
-      assertEquals(mockClient2, blobProcessingFunction.getEventHubClientReportedIUV());
-      assertEquals(mockClient3, blobProcessingFunction.getBlobServiceClient());
+      // Seconda istanza: deve riutilizzare ClientsHolder
+      BlobProcessingFunction second =
+          new BlobProcessingFunction();
+
+      // I client sono stati inizializzati correttamente
+      assertSame(
+          flowTxClient,
+          first.getEventHubClientFlowTx());
+
+      assertSame(
+          reportedIuvClient,
+          first.getEventHubClientReportedIUV());
+
+      assertSame(
+          blobServiceClient,
+          first.getBlobServiceClient());
+
+      // Le due Function condividono gli stessi client
+      assertSame(
+          first.getEventHubClientFlowTx(),
+          second.getEventHubClientFlowTx());
+
+      assertSame(
+          first.getEventHubClientReportedIUV(),
+          second.getEventHubClientReportedIUV());
+
+      assertSame(
+          first.getBlobServiceClient(),
+          second.getBlobServiceClient());
+
+      // Le factory devono essere chiamate UNA SOLA VOLTA
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createEventHubClient(
+                  "fake-flowtx-conn-string",
+                  "fake-flowtx-name"),
+          times(1));
+
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createEventHubClient(
+                  "fake-reportediuv-conn-string",
+                  "fake-reportediuv-name"),
+          times(1));
+
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createBlobServiceClient(
+                  "fake-fdr-sa-conn-string"),
+          times(1));
     }
   }
 }
