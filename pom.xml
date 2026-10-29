@@ -29,6 +29,7 @@
 		<junit.version>5.9.3</junit.version>
 		<mockito.version>5.15.2</mockito.version>
 		<system.stubs.version>2.1.7</system.stubs.version>
+		<azure.data.tables.version>12.5.13</azure.data.tables.version>
 	</properties>
 
 	<dependencies>
@@ -48,6 +49,11 @@
 			<artifactId>azure-storage-blob</artifactId>
 			<version>${azure.storage.blob.version}</version>
 		</dependency>
+		<dependency>
+           <groupId>com.azure</groupId>
+           <artifactId>azure-data-tables</artifactId>
+           <version>${azure.data.tables.version}</version>
+        </dependency>
 		<dependency>
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>applicationinsights-core</artifactId>
