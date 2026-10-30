@@ -46,21 +46,41 @@ public class BlobProcessingFunction {
 
   private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
 
-  public BlobProcessingFunction() {
-    this.eventHubClientFlowTx =
+  private static class ClientsHolder {
+
+    private static final EventHubProducerClient EVENT_HUB_CLIENT_FLOW_TX =
         CommonUtil.createEventHubClient(
             System.getenv("EVENT_HUB_FLOWTX_CONNECTION_STRING"),
             System.getenv("EVENT_HUB_FLOWTX_NAME"));
 
-    this.eventHubClientReportedIUV =
+    private static final EventHubProducerClient EVENT_HUB_CLIENT_REPORTED_IUV =
         CommonUtil.createEventHubClient(
             System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"),
             System.getenv("EVENT_HUB_REPORTEDIUV_NAME"));
 
-    this.blobServiceClient = CommonUtil.createBlobServiceClient(System.getenv("FDR_SA_CONNECTION_STRING"));
+    private static final BlobServiceClient BLOB_SERVICE_CLIENT =
+        CommonUtil.createBlobServiceClient(
+            System.getenv("FDR_SA_CONNECTION_STRING"));
 
-    this.aiTelemetryClient = new AppInsightTelemetryClient();
+    private ClientsHolder() {
+      // Utility holder
+    }
   }
+
+  public BlobProcessingFunction() {
+    this.eventHubClientFlowTx =
+        ClientsHolder.EVENT_HUB_CLIENT_FLOW_TX;
+
+    this.eventHubClientReportedIUV =
+        ClientsHolder.EVENT_HUB_CLIENT_REPORTED_IUV;
+
+    this.blobServiceClient =
+        ClientsHolder.BLOB_SERVICE_CLIENT;
+
+    this.aiTelemetryClient =
+        new AppInsightTelemetryClient();
+  }
+
 
   // Constructor to inject the Event Hub clients
   public BlobProcessingFunction(
@@ -115,16 +135,15 @@ public class BlobProcessingFunction {
 
     try (InputStream originalInputStream = blobClient.openInputStream()) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
-      GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
+        GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
         FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(gzipStream);
-        if (flusso.getIdentificativoFlusso().isBlank()) {
+        String flowId = flusso.getIdentificativoFlusso();
+        if (flowId == null || flowId.isBlank()) {
             throw new IllegalArgumentException("Flow is empty");
         }
         flusso.setMetadata(blobMetadata);
-
-        String flowId = flusso.getIdentificativoFlusso();
 
         logger.info(
               "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
@@ -169,7 +188,7 @@ public class BlobProcessingFunction {
           this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR1_E1_1, exceptionDetails, null);
       }
 
-    } catch (Exception e) {
+    } catch (Exception | OutOfMemoryError e) {
       String exceptionDetails =
               getExceptionDetails(
                       ErrorCodes.FDR1_E1.getCode(),
@@ -177,10 +196,12 @@ public class BlobProcessingFunction {
                       blobName,
                       blobMetadata.get(SESSION_ID_METADATA_KEY),
                       retryIndex);
-      if (retryIndex >= (context.getRetryContext().getMaxretrycount() - 1)) {
+
+      boolean lastAttempt = context.getRetryContext() == null || retryIndex >= (context.getRetryContext().getMaxretrycount() - 1);
+      if (lastAttempt) {
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR1_E1, exceptionDetails, e);
       }
-      throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
+      throw new AlertAppException(e.getMessage(), e, exceptionDetails);
     }
   }
 
@@ -224,9 +245,9 @@ public class BlobProcessingFunction {
 
     try (InputStream originalInputStream = blobClient.openInputStream()) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
-      GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
+        GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
         Flow flow = CommonUtil.parseJSON(gzipStream);
         flow.setMetadata(blobMetadata);
 
@@ -274,7 +295,7 @@ public class BlobProcessingFunction {
                         retryIndex);
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1_1, exceptionDetails, null);
       }
-    } catch (Exception e) {
+    } catch (Exception  | OutOfMemoryError e) {
       String exceptionDetails =
           getExceptionDetails(
               ErrorCodes.FDR3_E1.getCode(),
@@ -282,10 +303,11 @@ public class BlobProcessingFunction {
               blobName,
               blobMetadata.get(SESSION_ID_METADATA_KEY),
               retryIndex);
-      if (retryIndex >= (context.getRetryContext().getMaxretrycount() - 1)) {
+      boolean lastAttempt = context.getRetryContext() == null  || retryIndex >= (context.getRetryContext().getMaxretrycount() - 1);
+      if (lastAttempt) {
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1, exceptionDetails, e);
       }
-      throw new AlertAppException(e.getMessage(), e.getCause(), exceptionDetails);
+      throw new AlertAppException(e.getMessage(), e, exceptionDetails);
     }
   }
 

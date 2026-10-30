@@ -3,6 +3,7 @@ package it.gov.pagopa.fdr.to.eventhub;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
@@ -732,38 +733,219 @@ class BlobProcessingFunctionTest {
   }
 
   @Test
-  void testConstructorInitializesClients() {
-    try (MockedStatic<CommonUtil> mockedCommonUtil = Mockito.mockStatic(CommonUtil.class)) {
+  void testConstructorInitializesAndReusesClients() {
 
-      // Simulate environment variables
-      environmentVariables.set("FDR_SA_CONNECTION_STRING", "fake-fdr-sa-conn-string");
-      environmentVariables.set("EVENT_HUB_FLOWTX_CONNECTION_STRING", "fake-flowtx-conn-string");
-      environmentVariables.set("EVENT_HUB_FLOWTX_NAME", "fake-flowtx-name");
-      environmentVariables.set("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING", "fake-reportediuv-conn-string");
-      environmentVariables.set("EVENT_HUB_REPORTEDIUV_NAME", "fake-reportediuv-name");
-      environmentVariables.set("APPLICATIONINSIGHTS_CONNECTION_STRING", "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
+    environmentVariables.set(
+        "FDR_SA_CONNECTION_STRING",
+        "fake-fdr-sa-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_FLOWTX_CONNECTION_STRING",
+        "fake-flowtx-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_FLOWTX_NAME",
+        "fake-flowtx-name");
+    environmentVariables.set(
+        "EVENT_HUB_REPORTEDIUV_CONNECTION_STRING",
+        "fake-reportediuv-conn-string");
+    environmentVariables.set(
+        "EVENT_HUB_REPORTEDIUV_NAME",
+        "fake-reportediuv-name");
+    environmentVariables.set(
+        "APPLICATIONINSIGHTS_CONNECTION_STRING",
+        "InstrumentationKey=key;IngestionEndpoint=http://localhost:5000/;LiveEndpoint=http://localhost:5000/");
 
-      EventHubProducerClient mockClient1 = mock(EventHubProducerClient.class);
-      EventHubProducerClient mockClient2 = mock(EventHubProducerClient.class);
-      BlobServiceClient mockClient3 = mock(BlobServiceClient.class);
+    try (MockedStatic<CommonUtil> mockedCommonUtil =
+        Mockito.mockStatic(CommonUtil.class)) {
+
+      EventHubProducerClient flowTxClient =
+          mock(EventHubProducerClient.class);
+
+      EventHubProducerClient reportedIuvClient =
+          mock(EventHubProducerClient.class);
+
+      BlobServiceClient blobServiceClient =
+          mock(BlobServiceClient.class);
+
       mockedCommonUtil
-          .when(() -> CommonUtil.createEventHubClient("fake-flowtx-conn-string", "fake-flowtx-name")).thenReturn(mockClient1);
+          .when(() ->
+              CommonUtil.createEventHubClient(
+                  "fake-flowtx-conn-string",
+                  "fake-flowtx-name"))
+          .thenReturn(flowTxClient);
 
       mockedCommonUtil
-          .when(() -> CommonUtil.createEventHubClient("fake-reportediuv-conn-string", "fake-reportediuv-name")).thenReturn(mockClient2);
+          .when(() ->
+              CommonUtil.createEventHubClient(
+                  "fake-reportediuv-conn-string",
+                  "fake-reportediuv-name"))
+          .thenReturn(reportedIuvClient);
 
       mockedCommonUtil
-              .when(() -> CommonUtil.createBlobServiceClient("fake-fdr-sa-conn-string")).thenReturn(mockClient3);
+          .when(() ->
+              CommonUtil.createBlobServiceClient(
+                  "fake-fdr-sa-conn-string"))
+          .thenReturn(blobServiceClient);
 
-      // Instantiate the class
-      BlobProcessingFunction blobProcessingFunction = new BlobProcessingFunction();
+      // Prima istanza: inizializza ClientsHolder
+      BlobProcessingFunction first =
+          new BlobProcessingFunction();
 
-      assertNotNull(blobProcessingFunction.getEventHubClientFlowTx());
-      assertNotNull(blobProcessingFunction.getEventHubClientReportedIUV());
-      assertNotNull(blobProcessingFunction.getBlobServiceClient());
-      assertEquals(mockClient1, blobProcessingFunction.getEventHubClientFlowTx());
-      assertEquals(mockClient2, blobProcessingFunction.getEventHubClientReportedIUV());
-      assertEquals(mockClient3, blobProcessingFunction.getBlobServiceClient());
+      // Seconda istanza: deve riutilizzare ClientsHolder
+      BlobProcessingFunction second =
+          new BlobProcessingFunction();
+
+      // I client sono stati inizializzati correttamente
+      assertSame(
+          flowTxClient,
+          first.getEventHubClientFlowTx());
+
+      assertSame(
+          reportedIuvClient,
+          first.getEventHubClientReportedIUV());
+
+      assertSame(
+          blobServiceClient,
+          first.getBlobServiceClient());
+
+      // Le due Function condividono gli stessi client
+      assertSame(
+          first.getEventHubClientFlowTx(),
+          second.getEventHubClientFlowTx());
+
+      assertSame(
+          first.getEventHubClientReportedIUV(),
+          second.getEventHubClientReportedIUV());
+
+      assertSame(
+          first.getBlobServiceClient(),
+          second.getBlobServiceClient());
+
+      // Le factory devono essere chiamate UNA SOLA VOLTA
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createEventHubClient(
+                  "fake-flowtx-conn-string",
+                  "fake-flowtx-name"),
+          times(1));
+
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createEventHubClient(
+                  "fake-reportediuv-conn-string",
+                  "fake-reportediuv-name"),
+          times(1));
+
+      mockedCommonUtil.verify(
+          () ->
+              CommonUtil.createBlobServiceClient(
+                  "fake-fdr-sa-conn-string"),
+          times(1));
+    }
+  }
+
+  @Test
+  void testFDR1OutOfMemoryErrorOnEventHubCreateBatchShouldSendAlert() throws Exception {
+
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
+    byte[] compressedData = SampleContentFileUtil.gzipCompress(sampleXml);
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    function =
+        new BlobProcessingFunction(
+            eventHubClientFlowTx,
+            eventHubClientReportedIUV,
+            blobServiceClientMock,
+            aiTelemetryClientMock,
+            new FDR1XmlStAXParser());
+
+    when(executionContext.getRetryContext()).thenReturn(null);
+
+    BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobServiceClientMock.getBlobContainerClient(any()))
+        .thenReturn(blobContainerClient);
+
+    when(blobContainerClient.getBlobClient(any()))
+        .thenReturn(blobClient);
+
+    ByteArrayInputStream delegateStream =
+        new ByteArrayInputStream(compressedData);
+
+    BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
+
+    doAnswer(
+        invocation -> {
+          byte[] buffer = invocation.getArgument(0);
+          int off = invocation.getArgument(1);
+          int len = invocation.getArgument(2);
+
+          return delegateStream.read(buffer, off, len);
+        })
+        .when(mockBlobInputStream)
+        .read(any(byte[].class), anyInt(), anyInt());
+
+    doAnswer(invocation -> delegateStream.read())
+        .when(mockBlobInputStream)
+        .read();
+
+    doAnswer(
+        invocation -> {
+          delegateStream.close();
+          return null;
+        })
+        .when(mockBlobInputStream)
+        .close();
+
+    when(blobClient.openInputStream())
+        .thenReturn(mockBlobInputStream);
+
+    when(eventHubClientFlowTx.createBatch())
+        .thenThrow(
+            new OutOfMemoryError(
+                "unable to create native thread: "
+                    + "possibly out of memory or process/resource limits reached"));
+
+    try (MockedStatic<CommonUtil> mockedUtil =
+        mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
+
+      mockedUtil
+          .when(() -> CommonUtil.isGzipStream(any()))
+          .thenAnswer(
+              invocation -> {
+                InputStream in = invocation.getArgument(0);
+                return new CommonUtil.Pair<>(in, true);
+              });
+
+      AlertAppException thrown =
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      compressedData,
+                      "sampleBlob",
+                      metadata,
+                      executionContext));
+
+      assertTrue(thrown.getCause() instanceof OutOfMemoryError);
+
+      assertEquals(
+          "unable to create native thread: "
+              + "possibly out of memory or process/resource limits reached",
+          thrown.getCause().getMessage());
+
+      verify(aiTelemetryClientMock, times(1))
+          .createCustomEventForAlert(
+              any(),
+              anyString(),
+              isA(OutOfMemoryError.class));
+
+      verify(eventHubClientFlowTx, atLeastOnce())
+          .createBatch();
     }
   }
 }
