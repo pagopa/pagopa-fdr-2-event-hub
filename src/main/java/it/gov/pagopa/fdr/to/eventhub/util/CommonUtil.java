@@ -448,15 +448,17 @@ public class CommonUtil {
 
     EventData eventData = new EventData(jsonPayload);
     eventData.getProperties().put(SERVICE_IDENTIFIER, serviceIdentifier);
-
+    logger.info("Add event to batch for flow ID: {}", flowName);
     EventDataBatch eventBatch = eventHubClient.createBatch();
     if (!eventBatch.tryAdd(eventData)) {
       logger.warn("Failed to add event to batch for flow ID: {}", flowName);
       return false;
     }
-
+    logger.info("Success Add event to batch for flow ID: {}", flowName);
     try {
+      logger.info("Send event to batch for flow ID: {}", flowName);
       eventHubClient.send(eventBatch);
+      logger.info("Success Send event to batch for flow ID: {}", flowName);
       return true;
     } catch (Exception e) {
       logger.error(
