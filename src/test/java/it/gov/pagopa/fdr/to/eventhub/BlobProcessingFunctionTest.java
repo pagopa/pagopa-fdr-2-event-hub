@@ -842,4 +842,110 @@ class BlobProcessingFunctionTest {
           times(1));
     }
   }
+
+  @Test
+  void testFDR1OutOfMemoryErrorOnEventHubCreateBatchShouldSendAlert() throws Exception {
+
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
+    byte[] compressedData = SampleContentFileUtil.gzipCompress(sampleXml);
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2025-01-30T10:15:30");
+    metadata.put("elaborate", "true");
+
+    function =
+        new BlobProcessingFunction(
+            eventHubClientFlowTx,
+            eventHubClientReportedIUV,
+            blobServiceClientMock,
+            aiTelemetryClientMock,
+            new FDR1XmlStAXParser());
+
+    when(executionContext.getRetryContext()).thenReturn(null);
+
+    BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobServiceClientMock.getBlobContainerClient(any()))
+        .thenReturn(blobContainerClient);
+
+    when(blobContainerClient.getBlobClient(any()))
+        .thenReturn(blobClient);
+
+    ByteArrayInputStream delegateStream =
+        new ByteArrayInputStream(compressedData);
+
+    BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
+
+    doAnswer(
+        invocation -> {
+          byte[] buffer = invocation.getArgument(0);
+          int off = invocation.getArgument(1);
+          int len = invocation.getArgument(2);
+
+          return delegateStream.read(buffer, off, len);
+        })
+        .when(mockBlobInputStream)
+        .read(any(byte[].class), anyInt(), anyInt());
+
+    doAnswer(invocation -> delegateStream.read())
+        .when(mockBlobInputStream)
+        .read();
+
+    doAnswer(
+        invocation -> {
+          delegateStream.close();
+          return null;
+        })
+        .when(mockBlobInputStream)
+        .close();
+
+    when(blobClient.openInputStream())
+        .thenReturn(mockBlobInputStream);
+
+    when(eventHubClientFlowTx.createBatch())
+        .thenThrow(
+            new OutOfMemoryError(
+                "unable to create native thread: "
+                    + "possibly out of memory or process/resource limits reached"));
+
+    try (MockedStatic<CommonUtil> mockedUtil =
+        mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
+
+      mockedUtil
+          .when(() -> CommonUtil.isGzipStream(any()))
+          .thenAnswer(
+              invocation -> {
+                InputStream in = invocation.getArgument(0);
+                return new CommonUtil.Pair<>(in, true);
+              });
+
+      AlertAppException thrown =
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      compressedData,
+                      "sampleBlob",
+                      metadata,
+                      executionContext));
+
+      assertTrue(thrown.getCause() instanceof OutOfMemoryError);
+
+      assertEquals(
+          "unable to create native thread: "
+              + "possibly out of memory or process/resource limits reached",
+          thrown.getCause().getMessage());
+
+      verify(aiTelemetryClientMock, times(1))
+          .createCustomEventForAlert(
+              any(),
+              anyString(),
+              isA(OutOfMemoryError.class));
+
+      verify(eventHubClientFlowTx, atLeastOnce())
+          .createBatch();
+    }
+  }
 }
