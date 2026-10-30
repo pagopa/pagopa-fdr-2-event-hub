@@ -174,7 +174,8 @@ class RecoveryJobsFunctionTest {
         """;
 
     when(request.getBody()).thenReturn(Optional.of(json));
-    when(context.getLogger()).thenReturn(mock(Logger.class));
+    Logger logger = mock(Logger.class);
+    when(context.getLogger()).thenReturn(logger);
 
     when(service.create(any(RecoveryJobRequest.class)))
         .thenThrow(new IllegalStateException("Simulated storage failure"));

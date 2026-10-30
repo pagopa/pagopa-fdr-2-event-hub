@@ -12,6 +12,7 @@ import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
 import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryTableClients;
@@ -24,9 +25,12 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.logging.Level;
 
 public final class RecoveryJobsFunction {
+
+  private static final String MESSAGE = "message";
 
   private static final JsonMapper OBJECT_MAPPER =
       JsonMapper.builder()
@@ -63,7 +67,7 @@ public final class RecoveryJobsFunction {
       return response(
           request,
           HttpStatus.BAD_REQUEST,
-          Map.of("message", "Request body is required"));
+          Map.of(MESSAGE, "Request body is required"));
     }
 
     final RecoveryJobRequest jobRequest;
@@ -76,14 +80,14 @@ public final class RecoveryJobsFunction {
       return response(
           request,
           HttpStatus.BAD_REQUEST,
-          Map.of("message", "Invalid recovery job request"));
+          Map.of(MESSAGE, "Invalid recovery job request"));
     }
 
     if (jobRequest == null) {
       return response(
           request,
           HttpStatus.BAD_REQUEST,
-          Map.of("message", "Request body must be a JSON object"));
+          Map.of(MESSAGE, "Request body must be a JSON object"));
     }
 
     try {
@@ -97,8 +101,66 @@ public final class RecoveryJobsFunction {
       return response(
           request,
           HttpStatus.INTERNAL_SERVER_ERROR,
-          Map.of("message", "Unable to create recovery job"));
+          Map.of(MESSAGE, "Unable to create recovery job"));
     }
+  }
+
+  @FunctionName("RecoveryJobsGet")
+  public HttpResponseMessage get(
+      @HttpTrigger(
+              name = "request",
+              methods = {HttpMethod.GET},
+              route = "recovery/jobs/{jobId}",
+              authLevel = AuthorizationLevel.ANONYMOUS)
+          HttpRequestMessage<Optional<String>> request,
+      @BindingName("jobId") String jobId,
+      ExecutionContext context) {
+
+    final UUID parsedJobId;
+
+    try {
+      parsedJobId = parseJobId(jobId);
+    } catch (IllegalArgumentException e) {
+      return response(
+          request,
+          HttpStatus.BAD_REQUEST,
+          Map.of(MESSAGE, "jobId must be a valid UUID"));
+    }
+
+    try {
+      Optional<RecoveryJob> job = getService().find(parsedJobId);
+
+      if (job.isEmpty()) {
+        return response(
+            request,
+            HttpStatus.NOT_FOUND,
+            Map.of(MESSAGE, "Recovery job not found"));
+      }
+
+      return response(request, HttpStatus.OK, job.orElseThrow());
+    } catch (Exception e) {
+      context.getLogger().log(
+          Level.SEVERE, "Unable to read recovery job", e);
+
+      return response(
+          request,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          Map.of(MESSAGE, "Unable to read recovery job"));
+    }
+  }
+
+  private static UUID parseJobId(String value) {
+    if (value == null || value.isBlank()) {
+      throw new IllegalArgumentException("jobId is required");
+    }
+
+    UUID parsed = UUID.fromString(value);
+
+    if (!parsed.toString().equalsIgnoreCase(value)) {
+      throw new IllegalArgumentException("jobId must use canonical UUID format");
+    }
+
+    return parsed;
   }
 
   private synchronized RecoveryJobService getService() {

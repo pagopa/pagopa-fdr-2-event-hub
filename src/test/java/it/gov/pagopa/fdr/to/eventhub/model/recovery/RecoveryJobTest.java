@@ -129,40 +129,45 @@ class RecoveryJobTest {
   @ValueSource(strings = {"2026-09-30", "2026-11-02"})
   void shouldRejectNextDateOutsideRange(String nextDate) {
     RecoveryJob original = newJob();
+    LocalDate invalidNextDate = LocalDate.parse(nextDate);
 
     assertThrows(
         IllegalArgumentException.class,
         () -> snapshot(
             original,
             RecoveryJobStatus.RUNNING,
-            LocalDate.parse(nextDate),
+            invalidNextDate,
             NOW));
   }
 
   @Test
   void shouldRejectCompletedJobWithUnfinishedRange() {
     RecoveryJob original = newJob();
+    LocalDate unfinishedNextDate = LocalDate.of(2026, 10, 31);
 
     assertThrows(
         IllegalArgumentException.class,
         () -> snapshot(
             original,
             RecoveryJobStatus.COMPLETED,
-            LocalDate.of(2026, 10, 31),
+            unfinishedNextDate,
             NOW));
   }
 
   @Test
   void shouldRejectUpdatedAtBeforeCreatedAt() {
     RecoveryJob original = newJob();
+    RecoveryJobStatus status = original.status();
+    LocalDate nextDate = original.nextDate();
+    Instant invalidUpdatedAt = NOW.minusSeconds(1);
 
     assertThrows(
         IllegalArgumentException.class,
         () -> snapshot(
             original,
-            original.status(),
-            original.nextDate(),
-            NOW.minusSeconds(1)));
+            status,
+            nextDate,
+            invalidUpdatedAt));
   }
 
   @Test
