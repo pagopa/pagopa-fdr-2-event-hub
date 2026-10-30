@@ -29,7 +29,14 @@ public class AppInsightTelemetryClient {
    * @param details details of the custom event
    * @param e exception added to the custom event
    */
-  public void createCustomEventForAlert(ErrorCodes errorCode, String details, Exception e) {
+  public void createCustomEventForAlert(ErrorCodes errorCode, String details, Throwable e) {
+    String cause = null;
+    if (e != null) {
+      cause = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+      if (cause == null) {
+        cause = e.getClass().getName();
+      }
+    }
     Map<String, String> props =
         Map.of(
             "type",
@@ -39,7 +46,7 @@ public class AppInsightTelemetryClient {
             "details",
             details,
             "cause",
-            e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+            cause != null ? cause : "n/a");
     this.telemetryClient.trackEvent("FDR_TO_EVH_ALERT", props, null);
   }
 }

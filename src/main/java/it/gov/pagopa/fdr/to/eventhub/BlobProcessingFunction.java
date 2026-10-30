@@ -188,7 +188,7 @@ public class BlobProcessingFunction {
           this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR1_E1_1, exceptionDetails, null);
       }
 
-    } catch (Exception e) {
+    } catch (Exception | OutOfMemoryError e) {
       String exceptionDetails =
               getExceptionDetails(
                       ErrorCodes.FDR1_E1.getCode(),
@@ -295,7 +295,7 @@ public class BlobProcessingFunction {
                         retryIndex);
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1_1, exceptionDetails, null);
       }
-    } catch (Exception e) {
+    } catch (Exception  | OutOfMemoryError e) {
       String exceptionDetails =
           getExceptionDetails(
               ErrorCodes.FDR3_E1.getCode(),
