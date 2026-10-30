@@ -30,6 +30,9 @@
 		<mockito.version>5.15.2</mockito.version>
 		<system.stubs.version>2.1.7</system.stubs.version>
 		<azure.data.tables.version>12.5.13</azure.data.tables.version>
+		<postgresql.version>42.7.14</postgresql.version>
+        <hikaricp.version>7.1.0</hikaricp.version>
+        <kusto.data.version>8.0.1</kusto.data.version>
 	</properties>
 
 	<dependencies>
@@ -59,6 +62,25 @@
 			<artifactId>applicationinsights-core</artifactId>
 			<version>2.6.4</version>
 		</dependency>
+
+		<!-- PostgreSQL -->
+		<dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+        </dependency>
+
+        <!-- Kusto for ADX -->
+        <dependency>
+            <groupId>com.microsoft.azure.kusto</groupId>
+            <artifactId>kusto-data</artifactId>
+            <version>${kusto.data.version}</version>
+        </dependency>
 
 		<!-- Jackson -->
 		<dependency>
