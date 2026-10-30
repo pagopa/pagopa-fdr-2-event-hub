@@ -86,7 +86,7 @@ public final class RecoveryJobService {
       case RUNNING -> RecoveryJobStatus.PAUSING;
       case PAUSING, PAUSED -> status;
       case COMPLETED, FAILED ->
-          throw new IllegalStateException(
+           throw new RecoveryJobStateConflictException(
               "Cannot pause recovery job in status " + status);
     };
   }
@@ -96,7 +96,7 @@ public final class RecoveryJobService {
       case PAUSED -> RecoveryJobStatus.PENDING;
       case PENDING, RUNNING -> status;
       case PAUSING, COMPLETED, FAILED ->
-          throw new IllegalStateException(
+           throw new RecoveryJobStateConflictException(
               "Cannot resume recovery job in status " + status);
     };
   }
