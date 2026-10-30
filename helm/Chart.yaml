@@ -1,8 +1,8 @@
 apiVersion: v2
 name: pagopa-fdr-to-event-hub
 description: Microservice fdr to event hub
-version: 0.118.0
-appVersion: 1.0.27-3-PIDM-2541-Analisi-bug-perdita-di-eventi
+version: 0.119.0
+appVersion: 1.0.27-4-PIDM-2541-Analisi-bug-perdita-di-eventi
 dependencies:
   - name: microservice-chart
     version: 8.0.2
