@@ -20,6 +20,8 @@
             </appender>
         </then>
     </if>
+    <logger name="it.gov.pagopa.fdr.to.eventhub"
+      level="${BLOB_FUNCTION_LOG_LEVEL:-INFO}" />
 
     <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT" />
