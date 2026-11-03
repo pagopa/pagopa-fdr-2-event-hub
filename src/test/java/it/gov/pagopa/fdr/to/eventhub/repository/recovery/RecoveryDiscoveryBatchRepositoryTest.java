@@ -67,18 +67,17 @@ class RecoveryDiscoveryBatchRepositoryTest {
         0L);
   }
 
-  private TableTransactionFailedException batchError(
-      int status,
-      String code) {
+  private TableTransactionFailedException batchError(int status, String code) {
 
-    HttpResponse response = mock(HttpResponse.class);
-    when(response.getStatusCode()).thenReturn(status);
+      HttpResponse response = null;
 
-    return new TableTransactionFailedException(
-        "Simulated batch failure",
-        response,
-        new TableServiceError(code, "Simulated batch failure"),
-        0);
+      if (status != 0) {
+          response = mock(HttpResponse.class);
+          when(response.getStatusCode()).thenReturn(status);
+      }
+
+      return new TableTransactionFailedException("Simulated batch failure", response,
+              new TableServiceError(code, "Simulated batch failure"), 0);
   }
 
   private void stubBatchFailure(
@@ -181,13 +180,17 @@ class RecoveryDiscoveryBatchRepositoryTest {
     verifyNoInteractions(client, singleRepository);
   }
 
-  @Test
-  void shouldReconcileItemsOnlyAfterDuplicateBatchConflict() {
+  @ParameterizedTest
+  @ValueSource(ints = {0, 202, 409})
+  void shouldReconcileItemsOnlyAfterDuplicateBatchConflict(
+      int responseStatus) {
+
     RecoveryDiscoveryItem first = item(1L, DAY);
     RecoveryDiscoveryItem second = item(2L, DAY);
     List<RecoveryDiscoveryItem> items = List.of(first, second);
 
-    stubBatchFailure(batchError(409, "EntityAlreadyExists"));
+    stubBatchFailure(
+        batchError(responseStatus, "EntityAlreadyExists"));
 
     when(singleRepository.createIfAbsent(first))
         .thenReturn(

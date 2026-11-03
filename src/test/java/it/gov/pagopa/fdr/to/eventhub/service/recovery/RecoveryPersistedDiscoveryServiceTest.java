@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -27,6 +28,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -315,5 +319,143 @@ class RecoveryPersistedDiscoveryServiceTest {
 
     verify(checkpoints).update(completed, ETAG_ONE);
     verifyNoInteractions(batches);
+  }
+
+  @Test
+  void shouldStopBeforeReadingSourcesWhenContinuationIsDenied()
+      throws Exception {
+
+    RecoveryDiscoveryCheckpoint start = initial();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(start, ETAG_ONE)));
+
+    RecoveryDiscoveryCheckpoint result =
+        service.discover(JOB_ID, DAY, () -> false);
+
+    assertEquals(start, result);
+
+    verifyNoInteractions(adx, flows, batches);
+    verify(checkpoints, never()).update(any(), anyString());
+  }
+
+  @Test
+  void shouldStopBeforeFirstPageWhenContinuationChangesDuringAdxRead()
+      throws Exception {
+
+    RecoveryDiscoveryCheckpoint start = initial();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(start, ETAG_ONE)));
+
+    BooleanSupplier shouldContinue = mock(BooleanSupplier.class);
+
+    // Consent before ADX, then stop before the first PostgreSQL page.
+    when(shouldContinue.getAsBoolean()).thenReturn(true, false);
+
+    RecoveryDiscoveryCheckpoint result =
+        service.discover(JOB_ID, DAY, shouldContinue);
+
+    assertEquals(start, result);
+
+    verify(adx).findByDay(DAY);
+    verifyNoInteractions(flows, batches);
+    verify(checkpoints, never()).update(any(), anyString());
+  }
+
+  @Test
+  void shouldFinishCurrentPageBeforeStoppingAndResumeFromSavedCursor()
+      throws Exception {
+
+    RecoveryDiscoveryCheckpoint start = initial();
+
+    List<RecoveryFlowCandidate> page =
+        List.of(candidate(10L), candidate(68L));
+
+    List<RecoveryDiscoveryItem> items = absentItems(page);
+
+    RecoveryDiscoveryCheckpoint next =
+        start.afterSavedPage(items);
+
+    RecoveryDiscoveryCheckpoint completed =
+        next.completeDiscovery();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(
+            Optional.of(stored(start, ETAG_ONE)),
+            Optional.of(stored(next, ETAG_TWO)),
+            Optional.of(stored(next, ETAG_TWO)));
+
+    when(flows.findPage(DAY, 0L, 2)).thenReturn(page);
+    when(flows.findPage(DAY, 68L, 2)).thenReturn(List.of());
+
+    AtomicBoolean continuationAllowed = new AtomicBoolean(true);
+
+    // Simulate a pause request arriving while the page is being saved.
+    doAnswer(invocation -> {
+      continuationAllowed.set(false);
+      return null;
+    }).when(batches).createIfAbsent(items);
+
+    RecoveryDiscoveryCheckpoint stopped =
+        service.discover(
+            JOB_ID,
+            DAY,
+            continuationAllowed::get);
+
+    assertEquals(next, stopped);
+    assertEquals(
+        RecoveryDiscoveryCheckpoint.Status.DISCOVERING,
+        stopped.status());
+
+    InOrder order = inOrder(batches, checkpoints);
+
+    order.verify(batches).createIfAbsent(items);
+    order.verify(checkpoints).update(next, ETAG_ONE);
+    order.verify(checkpoints).find(JOB_ID, DAY);
+
+    // Stopping must prevent the next PostgreSQL page from being read.
+    verify(flows, never()).findPage(DAY, 68L, 2);
+    verify(checkpoints, never()).update(completed, ETAG_TWO);
+
+    continuationAllowed.set(true);
+
+    RecoveryDiscoveryCheckpoint resumed =
+        service.discover(
+            JOB_ID,
+            DAY,
+            continuationAllowed::get);
+
+    assertEquals(completed, resumed);
+    assertEquals(2L, resumed.candidateCount());
+    assertEquals(1L, resumed.pageCount());
+
+    // The first page is neither read nor saved again.
+    verify(flows).findPage(DAY, 0L, 2);
+    verify(batches).createIfAbsent(items);
+
+    verify(flows).findPage(DAY, 68L, 2);
+    verify(checkpoints).update(completed, ETAG_TWO);
+  }
+
+  @Test
+  void shouldSkipContinuationCheckWhenDiscoveryIsAlreadyCompleted()
+      throws Exception {
+
+    RecoveryDiscoveryCheckpoint completed =
+        initial().completeDiscovery();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(completed, ETAG_ONE)));
+
+    BooleanSupplier shouldContinue = mock(BooleanSupplier.class);
+
+    RecoveryDiscoveryCheckpoint result =
+        service.discover(JOB_ID, DAY, shouldContinue);
+
+    assertEquals(completed, result);
+
+    verifyNoInteractions(shouldContinue, adx, flows, batches);
+    verify(checkpoints, never()).update(any(), anyString());
   }
 }

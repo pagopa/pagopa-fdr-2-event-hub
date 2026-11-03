@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 public final class RecoveryPersistedDiscoveryService {
 
@@ -54,73 +55,69 @@ public final class RecoveryPersistedDiscoveryService {
     this.pageSize = pageSize;
   }
 
-  public RecoveryDiscoveryCheckpoint discover(
-      UUID jobId,
-      LocalDate day)
-      throws SQLException, DataClientException, DataServiceException {
+  public RecoveryDiscoveryCheckpoint discover(UUID jobId, LocalDate day)
+          throws SQLException, DataClientException, DataServiceException {
 
-    Objects.requireNonNull(jobId, "jobId is required");
-    Objects.requireNonNull(day, "day is required");
+      return discover(jobId, day, () -> true);
+  }
 
-    StoredRecoveryDiscoveryCheckpoint stored = loadOrCreate(jobId, day);
+  public RecoveryDiscoveryCheckpoint discover(UUID jobId, LocalDate day, BooleanSupplier shouldContinue)
+          throws SQLException, DataClientException, DataServiceException {
 
-    if (stored.checkpoint().status()
-        == RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
-      return stored.checkpoint();
-    }
+      Objects.requireNonNull(jobId, "jobId is required");
+      Objects.requireNonNull(day, "day is required");
+      Objects.requireNonNull(shouldContinue, "shouldContinue is required");
 
-    RecoveryFlowPresenceIndex index =
-        new RecoveryFlowPresenceIndex(adxRepository.findByDay(day));
+      StoredRecoveryDiscoveryCheckpoint stored = loadOrCreate(jobId, day);
 
-    while (true) {
-      RecoveryDiscoveryCheckpoint current = stored.checkpoint();
-
-      List<RecoveryFlowCandidate> page =
-          List.copyOf(
-              flowRepository.findPage(
-                  day,
-                  current.lastFlowId(),
-                  pageSize));
-
-      if (page.isEmpty()) {
-        RecoveryDiscoveryCheckpoint completed =
-            current.completeDiscovery();
-
-        checkpointRepository.update(completed, stored.etag());
-        return completed;
+      if (stored.checkpoint().status() == RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
+          return stored.checkpoint();
       }
 
-      if (page.size() > pageSize) {
-        throw new IllegalStateException(
-            "PostgreSQL returned more candidates than requested");
+      if (!shouldContinue.getAsBoolean()) {
+          return stored.checkpoint();
       }
 
-      List<RecoveryDiscoveryItem> items =
-          page.stream()
-              .map(index::compare)
-              .map(
-                  comparison ->
-                      RecoveryDiscoveryItem.fromComparison(
-                          jobId, day, comparison))
-              .toList();
+      RecoveryFlowPresenceIndex index = new RecoveryFlowPresenceIndex(adxRepository.findByDay(day));
 
-      // Validate the next checkpoint before writing anything.
-      RecoveryDiscoveryCheckpoint next =
-          current.afterSavedPage(items);
+      while (true) {
+          RecoveryDiscoveryCheckpoint current = stored.checkpoint();
 
-      // The checkpoint must never advance before the entire page is saved.
-      batchRepository.createIfAbsent(items);
+          if (!shouldContinue.getAsBoolean()) {
+              return current;
+          }
 
-      checkpointRepository.update(next, stored.etag());
+          List<RecoveryFlowCandidate> page = List.copyOf(flowRepository.findPage(day, current.lastFlowId(), pageSize));
 
-      // Reload the ETag produced by the successful update.
-      stored = requireCheckpoint(jobId, day);
+          if (page.isEmpty()) {
+              RecoveryDiscoveryCheckpoint completed = current.completeDiscovery();
 
-      if (!next.equals(stored.checkpoint())) {
-        throw new IllegalStateException(
-            "Discovery checkpoint changed after the page update");
+              checkpointRepository.update(completed, stored.etag());
+              return completed;
+          }
+
+          if (page.size() > pageSize) {
+              throw new IllegalStateException("PostgreSQL returned more candidates than requested");
+          }
+
+          List<RecoveryDiscoveryItem> items = page.stream().map(index::compare)
+                  .map(comparison -> RecoveryDiscoveryItem.fromComparison(jobId, day, comparison)).toList();
+
+          // Validate the next checkpoint before writing anything.
+          RecoveryDiscoveryCheckpoint next = current.afterSavedPage(items);
+
+          // The checkpoint must never advance before the entire page is saved.
+          batchRepository.createIfAbsent(items);
+
+          checkpointRepository.update(next, stored.etag());
+
+          // Reload the ETag produced by the successful update.
+          stored = requireCheckpoint(jobId, day);
+
+          if (!next.equals(stored.checkpoint())) {
+              throw new IllegalStateException("Discovery checkpoint changed after the page update");
+          }
       }
-    }
   }
 
   private StoredRecoveryDiscoveryCheckpoint loadOrCreate(

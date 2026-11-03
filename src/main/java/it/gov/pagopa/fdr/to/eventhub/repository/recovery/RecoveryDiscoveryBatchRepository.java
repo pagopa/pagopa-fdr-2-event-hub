@@ -127,13 +127,8 @@ public final class RecoveryDiscoveryBatchRepository {
     return new BatchSaveResult(created, alreadyPresent);
   }
 
-  private static boolean isDuplicateConflict(
-      TableTransactionFailedException exception) {
-
-    return exception.getResponse() != null
-        && exception.getResponse().getStatusCode() == 409
-        && exception.getValue() != null
-        && TableErrorCode.ENTITY_ALREADY_EXISTS.equals(
-            exception.getValue().getErrorCode());
+  private static boolean isDuplicateConflict(TableTransactionFailedException exception) {
+      return exception.getValue() != null
+              && TableErrorCode.ENTITY_ALREADY_EXISTS.equals(exception.getValue().getErrorCode());
   }
 }
