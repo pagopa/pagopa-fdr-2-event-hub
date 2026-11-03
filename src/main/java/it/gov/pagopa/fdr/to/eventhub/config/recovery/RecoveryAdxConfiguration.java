@@ -10,8 +10,8 @@ public record RecoveryAdxConfiguration(
     AuthMode authMode,
     int queryTimeoutSeconds) {
 
-  private static final String CLUSTER_URL = "RECOVERY_ADX_CLUSTER_URL";
-  private static final String DATABASE = "RECOVERY_ADX_DATABASE";
+  private static final String CLUSTER_URL  = "RECOVERY_ADX_CLUSTER_URL";
+  private static final String DATABASE_ENV = "RECOVERY_ADX_DATABASE";
   private static final String AUTH_MODE = "RECOVERY_ADX_AUTH_MODE";
   private static final String QUERY_TIMEOUT =
       "RECOVERY_ADX_QUERY_TIMEOUT_SECONDS";
@@ -25,7 +25,7 @@ public record RecoveryAdxConfiguration(
     validateClusterUrl(clusterUrl);
 
     if (database == null || database.isBlank()) {
-      throw new IllegalArgumentException(DATABASE + " is required");
+      throw new IllegalArgumentException(DATABASE_ENV + " is required");
     }
 
     Objects.requireNonNull(authMode, "authMode is required");
@@ -71,7 +71,7 @@ public record RecoveryAdxConfiguration(
 
     return new RecoveryAdxConfiguration(
         environment.get(CLUSTER_URL),
-        environment.get(DATABASE),
+        environment.get(DATABASE_ENV),
         authMode,
         timeout);
   }

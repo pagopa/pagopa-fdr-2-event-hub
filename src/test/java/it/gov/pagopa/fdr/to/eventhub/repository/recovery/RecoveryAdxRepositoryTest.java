@@ -138,7 +138,7 @@ class RecoveryAdxRepositoryTest {
   }
 
   @Test
-  void shouldRejectNullResponse() throws Exception {
+  void shouldRejectNullResponse() {
     // An unstubbed Mockito invocation returns null.
     assertThrows(
         IllegalStateException.class,
