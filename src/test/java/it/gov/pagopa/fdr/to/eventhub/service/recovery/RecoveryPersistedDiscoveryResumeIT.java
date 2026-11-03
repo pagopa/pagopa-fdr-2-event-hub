@@ -167,15 +167,7 @@ class RecoveryPersistedDiscoveryResumeIT {
     RecoveryDiscoveryCheckpoint completed =
         resumedService.discover(jobId, DAY);
 
-    assertEquals(
-        RecoveryDiscoveryCheckpoint.Status.DISCOVERED,
-        completed.status());
-
-    assertEquals(30L, completed.lastFlowId());
-    assertEquals(3L, completed.candidateCount());
-    assertEquals(2L, completed.absentCandidateCount());
-    assertEquals(1L, completed.presentCandidateCount());
-    assertEquals(2L, completed.pageCount());
+    assertCompletedCheckpoint(completed);
 
     StoredRecoveryDiscoveryCheckpoint persisted =
         checkpoints.find(jobId, DAY).orElseThrow();
@@ -268,5 +260,16 @@ class RecoveryPersistedDiscoveryResumeIT {
     }
 
     return List.copyOf(entities);
+  }
+
+  private void assertCompletedCheckpoint(RecoveryDiscoveryCheckpoint completed) {
+
+      assertEquals(RecoveryDiscoveryCheckpoint.Status.DISCOVERED, completed.status());
+
+      assertEquals(30L, completed.lastFlowId());
+      assertEquals(3L, completed.candidateCount());
+      assertEquals(2L, completed.absentCandidateCount());
+      assertEquals(1L, completed.presentCandidateCount());
+      assertEquals(2L, completed.pageCount());
   }
 }
