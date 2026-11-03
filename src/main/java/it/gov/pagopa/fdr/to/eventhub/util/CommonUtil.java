@@ -402,7 +402,7 @@ public class CommonUtil {
           if (!currentBatch.tryAdd(eventData)) {
             if (currentBatch.getCount() > 0) {
               eventHubClientReportedIUV.send(currentBatch);
-              logger.debug("Sent a batch of " + currentBatch.getCount() + " payment events.");
+              logger.info("Sent a batch of " + currentBatch.getCount() + " payment events.");
             }
 
             // create a new batch
@@ -420,10 +420,10 @@ public class CommonUtil {
         // send last batch if it has events
         if (currentBatch.getCount() > 0) {
           eventHubClientReportedIUV.send(currentBatch);
-          logger.debug("Sent final batch of " + currentBatch.getCount() + " payment events.");
+          logger.info("Sent final batch of " + currentBatch.getCount() + " payment events.");
         }
 
-        logger.debug("Finished sending all payment events.");
+        logger.info("Finished sending all payment events.");
 
       } catch (Exception e) {
         // catch errors during sending or serialization
@@ -454,9 +454,10 @@ public class CommonUtil {
       logger.warn("Failed to add event to batch for flow ID: {}", flowName);
       return false;
     }
-
+    logger.info("Success Add event to batch for flow ID: {}", flowName);
     try {
       eventHubClient.send(eventBatch);
+      logger.info("Success Send event to batch for flow ID: {}", flowName);
       return true;
     } catch (Exception e) {
       logger.error(
