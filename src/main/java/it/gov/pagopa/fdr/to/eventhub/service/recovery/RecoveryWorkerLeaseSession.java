@@ -7,6 +7,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 public final class RecoveryWorkerLeaseSession implements AutoCloseable {
@@ -24,7 +25,8 @@ public final class RecoveryWorkerLeaseSession implements AutoCloseable {
   private final AtomicBoolean lost = new AtomicBoolean();
 
   private volatile long lastConfirmedRequestStartedAt;
-  private volatile RuntimeException renewalFailure;
+  private final AtomicReference<RuntimeException> renewalFailure =
+          new AtomicReference<>();
 
   private ScheduledFuture<?> renewalTask;
 
@@ -111,7 +113,7 @@ public final class RecoveryWorkerLeaseSession implements AutoCloseable {
     if (!isHeld()) {
       throw new IllegalStateException(
           "Recovery worker lease is no longer confirmed",
-          renewalFailure);
+          renewalFailure.get());
     }
   }
 
@@ -137,7 +139,7 @@ public final class RecoveryWorkerLeaseSession implements AutoCloseable {
       repository.renew(leaseId);
 
     } catch (RuntimeException failure) {
-      renewalFailure = failure;
+      renewalFailure.set(failure);
       lost.set(true);
       return;
     }
