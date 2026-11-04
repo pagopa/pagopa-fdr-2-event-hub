@@ -139,10 +139,14 @@ public class CommonUtil {
     return new GZIPInputStream(new ByteArrayInputStream(compressedContent));
   }
 
+  private static final ObjectMapper OBJECT_MAPPER =
+      JsonMapper.builder()
+          .addModule(new JavaTimeModule())
+          .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+          .build();
+
   public static Flow parseJSON(InputStream jsonStream) throws IOException {
-    return new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .readValue(jsonStream, Flow.class);
+    return OBJECT_MAPPER.readValue(jsonStream, Flow.class);
   }
 
   public static BlobFileData getBlobFile(
@@ -355,15 +359,8 @@ public class CommonUtil {
           boolean sendPaymentEvents)
           throws JsonProcessingException {
 
-    // TODO objectMapper can be shared and reused ? (in a function?)
-    JsonMapper objectMapper =
-            JsonMapper.builder()
-                    .addModule(new JavaTimeModule())
-                    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-                    .build();
-
     // flow event
-    String flowEventJson = objectMapper.writeValueAsString(flowEvent);
+    String flowEventJson = OBJECT_MAPPER.writeValueAsString(flowEvent);
     String serviceIdentifier = metadata.getOrDefault(SERVICE_IDENTIFIER, "NA");
 
     boolean flowEventSent = true;
@@ -393,7 +390,7 @@ public class CommonUtil {
           ReportedIUVEventModel eventModel = iterator.next();
 
           // serialize only one event at a time
-          String eventJson = objectMapper.writeValueAsString(eventModel);
+          String eventJson = OBJECT_MAPPER.writeValueAsString(eventModel);
           EventData eventData = new EventData(eventJson);
 
           // try to add the event to the current batch

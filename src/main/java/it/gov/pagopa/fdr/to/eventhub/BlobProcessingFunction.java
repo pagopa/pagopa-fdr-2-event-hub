@@ -20,6 +20,7 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -41,7 +42,7 @@ public class BlobProcessingFunction {
 
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
-  @Getter private final BlobServiceClient blobServiceClient;
+
   @Getter private final AppInsightTelemetryClient aiTelemetryClient;
 
   private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
@@ -58,9 +59,7 @@ public class BlobProcessingFunction {
             System.getenv("EVENT_HUB_REPORTEDIUV_CONNECTION_STRING"),
             System.getenv("EVENT_HUB_REPORTEDIUV_NAME"));
 
-    private static final BlobServiceClient BLOB_SERVICE_CLIENT =
-        CommonUtil.createBlobServiceClient(
-            System.getenv("FDR_SA_CONNECTION_STRING"));
+
 
     private static final AppInsightTelemetryClient AI_TELEMETRY_CLIENT =
         new AppInsightTelemetryClient();
@@ -77,9 +76,6 @@ public class BlobProcessingFunction {
     this.eventHubClientReportedIUV =
         ClientsHolder.EVENT_HUB_CLIENT_REPORTED_IUV;
 
-    this.blobServiceClient =
-        ClientsHolder.BLOB_SERVICE_CLIENT;
-
     this.aiTelemetryClient = ClientsHolder.AI_TELEMETRY_CLIENT;
   }
 
@@ -93,7 +89,6 @@ public class BlobProcessingFunction {
       FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
     this.eventHubClientReportedIUV = eventHubClientReportedIUV;
-    this.blobServiceClient = blobServiceClient;
     this.aiTelemetryClient = aiTelemetryClient;
     this.fdr1XmlParser = fdr1XmlParser;
   }
@@ -110,7 +105,7 @@ public class BlobProcessingFunction {
           final ExecutionContext context) {
 
     int contentLength = dontUse.length;
-    dontUse = null; // help GC
+   // dontUse = null; // help GC
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
@@ -132,52 +127,51 @@ public class BlobProcessingFunction {
             contentLength
     );
 
-    String containerName = System.getenv("BLOB_STORAGE_FDR1_CONTAINER");
-    BlobClient blobClient = getBlobClient(containerName, blobName);
+    //String containerName = System.getenv("BLOB_STORAGE_FDR1_CONTAINER");
+    //BlobClient blobClient = getBlobClient(containerName, blobName);
 
-    try (InputStream originalInputStream = blobClient.openInputStream()) {
+    FlussoRendicontazione flusso = null;
+    try (InputStream originalInputStream =
+        new ByteArrayInputStream(dontUse)) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
-        GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
-        FlussoRendicontazione flusso = fdr1XmlParser.parseXmlStream(gzipStream);
-        String flowId = flusso.getIdentificativoFlusso();
-        if (flowId == null || flowId.isBlank()) {
-            throw new IllegalArgumentException("Flow is empty");
-        }
-        flusso.setMetadata(blobMetadata);
+        try (GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key)) {
+          flusso = fdr1XmlParser.parseXmlStream(gzipStream);
+          String flowId = flusso.getIdentificativoFlusso();
+          if (flowId == null || flowId.isBlank()) {
+              throw new IllegalArgumentException("Flow is empty");
+          }
+          flusso.setMetadata(blobMetadata);
 
-        logger.info(
-              "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-              LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
-              fdr1Container,
-              blobName,
-              contentLength
-        );
-
-        // waits for confirmation of sending the entire flow to the Event Hub
-        boolean eventBatchSent = CommonUtil.processXmlBlobAndSendToEventHub(
-                eventHubClientFlowTx, eventHubClientReportedIUV, flusso, logger,
-                true, true
-        );
-
-        if (!eventBatchSent) {
-          throw new EventHubException(
-                  String.format("EventHub has not confirmed sending the entire batch of events for flow ID: %s", flowId)
-          );
-        }
-        // help GC for large files
-        flusso.releaseResources();
-        flusso = null;
-        gzipStream.close();
-
-        logger.info(
-                "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+          logger.info(
+                "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
                 LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                 fdr1Container,
                 blobName,
                 contentLength
-        );
+          );
+
+          // waits for confirmation of sending the entire flow to the Event Hub
+          boolean eventBatchSent = CommonUtil.processXmlBlobAndSendToEventHub(
+                  eventHubClientFlowTx, eventHubClientReportedIUV, flusso, logger,
+                  true, true
+          );
+
+          if (!eventBatchSent) {
+            throw new EventHubException(
+                    String.format("EventHub has not confirmed sending the entire batch of events for flow ID: %s", flowId)
+            );
+          }
+
+          logger.info(
+                  "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
+                  fdr1Container,
+                  blobName,
+                  contentLength
+          );
+        }
       }
       else {
         String exceptionDetails =
@@ -205,6 +199,11 @@ public class BlobProcessingFunction {
       }
       throw new AlertAppException(e.getMessage(), e, exceptionDetails);
     }
+    finally{
+      if (flusso != null) {
+        flusso.releaseResources();
+      }
+    }
   }
 
 
@@ -221,7 +220,7 @@ public class BlobProcessingFunction {
       final ExecutionContext context) {
 
     int contentLength = dontUse.length;
-    dontUse = null; // help GC
+    //dontUse = null; // help GC
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
@@ -242,50 +241,46 @@ public class BlobProcessingFunction {
         blobName,
         contentLength);
 
-    String containerName = System.getenv("BLOB_STORAGE_FDR3_CONTAINER");
-    BlobClient blobClient = getBlobClient(containerName, blobName);
-
-    try (InputStream originalInputStream = blobClient.openInputStream()) {
+   // String containerName = System.getenv("BLOB_STORAGE_FDR3_CONTAINER");
+    //BlobClient blobClient = getBlobClient(containerName, blobName);
+    Flow flow = null;
+    try (InputStream originalInputStream = new ByteArrayInputStream(dontUse)) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
-        GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key);
-        Flow flow = CommonUtil.parseJSON(gzipStream);
-        flow.setMetadata(blobMetadata);
+        try (GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key)) {
+          flow = CommonUtil.parseJSON(gzipStream);
+          flow.setMetadata(blobMetadata);
 
-        String flowId = flow.getFdr();
+          String flowId = flow.getFdr();
 
-        logger.info(
-                "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
-                fdr3Container,
-                blobName,
-                contentLength);
+          logger.info(
+                  "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
+                  fdr3Container,
+                  blobName,
+                  contentLength);
 
-        // waits for confirmation of sending the entire flow to the Event Hub
-        boolean eventBatchSent = CommonUtil.processJsonBlobAndSendToEventHub(
-                eventHubClientFlowTx, eventHubClientReportedIUV, flow, logger,
-                true, true
-        );
+          // waits for confirmation of sending the entire flow to the Event Hub
+          boolean eventBatchSent = CommonUtil.processJsonBlobAndSendToEventHub(
+                  eventHubClientFlowTx, eventHubClientReportedIUV, flow, logger,
+                  true, true
+          );
 
-        if (!eventBatchSent) {
-          throw new EventHubException(
-                  String.format(
-                          "EventHub has not confirmed sending the entire batch of events for flow ID: %s",
-                          flowId));
+          if (!eventBatchSent) {
+            throw new EventHubException(
+                    String.format(
+                            "EventHub has not confirmed sending the entire batch of events for flow ID: %s",
+                            flowId));
+          }
+
+          logger.info(
+                  "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
+                  fdr3Container,
+                  blobName,
+                  contentLength);
         }
-
-        // help GC for large files
-        flow.releaseResources();
-        flow = null;
-        gzipStream.close();
-
-        logger.info(
-                "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
-                LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
-                fdr3Container,
-                blobName,
-                contentLength);
       }
       else {
         String exceptionDetails =
@@ -311,10 +306,10 @@ public class BlobProcessingFunction {
       }
       throw new AlertAppException(e.getMessage(), e, exceptionDetails);
     }
-  }
-
-  public BlobClient getBlobClient(String containerName, String blobName) {
-    BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
-    return containerClient.getBlobClient(blobName);
+    finally{
+      if (flow != null) {
+        flow.releaseResources();
+      }
+    }
   }
 }
