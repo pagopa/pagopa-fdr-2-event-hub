@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.27-8-PIDM-2541-Analisi-bug-perdita-di-eventi-OOM</version>
+	<version>1.0.27-9-PIDM-2541-Analisi-bug-perdita-di-eventi-OOM</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
