@@ -84,7 +84,6 @@ public class BlobProcessingFunction {
   public BlobProcessingFunction(
       EventHubProducerClient eventHubClientFlowTx,
       EventHubProducerClient eventHubClientReportedIUV,
-      BlobServiceClient blobServiceClient,
       AppInsightTelemetryClient aiTelemetryClient,
       FDR1XmlStAXParser fdr1XmlParser) {
     this.eventHubClientFlowTx = eventHubClientFlowTx;
@@ -99,12 +98,12 @@ public class BlobProcessingFunction {
                   name = "Fdr1BlobTrigger",
                   path = "%BLOB_STORAGE_FDR1_CONTAINER%/{blobName}",
                   connection = "FDR_SA_CONNECTION_STRING")
-          byte[] dontUse,
+          BlobClient blobClient,
           @BindingName("blobName") String blobName,
           @BindingName("Metadata") Map<String, String> blobMetadata,
           final ExecutionContext context) {
 
-    int contentLength = dontUse.length;
+    int contentLength = 0;
    // dontUse = null; // help GC
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
@@ -131,8 +130,7 @@ public class BlobProcessingFunction {
     //BlobClient blobClient = getBlobClient(containerName, blobName);
 
     FlussoRendicontazione flusso = null;
-    try (InputStream originalInputStream =
-        new ByteArrayInputStream(dontUse)) {
+    try (InputStream originalInputStream = blobClient.openInputStream()) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
@@ -214,12 +212,12 @@ public class BlobProcessingFunction {
               dataType = "binary",
               path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
               connection = "FDR_SA_CONNECTION_STRING")
-      byte[] dontUse,
+      BlobClient blobClient,
       @BindingName("blobName") String blobName,
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
-    int contentLength = dontUse.length;
+    int contentLength = 0;// dontUse.length;
     //dontUse = null; // help GC
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
@@ -244,7 +242,7 @@ public class BlobProcessingFunction {
    // String containerName = System.getenv("BLOB_STORAGE_FDR3_CONTAINER");
     //BlobClient blobClient = getBlobClient(containerName, blobName);
     Flow flow = null;
-    try (InputStream originalInputStream = new ByteArrayInputStream(dontUse)) {
+    try (InputStream originalInputStream = blobClient.openInputStream()) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
       boolean isValidGzipFile = resultGzip.value;
       if (isValidGzipFile) {
