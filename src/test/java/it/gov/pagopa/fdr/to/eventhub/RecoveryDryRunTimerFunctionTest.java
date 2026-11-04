@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
 
 import com.microsoft.azure.functions.ExecutionContext;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryDryRunRuntime;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +70,7 @@ class RecoveryDryRunTimerFunctionTest {
             RecoveryDryRunDayWorker.Outcome.DAY_COMPLETED);
 
     when(runtime.runNext()).thenReturn(Optional.of(attempt));
+    when(logger.isLoggable(Level.INFO)).thenReturn(true);
 
     RecoveryDryRunTimerFunction function = function(true);
 
@@ -154,6 +157,27 @@ class RecoveryDryRunTimerFunctionTest {
             () -> function.run("{}", context));
 
     assertSame(failure, thrown);
+    verify(runtime, never()).close();
+  }
+
+  @Test
+  void shouldDispatchWithoutInfoLogWhenLevelIsDisabled()
+      throws Exception {
+
+    RecoveryDryRunDispatcher.Attempt attempt =
+        new RecoveryDryRunDispatcher.Attempt(
+            UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            RecoveryDryRunDayWorker.Outcome.DAY_COMPLETED);
+
+    when(runtime.runNext()).thenReturn(Optional.of(attempt));
+    when(logger.isLoggable(Level.INFO)).thenReturn(false);
+
+    RecoveryDryRunTimerFunction function = function(true);
+
+    function.run("{}", context);
+
+    verify(runtime).runNext();
+    verify(logger, never()).info(anyString());
     verify(runtime, never()).close();
   }
 }

@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class RecoveryDryRunTimerFunction {
@@ -70,8 +71,8 @@ public final class RecoveryDryRunTimerFunction {
     RecoveryDryRunDispatcher.Attempt attempt =
         result.orElseThrow();
 
-    logger.info(
-        "Recovery dry-run worker: jobId=%s, outcome=%s"
-            .formatted(attempt.jobId(), attempt.outcome()));
+    if (logger.isLoggable(Level.INFO)) {
+        logger.info("Recovery dry-run worker: jobId=%s, outcome=%s".formatted(attempt.jobId(), attempt.outcome()));
+    }
   }
 }
