@@ -42,7 +42,7 @@ public class BlobProcessingFunction {
   @Getter private final EventHubProducerClient eventHubClientFlowTx;
   @Getter private final EventHubProducerClient eventHubClientReportedIUV;
   @Getter private final BlobServiceClient blobServiceClient;
-  private final AppInsightTelemetryClient aiTelemetryClient;
+  @Getter private final AppInsightTelemetryClient aiTelemetryClient;
 
   private FDR1XmlStAXParser fdr1XmlParser = new FDR1XmlStAXParser();
 
@@ -62,6 +62,9 @@ public class BlobProcessingFunction {
         CommonUtil.createBlobServiceClient(
             System.getenv("FDR_SA_CONNECTION_STRING"));
 
+    private static final AppInsightTelemetryClient AI_TELEMETRY_CLIENT =
+        new AppInsightTelemetryClient();
+
     private ClientsHolder() {
       // Utility holder
     }
@@ -77,8 +80,7 @@ public class BlobProcessingFunction {
     this.blobServiceClient =
         ClientsHolder.BLOB_SERVICE_CLIENT;
 
-    this.aiTelemetryClient =
-        new AppInsightTelemetryClient();
+    this.aiTelemetryClient = ClientsHolder.AI_TELEMETRY_CLIENT;
   }
 
 
