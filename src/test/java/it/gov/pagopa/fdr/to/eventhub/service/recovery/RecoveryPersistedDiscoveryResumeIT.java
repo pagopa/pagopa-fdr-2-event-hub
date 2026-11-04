@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -52,179 +55,156 @@ class RecoveryPersistedDiscoveryResumeIT {
   void shouldResumeAfterPageWasSavedButCheckpointUpdateFailed()
       throws Exception {
 
-    TableClient itemsClient =
-        RecoveryTableClients.fromEnvironment().items();
+    verifyResume(false);
+  }
 
-    // Restrict actual writes to the expected DEV destination.
-    assertEquals("pagopadweufdrsa", itemsClient.getAccountName());
-    assertEquals("fdrrecoveryitems", itemsClient.getTableName());
+  @Test
+  void shouldResumeAfterOwnershipWasLostFollowingPageSave()
+      throws Exception {
 
-    UUID jobId = UUID.randomUUID();
+    verifyResume(true);
+  }
 
-    System.out.printf(
-        "DEV resume test started: jobId=%s, day=%s%n",
-        jobId,
-        DAY);
+  private void verifyResume(boolean loseOwnershipAfterSave) throws Exception {
 
-    RecoveryDiscoveryItemTableMapper itemMapper =
-        new RecoveryDiscoveryItemTableMapper();
+      TableClient itemsClient = RecoveryTableClients.fromEnvironment().items();
 
-    RecoveryDiscoveryBatchRepository batches =
-        new RecoveryDiscoveryBatchRepository(itemsClient, itemMapper);
+      // Restrict actual writes to the expected DEV destination.
+      assertEquals("pagopadweufdrsa", itemsClient.getAccountName());
+      assertEquals("fdrrecoveryitems", itemsClient.getTableName());
 
-    RecoveryDiscoveryCheckpointRepository checkpoints =
-        new RecoveryDiscoveryCheckpointRepository(
-            itemsClient,
-            new RecoveryDiscoveryCheckpointTableMapper());
+      UUID jobId = UUID.randomUUID();
 
-    RecoveryFlowRepository flows =
-        mock(RecoveryFlowRepository.class);
+      System.out.printf("DEV resume test started: jobId=%s, day=%s%n", jobId, DAY);
 
-    RecoveryAdxRepository adx =
-        mock(RecoveryAdxRepository.class);
+      RecoveryDiscoveryItemTableMapper itemMapper = new RecoveryDiscoveryItemTableMapper();
 
-    RecoveryFlowCandidate first = candidate(10L);
-    RecoveryFlowCandidate second = candidate(20L);
-    RecoveryFlowCandidate third = candidate(30L);
+      RecoveryDiscoveryBatchRepository batches = new RecoveryDiscoveryBatchRepository(itemsClient, itemMapper);
 
-    when(flows.findPage(DAY, 0L, PAGE_SIZE))
-        .thenReturn(List.of(first, second));
+      RecoveryDiscoveryCheckpointRepository checkpoints = new RecoveryDiscoveryCheckpointRepository(itemsClient,
+              new RecoveryDiscoveryCheckpointTableMapper());
 
-    when(flows.findPage(DAY, 20L, PAGE_SIZE))
-        .thenReturn(List.of(third));
+      RecoveryFlowRepository flows = mock(RecoveryFlowRepository.class);
 
-    when(flows.findPage(DAY, 30L, PAGE_SIZE))
-        .thenReturn(List.of());
+      RecoveryAdxRepository adx = mock(RecoveryAdxRepository.class);
 
-    when(adx.findByDay(DAY))
-        .thenReturn(
-            List.of(
-                new RecoveryAdxFlowPresence(
-                    second.name(),
-                    PSP,
-                    ORGANIZATION,
-                    1L)));
+      RecoveryFlowCandidate first = candidate(10L);
+      RecoveryFlowCandidate second = candidate(20L);
+      RecoveryFlowCandidate third = candidate(30L);
 
-    // Creation and reads are real; only checkpoint updates are interrupted.
-    RecoveryDiscoveryCheckpointRepository interruptedCheckpoints =
-        spy(checkpoints);
+      when(flows.findPage(DAY, 0L, PAGE_SIZE)).thenReturn(List.of(first, second));
 
-    IllegalStateException simulatedFailure =
-        new IllegalStateException(
-            "Simulated interruption before checkpoint update");
+      when(flows.findPage(DAY, 20L, PAGE_SIZE)).thenReturn(List.of(third));
 
-    doThrow(simulatedFailure)
-        .when(interruptedCheckpoints)
-        .update(
-            any(RecoveryDiscoveryCheckpoint.class),
-            anyString());
+      when(flows.findPage(DAY, 30L, PAGE_SIZE)).thenReturn(List.of());
 
-    RecoveryPersistedDiscoveryService interruptedService =
-        new RecoveryPersistedDiscoveryService(
-            adx,
-            flows,
-            batches,
-            interruptedCheckpoints,
-            PAGE_SIZE);
+      when(adx.findByDay(DAY)).thenReturn(List.of(new RecoveryAdxFlowPresence(second.name(), PSP, ORGANIZATION, 1L)));
 
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () -> interruptedService.discover(jobId, DAY));
+      RecoveryDiscoveryCheckpointRepository interruptedCheckpoints = spy(checkpoints);
 
-    assertSame(simulatedFailure, thrown);
+      RecoveryDiscoveryBatchRepository interruptedBatches = spy(batches);
 
-    StoredRecoveryDiscoveryCheckpoint beforeResume =
-        checkpoints.find(jobId, DAY).orElseThrow();
+      AtomicBoolean ownershipLost = new AtomicBoolean();
 
-    assertEquals(
-        RecoveryDiscoveryCheckpoint.start(jobId, DAY),
-        beforeResume.checkpoint());
+      IllegalStateException simulatedFailure = new IllegalStateException(
+              loseOwnershipAfterSave ? "Simulated ownership loss after page save"
+                      : "Simulated interruption before checkpoint update");
 
-    List<TableEntity> savedBeforeResume =
-        readFlowEntities(itemsClient, jobId);
+      Runnable requireOwnership = () -> {
+          if (ownershipLost.get()) {
+              throw simulatedFailure;
+          }
+      };
 
-    assertEquals(2, savedBeforeResume.size());
+      if (loseOwnershipAfterSave) {
+          doAnswer(invocation -> {
+              Object result = invocation.callRealMethod();
+              ownershipLost.set(true);
+              return result;
+          }).when(interruptedBatches).createIfAbsent(anyList());
 
-    Map<String, String> originalEtags =
-        savedBeforeResume.stream()
-            .collect(
-                Collectors.toMap(
-                    TableEntity::getRowKey,
-                    TableEntity::getETag));
-
-    verify(flows, never()).findPage(DAY, 20L, PAGE_SIZE);
-
-    // Resume using the real checkpoint repository.
-    RecoveryPersistedDiscoveryService resumedService =
-        new RecoveryPersistedDiscoveryService(
-            adx,
-            flows,
-            batches,
-            checkpoints,
-            PAGE_SIZE);
-
-    RecoveryDiscoveryCheckpoint completed =
-        resumedService.discover(jobId, DAY);
-
-    assertCompletedCheckpoint(completed);
-
-    StoredRecoveryDiscoveryCheckpoint persisted =
-        checkpoints.find(jobId, DAY).orElseThrow();
-
-    assertEquals(completed, persisted.checkpoint());
-
-    List<TableEntity> savedAfterResume =
-        readFlowEntities(itemsClient, jobId);
-
-    assertEquals(3, savedAfterResume.size());
-
-    long savedAbsent = 0L;
-    long savedPresent = 0L;
-
-    for (TableEntity entity : savedAfterResume) {
-      var item = itemMapper.toItem(entity);
-
-      assertEquals(jobId, item.jobId());
-      assertEquals(DAY, item.day());
-
-      switch (item.presence()) {
-        case ABSENT -> savedAbsent++;
-        case PRESENT_UNVERIFIED -> savedPresent++;
+      } else {
+          doThrow(simulatedFailure).when(interruptedCheckpoints).update(any(RecoveryDiscoveryCheckpoint.class),
+                  anyString());
       }
 
-      String originalEtag = originalEtags.get(entity.getRowKey());
+      RecoveryPersistedDiscoveryService interruptedService = new RecoveryPersistedDiscoveryService(adx, flows,
+              interruptedBatches, interruptedCheckpoints, PAGE_SIZE);
 
-      if (originalEtag != null) {
-        assertEquals(
-            originalEtag,
-            entity.getETag(),
-            "An already saved discovery item must not be overwritten");
+      IllegalStateException thrown = assertThrows(IllegalStateException.class,
+              () -> interruptedService.discover(jobId, DAY, () -> true, requireOwnership));
+
+      assertSame(simulatedFailure, thrown);
+
+      if (loseOwnershipAfterSave) {
+          verify(interruptedCheckpoints, never()).update(any(RecoveryDiscoveryCheckpoint.class), anyString());
       }
-    }
 
-    assertEquals(2L, savedAbsent);
-    assertEquals(1L, savedPresent);
+      StoredRecoveryDiscoveryCheckpoint beforeResume = checkpoints.find(jobId, DAY).orElseThrow();
 
-    verify(flows, times(2)).findPage(DAY, 0L, PAGE_SIZE);
-    verify(flows, times(1)).findPage(DAY, 20L, PAGE_SIZE);
-    verify(flows, times(1)).findPage(DAY, 30L, PAGE_SIZE);
+      assertEquals(RecoveryDiscoveryCheckpoint.start(jobId, DAY), beforeResume.checkpoint());
 
-    // One ADX extraction for each execution, including the resumed one.
-    verify(adx, times(2)).findByDay(DAY);
+      List<TableEntity> savedBeforeResume = readFlowEntities(itemsClient, jobId);
 
-    System.out.printf(
-        "DEV resume test completed: jobId=%s, "
-            + "itemsBeforeResume=%d, itemsAfterResume=%d, "
-            + "candidates=%d, absent=%d, presentUnverified=%d, "
-            + "pages=%d, existingItemsUnchanged=true%n",
-        jobId,
-        savedBeforeResume.size(),
-        savedAfterResume.size(),
-        completed.candidateCount(),
-        completed.absentCandidateCount(),
-        completed.presentCandidateCount(),
-        completed.pageCount());
+      assertEquals(2, savedBeforeResume.size());
+
+      Map<String, String> originalEtags = savedBeforeResume.stream()
+              .collect(Collectors.toMap(TableEntity::getRowKey, TableEntity::getETag));
+
+      verify(flows, never()).findPage(DAY, 20L, PAGE_SIZE);
+
+      // Resume using the real checkpoint repository.
+      RecoveryPersistedDiscoveryService resumedService = new RecoveryPersistedDiscoveryService(adx, flows, batches,
+              checkpoints, PAGE_SIZE);
+
+      RecoveryDiscoveryCheckpoint completed = resumedService.discover(jobId, DAY);
+
+      assertCompletedCheckpoint(completed);
+
+      StoredRecoveryDiscoveryCheckpoint persisted = checkpoints.find(jobId, DAY).orElseThrow();
+
+      assertEquals(completed, persisted.checkpoint());
+
+      List<TableEntity> savedAfterResume = readFlowEntities(itemsClient, jobId);
+
+      assertEquals(3, savedAfterResume.size());
+
+      long savedAbsent = 0L;
+      long savedPresent = 0L;
+
+      for (TableEntity entity : savedAfterResume) {
+          var item = itemMapper.toItem(entity);
+
+          assertEquals(jobId, item.jobId());
+          assertEquals(DAY, item.day());
+
+          switch (item.presence()) {
+          case ABSENT -> savedAbsent++;
+          case PRESENT_UNVERIFIED -> savedPresent++;
+          }
+
+          String originalEtag = originalEtags.get(entity.getRowKey());
+
+          if (originalEtag != null) {
+              assertEquals(originalEtag, entity.getETag(), "An already saved discovery item must not be overwritten");
+          }
+      }
+
+      assertEquals(2L, savedAbsent);
+      assertEquals(1L, savedPresent);
+
+      verify(flows, times(2)).findPage(DAY, 0L, PAGE_SIZE);
+      verify(flows, times(1)).findPage(DAY, 20L, PAGE_SIZE);
+      verify(flows, times(1)).findPage(DAY, 30L, PAGE_SIZE);
+
+      // One ADX extraction for each execution, including the resumed one.
+      verify(adx, times(2)).findByDay(DAY);
+
+      System.out.printf(
+              "DEV resume test completed: jobId=%s, " + "itemsBeforeResume=%d, itemsAfterResume=%d, "
+                      + "candidates=%d, absent=%d, presentUnverified=%d, " + "pages=%d, existingItemsUnchanged=true%n",
+              jobId, savedBeforeResume.size(), savedAfterResume.size(), completed.candidateCount(),
+              completed.absentCandidateCount(), completed.presentCandidateCount(), completed.pageCount());
   }
 
   private RecoveryFlowCandidate candidate(long id) {

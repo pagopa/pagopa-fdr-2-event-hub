@@ -270,6 +270,9 @@ recovery-jobs:
     AzureFunctionsJobHost__functions__5: "RecoveryDryRunWorker"
 
     AzureFunctionsJobHost__logging__logLevel__default: "Information"
+    # Suppress SDK HTTP noise.
+    # Function execution logs and Java application logs remain unchanged.
+    AzureFunctionsJobHost__logging__logLevel__Azure.Core: "Error"
     AzureFunctionsJobHost__functionTimeout: "01:00:00"
 
     LOG_LEVEL: "INFO"
