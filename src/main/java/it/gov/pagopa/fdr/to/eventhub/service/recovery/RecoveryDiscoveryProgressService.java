@@ -25,6 +25,15 @@ public final class RecoveryDiscoveryProgressService {
       long pageCount,
       long lastFlowId) {}
 
+  public static final class DayOutsideJobRangeException extends IllegalArgumentException {
+
+      private static final long serialVersionUID = 2704319422762995466L;
+
+      public DayOutsideJobRangeException() {
+          super("day must belong to the recovery job date range");
+      }
+  }
+
   private final RecoveryJobRepository jobs;
   private final RecoveryDiscoveryCheckpointRepository checkpoints;
 
@@ -50,8 +59,7 @@ public final class RecoveryDiscoveryProgressService {
     var job = storedJob.orElseThrow().job();
 
     if (day.isBefore(job.dateFrom()) || day.isAfter(job.dateTo())) {
-      throw new IllegalArgumentException(
-          "day must belong to the recovery job date range");
+        throw new DayOutsideJobRangeException();
     }
 
     DailyProgress progress =

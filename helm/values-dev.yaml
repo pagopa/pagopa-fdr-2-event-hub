@@ -257,6 +257,7 @@ recovery-jobs:
     AzureFunctionsJobHost__functions__3: "RecoveryJobsPause"
     AzureFunctionsJobHost__functions__4: "RecoveryJobsResume"
     AzureFunctionsJobHost__functions__5: "RecoveryDryRunWorker"
+    AzureFunctionsJobHost__functions__6: "RecoveryJobsDiscoveryGet"
     AzureFunctionsJobHost__logging__logLevel__default: "Information"
     # Suppress SDK HTTP noise.
     # Function execution logs and Java application logs remain unchanged.

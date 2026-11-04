@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
@@ -56,10 +58,8 @@ class RecoveryDiscoveryProgressServiceTest {
             0L, 0L, 0L, 0L, 0L),
         service.find(JOB_ID, DAY).orElseThrow());
 
-    org.mockito.Mockito.verify(checkpoints)
-        .find(JOB_ID, DAY);
-
-    org.mockito.Mockito.verifyNoMoreInteractions(checkpoints);
+    verify(checkpoints).find(JOB_ID, DAY);
+    verifyNoMoreInteractions(checkpoints);
   }
 
   @Test

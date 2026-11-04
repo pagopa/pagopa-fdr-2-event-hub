@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -12,6 +13,7 @@ import com.azure.storage.blob.BlobClientBuilder;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryWorkerLockBlobInitializer;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryWorkerLeaseRepository;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -56,25 +58,33 @@ class RecoveryWorkerLeaseSessionIT {
       RecoveryWorkerLeaseRepository competitor =
           new RecoveryWorkerLeaseRepository(blob);
 
-      try (RecoveryWorkerLeaseSession session =
-          RecoveryWorkerLeaseSession.tryAcquire(repository, scheduler)
-              .orElseThrow(
-                  () -> new IllegalStateException(
-                      "Could not acquire the isolated test lease"))) {
+      try (RecoveryWorkerLeaseSession session = RecoveryWorkerLeaseSession.tryAcquire(repository, scheduler)
+              .orElseThrow(() -> new IllegalStateException("Could not acquire the isolated test lease"))) {
 
-        System.out.println(
-            "DEV lease session test: waiting 65 seconds "
-                + "to exceed the initial lease duration");
+          CountDownLatch renewalBeyondInitialDuration = new CountDownLatch(1);
 
-        TimeUnit.SECONDS.sleep(65);
+          long observationStartedAt = System.nanoTime();
 
-        session.requireHeld();
+          doAnswer(invocation -> {
+              Object result = invocation.callRealMethod();
 
-        verify(repository, atLeast(2)).renew(anyString());
+              long elapsed = System.nanoTime() - observationStartedAt;
 
-        assertTrue(
-            competitor.tryAcquire().isEmpty(),
-            "Another client must remain excluded after 60 seconds");
+              if (elapsed >= TimeUnit.SECONDS.toNanos(65)) {
+                  renewalBeyondInitialDuration.countDown();
+              }
+
+              return result;
+          }).when(repository).renew(anyString());
+
+          assertTrue(renewalBeyondInitialDuration.await(100, TimeUnit.SECONDS),
+                  "A successful automatic renewal must occur after 65 seconds");
+
+          session.requireHeld();
+
+          verify(repository, atLeast(2)).renew(anyString());
+
+          assertTrue(competitor.tryAcquire().isEmpty(), "Another client must remain excluded after 60 seconds");
       }
 
       String acquiredAfterClose =
