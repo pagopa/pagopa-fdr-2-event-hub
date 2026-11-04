@@ -55,74 +55,121 @@ public final class RecoveryPersistedDiscoveryService {
     this.pageSize = pageSize;
   }
 
-  public RecoveryDiscoveryCheckpoint discover(UUID jobId, LocalDate day)
-          throws SQLException, DataClientException, DataServiceException {
+  public RecoveryDiscoveryCheckpoint discover(
+      UUID jobId,
+      LocalDate day)
+      throws SQLException, DataClientException, DataServiceException {
 
-      return discover(jobId, day, () -> true);
+    return discover(jobId, day, () -> true);
   }
 
-  public RecoveryDiscoveryCheckpoint discover(UUID jobId, LocalDate day, BooleanSupplier shouldContinue)
-          throws SQLException, DataClientException, DataServiceException {
+  public RecoveryDiscoveryCheckpoint discover(
+      UUID jobId,
+      LocalDate day,
+      BooleanSupplier shouldContinue)
+      throws SQLException, DataClientException, DataServiceException {
 
-      Objects.requireNonNull(jobId, "jobId is required");
-      Objects.requireNonNull(day, "day is required");
-      Objects.requireNonNull(shouldContinue, "shouldContinue is required");
+    return discover(jobId, day, shouldContinue, () -> {});
+  }
 
-      StoredRecoveryDiscoveryCheckpoint stored = loadOrCreate(jobId, day);
+  public RecoveryDiscoveryCheckpoint discover(
+      UUID jobId,
+      LocalDate day,
+      BooleanSupplier shouldContinue,
+      Runnable requireOwnership)
+      throws SQLException, DataClientException, DataServiceException {
 
-      if (stored.checkpoint().status() == RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
-          return stored.checkpoint();
-      }
+    Objects.requireNonNull(jobId, "jobId is required");
+    Objects.requireNonNull(day, "day is required");
+    Objects.requireNonNull(shouldContinue, "shouldContinue is required");
+    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+
+    StoredRecoveryDiscoveryCheckpoint stored =
+        loadOrCreate(jobId, day, requireOwnership);
+
+    requireOwnership.run();
+
+    if (stored.checkpoint().status()
+        == RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
+      return stored.checkpoint();
+    }
+
+    if (!shouldContinue.getAsBoolean()) {
+      return stored.checkpoint();
+    }
+
+    requireOwnership.run();
+
+    RecoveryFlowPresenceIndex index =
+        new RecoveryFlowPresenceIndex(adxRepository.findByDay(day));
+
+    while (true) {
+      RecoveryDiscoveryCheckpoint current = stored.checkpoint();
+
+      requireOwnership.run();
 
       if (!shouldContinue.getAsBoolean()) {
-          return stored.checkpoint();
+        return current;
       }
 
-      RecoveryFlowPresenceIndex index = new RecoveryFlowPresenceIndex(adxRepository.findByDay(day));
+      requireOwnership.run();
 
-      while (true) {
-          RecoveryDiscoveryCheckpoint current = stored.checkpoint();
+      List<RecoveryFlowCandidate> page =
+          List.copyOf(
+              flowRepository.findPage(
+                  day,
+                  current.lastFlowId(),
+                  pageSize));
 
-          if (!shouldContinue.getAsBoolean()) {
-              return current;
-          }
+      if (page.isEmpty()) {
+        RecoveryDiscoveryCheckpoint completed =
+            current.completeDiscovery();
 
-          List<RecoveryFlowCandidate> page = List.copyOf(flowRepository.findPage(day, current.lastFlowId(), pageSize));
+        requireOwnership.run();
+        checkpointRepository.update(completed, stored.etag());
 
-          if (page.isEmpty()) {
-              RecoveryDiscoveryCheckpoint completed = current.completeDiscovery();
-
-              checkpointRepository.update(completed, stored.etag());
-              return completed;
-          }
-
-          if (page.size() > pageSize) {
-              throw new IllegalStateException("PostgreSQL returned more candidates than requested");
-          }
-
-          List<RecoveryDiscoveryItem> items = page.stream().map(index::compare)
-                  .map(comparison -> RecoveryDiscoveryItem.fromComparison(jobId, day, comparison)).toList();
-
-          // Validate the next checkpoint before writing anything.
-          RecoveryDiscoveryCheckpoint next = current.afterSavedPage(items);
-
-          // The checkpoint must never advance before the entire page is saved.
-          batchRepository.createIfAbsent(items);
-
-          checkpointRepository.update(next, stored.etag());
-
-          // Reload the ETag produced by the successful update.
-          stored = requireCheckpoint(jobId, day);
-
-          if (!next.equals(stored.checkpoint())) {
-              throw new IllegalStateException("Discovery checkpoint changed after the page update");
-          }
+        requireOwnership.run();
+        return completed;
       }
+
+      if (page.size() > pageSize) {
+        throw new IllegalStateException(
+            "PostgreSQL returned more candidates than requested");
+      }
+
+      List<RecoveryDiscoveryItem> items =
+          page.stream()
+              .map(index::compare)
+              .map(
+                  comparison ->
+                      RecoveryDiscoveryItem.fromComparison(
+                          jobId, day, comparison))
+              .toList();
+
+      RecoveryDiscoveryCheckpoint next =
+          current.afterSavedPage(items);
+
+      requireOwnership.run();
+      batchRepository.createIfAbsent(items);
+
+      requireOwnership.run();
+      checkpointRepository.update(next, stored.etag());
+
+      stored = requireCheckpoint(jobId, day, requireOwnership);
+
+      if (!next.equals(stored.checkpoint())) {
+        throw new IllegalStateException(
+            "Discovery checkpoint changed after the page update");
+      }
+    }
   }
 
   private StoredRecoveryDiscoveryCheckpoint loadOrCreate(
       UUID jobId,
-      LocalDate day) {
+      LocalDate day,
+      Runnable requireOwnership) {
+
+    requireOwnership.run();
 
     Optional<StoredRecoveryDiscoveryCheckpoint> existing =
         checkpointRepository.find(jobId, day);
@@ -131,15 +178,20 @@ public final class RecoveryPersistedDiscoveryService {
       return existing.orElseThrow();
     }
 
+    requireOwnership.run();
+
     checkpointRepository.create(
         RecoveryDiscoveryCheckpoint.start(jobId, day));
 
-    return requireCheckpoint(jobId, day);
+    return requireCheckpoint(jobId, day, requireOwnership);
   }
 
   private StoredRecoveryDiscoveryCheckpoint requireCheckpoint(
       UUID jobId,
-      LocalDate day) {
+      LocalDate day,
+      Runnable requireOwnership) {
+
+    requireOwnership.run();
 
     return checkpointRepository.find(jobId, day)
         .orElseThrow(

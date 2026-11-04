@@ -132,10 +132,7 @@ class RecoveryWorkerLeaseRepositoryTest {
             eq(Context.NONE)))
         .thenThrow(failure);
 
-    BlobStorageException thrown =
-        assertThrows(
-            BlobStorageException.class,
-            () -> repository.tryAcquire());
+    BlobStorageException thrown = assertThrows(BlobStorageException.class, repository::tryAcquire);
 
     assertSame(failure, thrown);
 

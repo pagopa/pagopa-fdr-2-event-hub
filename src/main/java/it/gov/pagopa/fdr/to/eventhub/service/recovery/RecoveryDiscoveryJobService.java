@@ -52,6 +52,27 @@ public final class RecoveryDiscoveryJobService {
         () -> requireJob(jobId).status() == RecoveryJobStatus.RUNNING);
   }
 
+  public RecoveryDiscoveryCheckpoint discover(UUID jobId, LocalDate day, RecoveryWorkerLeaseSession lease)
+          throws SQLException, DataClientException, DataServiceException {
+
+      Objects.requireNonNull(jobId, "jobId is required");
+      Objects.requireNonNull(day, "day is required");
+      Objects.requireNonNull(lease, "lease is required");
+
+      lease.requireHeld();
+
+      RecoveryJob job = requireJob(jobId);
+
+      if (day.isBefore(job.dateFrom()) || day.isAfter(job.dateTo())) {
+          throw new IllegalArgumentException("Discovery day must be within the job date range");
+      }
+
+      return discoveryService.discover(jobId, day, () -> {
+          lease.requireHeld();
+          return requireJob(jobId).status() == RecoveryJobStatus.RUNNING;
+      }, lease::requireHeld);
+  }
+
   private RecoveryJob requireJob(UUID jobId) {
     return jobRepository.find(jobId)
         .orElseThrow(

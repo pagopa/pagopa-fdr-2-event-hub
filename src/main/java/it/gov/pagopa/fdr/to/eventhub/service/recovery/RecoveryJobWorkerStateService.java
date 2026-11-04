@@ -27,69 +27,114 @@ public final class RecoveryJobWorkerStateService {
   }
 
   public Optional<RecoveryJob> tryStart(UUID jobId) {
+    return tryStart(jobId, () -> {});
+  }
+
+  public Optional<RecoveryJob> tryStart(
+      UUID jobId,
+      Runnable requireOwnership) {
+
     return transitionIfExpected(
         jobId,
         RecoveryJobStatus.PENDING,
-        RecoveryJobStatus.RUNNING);
+        RecoveryJobStatus.RUNNING,
+        requireOwnership);
   }
 
-  // Call only after the current execution has stopped at a safe boundary.
   public Optional<RecoveryJob> acknowledgePause(UUID jobId) {
+    return acknowledgePause(jobId, () -> {});
+  }
+
+  public Optional<RecoveryJob> acknowledgePause(
+      UUID jobId,
+      Runnable requireOwnership) {
+
     return transitionIfExpected(
         jobId,
         RecoveryJobStatus.PAUSING,
-        RecoveryJobStatus.PAUSED);
+        RecoveryJobStatus.PAUSED,
+        requireOwnership);
   }
 
-  public Optional<RecoveryJob> completeDryRunDay(RecoveryDiscoveryCheckpoint checkpoint) {
+  public Optional<RecoveryJob> completeDryRunDay(
+      RecoveryDiscoveryCheckpoint checkpoint) {
 
-      Objects.requireNonNull(checkpoint, "checkpoint is required");
+    return completeDryRunDay(checkpoint, () -> {});
+  }
 
-      if (checkpoint.status() != RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
-          throw new IllegalArgumentException("Discovery must be completed before advancing the job");
-      }
+  public Optional<RecoveryJob> completeDryRunDay(
+      RecoveryDiscoveryCheckpoint checkpoint,
+      Runnable requireOwnership) {
 
-      Optional<StoredRecoveryJob> result = repository.find(checkpoint.jobId());
+    Objects.requireNonNull(checkpoint, "checkpoint is required");
+    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
 
-      if (result.isEmpty()) {
-          return Optional.empty();
-      }
+    if (checkpoint.status()
+        != RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
+      throw new IllegalArgumentException(
+          "Discovery must be completed before advancing the job");
+    }
 
-      StoredRecoveryJob stored = result.orElseThrow();
-      RecoveryJob current = stored.job();
+    requireOwnership.run();
 
-      if (current.status() != RecoveryJobStatus.RUNNING) {
-          return Optional.empty();
-      }
+    Optional<StoredRecoveryJob> result =
+        repository.find(checkpoint.jobId());
 
-      if (!current.dryRun()) {
-          throw new IllegalArgumentException("Discovery alone cannot complete a recovery day when dryRun is false");
-      }
+    if (result.isEmpty()) {
+      return Optional.empty();
+    }
 
-      if (!current.nextDate().equals(checkpoint.day())) {
-          throw new IllegalArgumentException("Completed discovery day must match the job nextDate");
-      }
+    StoredRecoveryJob stored = result.orElseThrow();
+    RecoveryJob current = stored.job();
 
-      var nextDate = checkpoint.day().plusDays(1);
+    if (current.status() != RecoveryJobStatus.RUNNING) {
+      return Optional.empty();
+    }
 
-      RecoveryJobStatus targetStatus = nextDate.isAfter(current.dateTo())
-              ? current.status().transitionTo(RecoveryJobStatus.COMPLETED)
-              : current.status();
+    if (!current.dryRun()) {
+      throw new IllegalArgumentException(
+          "Discovery alone cannot complete a recovery day when dryRun is false");
+    }
 
-      RecoveryJob updated = new RecoveryJob(current.jobId(), current.dateFrom(), current.dateTo(), current.dryRun(),
-              targetStatus, nextDate, current.createdAt(), clock.instant());
+    if (!current.nextDate().equals(checkpoint.day())) {
+      throw new IllegalArgumentException(
+          "Completed discovery day must match the job nextDate");
+    }
 
-      repository.update(updated, stored.etag());
+    var nextDate = checkpoint.day().plusDays(1);
 
-      return Optional.of(updated);
+    RecoveryJobStatus targetStatus =
+        nextDate.isAfter(current.dateTo())
+            ? current.status().transitionTo(RecoveryJobStatus.COMPLETED)
+            : current.status();
+
+    RecoveryJob updated =
+        new RecoveryJob(
+            current.jobId(),
+            current.dateFrom(),
+            current.dateTo(),
+            current.dryRun(),
+            targetStatus,
+            nextDate,
+            current.createdAt(),
+            clock.instant());
+
+    requireOwnership.run();
+    repository.update(updated, stored.etag());
+
+    return Optional.of(updated);
   }
 
   private Optional<RecoveryJob> transitionIfExpected(
       UUID jobId,
       RecoveryJobStatus expectedStatus,
-      RecoveryJobStatus targetStatus) {
+      RecoveryJobStatus targetStatus,
+      Runnable requireOwnership) {
 
     Objects.requireNonNull(jobId, "jobId is required");
+    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+
+    requireOwnership.run();
 
     Optional<StoredRecoveryJob> result = repository.find(jobId);
 
@@ -115,6 +160,7 @@ public final class RecoveryJobWorkerStateService {
             current.createdAt(),
             clock.instant());
 
+    requireOwnership.run();
     repository.update(updated, stored.etag());
 
     return Optional.of(updated);
