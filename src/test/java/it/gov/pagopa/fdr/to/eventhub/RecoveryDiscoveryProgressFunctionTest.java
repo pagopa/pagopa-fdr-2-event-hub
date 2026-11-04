@@ -185,7 +185,8 @@ class RecoveryDiscoveryProgressFunctionTest {
             : new IllegalStateException("Sensitive connection details");
 
     when(service.find(JOB_ID, DAY)).thenThrow(failure);
-    when(context.getLogger()).thenReturn(mock(Logger.class));
+    Logger logger = mock(Logger.class);
+    when(context.getLogger()).thenReturn(logger);
 
     HttpResponseMessage result =
         function.get(request, JOB_ID.toString(), DAY.toString(), context);

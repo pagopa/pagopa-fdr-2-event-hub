@@ -29,6 +29,8 @@ import java.util.logging.Level;
 
 public final class RecoveryDiscoveryProgressFunction {
 
+  private static final String MESSAGE = "message";
+
   private static final JsonMapper OBJECT_MAPPER =
       JsonMapper.builder()
           .addModule(new JavaTimeModule())
@@ -71,7 +73,7 @@ public final class RecoveryDiscoveryProgressFunction {
           request,
           HttpStatus.BAD_REQUEST,
           Map.of(
-              "message",
+              MESSAGE,
               "jobId must be a canonical UUID and day must use YYYY-MM-DD"));
     }
 
@@ -82,7 +84,7 @@ public final class RecoveryDiscoveryProgressFunction {
         return response(
             request,
             HttpStatus.NOT_FOUND,
-            Map.of("message", "Recovery job not found"));
+            Map.of(MESSAGE, "Recovery job not found"));
       }
 
       return response(request, HttpStatus.OK, result.orElseThrow());
@@ -91,7 +93,7 @@ public final class RecoveryDiscoveryProgressFunction {
       return response(
           request,
           HttpStatus.BAD_REQUEST,
-          Map.of("message", "day must belong to the recovery job date range"));
+          Map.of(MESSAGE, "day must belong to the recovery job date range"));
 
     } catch (Exception e) {
       context.getLogger().log(
@@ -102,7 +104,7 @@ public final class RecoveryDiscoveryProgressFunction {
       return response(
           request,
           HttpStatus.INTERNAL_SERVER_ERROR,
-          Map.of("message", "Unable to read recovery discovery progress"));
+          Map.of(MESSAGE, "Unable to read recovery discovery progress"));
     }
   }
 
@@ -121,7 +123,7 @@ public final class RecoveryDiscoveryProgressFunction {
   }
 
   private static LocalDate parseDay(String value) {
-    if (value == null || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+    if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
       throw new IllegalArgumentException("day must use YYYY-MM-DD");
     }
 
