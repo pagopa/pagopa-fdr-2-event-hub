@@ -109,9 +109,18 @@ public class BlobProcessingFunction {
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
-              "[FDR1] Skipping processing for Blob container: {}, name: {}",
-              fdr1Container,
-              blobName);
+          "[FDR3] Skipping blob: {}. "
+              + "metadataNull={}, "
+              + "sessionIdPresent={}, "
+              + "insertedTimestampPresent={}, "
+              + "elaborateFalse={}",
+          blobName,
+          blobMetadata == null,
+          blobMetadata != null && blobMetadata.containsKey("sessionId"),
+          blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
+          blobMetadata != null
+              && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
+      );
       return; // Skip execution
     }
 
@@ -210,9 +219,18 @@ public class BlobProcessingFunction {
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
-          "[FDR3] Skipping processing for Blob container: {}, name: {}",
-          fdr3Container,
-          blobName);
+          "[FDR3] Skipping blob: {}. "
+              + "metadataNull={}, "
+              + "sessionIdPresent={}, "
+              + "insertedTimestampPresent={}, "
+              + "elaborateFalse={}",
+          blobName,
+          blobMetadata == null,
+          blobMetadata != null && blobMetadata.containsKey("sessionId"),
+          blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
+          blobMetadata != null
+              && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
+      );
       return; // Skip execution
     }
 
