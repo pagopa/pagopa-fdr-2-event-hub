@@ -1,0 +1,104 @@
+package it.gov.pagopa.fdr.to.eventhub.repository.recovery;
+
+import com.azure.core.http.rest.PagedResponse;
+import com.azure.core.util.Context;
+import com.azure.data.tables.TableClient;
+import com.azure.data.tables.models.ListEntitiesOptions;
+import com.azure.data.tables.models.TableEntity;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+public final class RecoveryRunnableJobRepository {
+
+  private static final Duration TIMEOUT = Duration.ofSeconds(30);
+
+  private static final String FILTER =
+      "RowKey eq 'JOB' and "
+          + "(Status eq 'PENDING' or Status eq 'RUNNING' "
+          + "or Status eq 'PAUSING')";
+
+  private final TableClient client;
+  private final RecoveryJobTableMapper mapper;
+
+  public RecoveryRunnableJobRepository(
+      TableClient client,
+      RecoveryJobTableMapper mapper) {
+
+    this.client = Objects.requireNonNull(client, "client is required");
+    this.mapper = Objects.requireNonNull(mapper, "mapper is required");
+  }
+
+  public JobPage findPage(String continuationToken, int pageSize) {
+    if (pageSize < 1 || pageSize > 100) {
+      throw new IllegalArgumentException(
+          "pageSize must be between 1 and 100");
+    }
+
+    ListEntitiesOptions options =
+        new ListEntitiesOptions()
+            .setFilter(FILTER)
+            .setTop(pageSize)
+            .setSelect(
+                List.of(
+                    "PartitionKey",
+                    "RowKey",
+                    "SchemaVersion",
+                    "Status",
+                    "JobJson"));
+
+    Iterator<PagedResponse<TableEntity>> pages =
+        client.listEntities(options, TIMEOUT, Context.NONE)
+            .iterableByPage(continuationToken, pageSize)
+            .iterator();
+
+    if (!pages.hasNext()) {
+      return new JobPage(List.of(), null);
+    }
+
+    try (PagedResponse<TableEntity> page = pages.next()) {
+      List<TableEntity> entities = page.getValue();
+
+      if (entities.size() > pageSize) {
+        throw new IllegalStateException(
+            "Storage returned more jobs than requested");
+      }
+
+      List<UUID> jobIds =
+          entities.stream()
+              .map(mapper::toJob)
+              .filter(RecoveryRunnableJobRepository::isRunnable)
+              .map(RecoveryJob::jobId)
+              .toList();
+
+      return new JobPage(jobIds, page.getContinuationToken());
+
+    } catch (IOException exception) {
+      throw new UncheckedIOException(
+          "Unable to close the recovery job page",
+          exception);
+    }
+  }
+
+  private static boolean isRunnable(RecoveryJob job) {
+    return job.dryRun()
+        && switch (job.status()) {
+          case PENDING, RUNNING, PAUSING -> true;
+          case PAUSED, COMPLETED, FAILED -> false;
+        };
+  }
+
+  public record JobPage(
+      List<UUID> jobIds,
+      String continuationToken) {
+
+    public JobPage {
+      jobIds = List.copyOf(jobIds);
+    }
+  }
+}

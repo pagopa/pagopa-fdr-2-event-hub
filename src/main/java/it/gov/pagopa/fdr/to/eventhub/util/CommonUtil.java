@@ -411,7 +411,7 @@ public class CommonUtil {
             // try to add the new event to the new batch
             if (!currentBatch.tryAdd(eventData)) {
               // if the event doesn't fit even in an empty batch, it's too large
-              logger.error("Payment event is too large for a single batch. Skipping. IUV: " + eventModel.getIuv());
+              logger.error("Payment event is too large for a single batch. Skipping. IUV: {}", eventModel.getIuv());
               allPaymentEventsSent = false;
             }
           }

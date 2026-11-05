@@ -1,8 +1,8 @@
 apiVersion: v2
 name: pagopa-fdr-to-event-hub
 description: Microservice fdr to event hub
-version: 0.121.0
-appVersion: 1.0.28
+version: 0.123.0
+appVersion: 1.0.28-2-PIDM-2543-recovery-lost-events-API
 dependencies:
   - name: microservice-chart
     version: 8.0.2
@@ -16,3 +16,8 @@ dependencies:
     version: 8.0.2
     repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
     alias: recovery
+  - name: microservice-chart
+    version: 8.0.2
+    repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
+    alias: recovery-jobs
+    condition: recovery-jobs.enabled

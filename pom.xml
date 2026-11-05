@@ -6,7 +6,7 @@
 
 	<groupId>it.gov.pagopa.fdr.to.eventhub</groupId>
 	<artifactId>pagopa-fdr-to-event-hub</artifactId>
-	<version>1.0.28</version>
+	<version>1.0.28-2-PIDM-2543-recovery-lost-events-API</version>
 	<packaging>jar</packaging>
 
 	<name>FDR To Event Hub</name>
@@ -29,6 +29,10 @@
 		<junit.version>5.9.3</junit.version>
 		<mockito.version>5.15.2</mockito.version>
 		<system.stubs.version>2.1.7</system.stubs.version>
+		<azure.data.tables.version>12.5.13</azure.data.tables.version>
+		<postgresql.version>42.7.14</postgresql.version>
+        <hikaricp.version>7.1.0</hikaricp.version>
+        <kusto.data.version>8.0.1</kusto.data.version>
 	</properties>
 
 	<dependencies>
@@ -49,10 +53,34 @@
 			<version>${azure.storage.blob.version}</version>
 		</dependency>
 		<dependency>
+           <groupId>com.azure</groupId>
+           <artifactId>azure-data-tables</artifactId>
+           <version>${azure.data.tables.version}</version>
+        </dependency>
+		<dependency>
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>applicationinsights-core</artifactId>
 			<version>2.6.4</version>
 		</dependency>
+
+		<!-- PostgreSQL -->
+		<dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+        </dependency>
+
+        <!-- Kusto for ADX -->
+        <dependency>
+            <groupId>com.microsoft.azure.kusto</groupId>
+            <artifactId>kusto-data</artifactId>
+            <version>${kusto.data.version}</version>
+        </dependency>
 
 		<!-- Jackson -->
 		<dependency>
@@ -186,7 +214,7 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.0.0-M7</version> <!-- Aggiornato per supportare JUnit 5 -->
 				<configuration>
-					<argLine>${argLine}</argLine>
+					<argLine>@{argLine} -Xmx2g</argLine>
 				</configuration>
 			</plugin>
 
