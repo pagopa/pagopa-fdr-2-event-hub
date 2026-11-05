@@ -103,31 +103,23 @@ public class BlobProcessingFunction {
           @BindingName("Metadata") Map<String, String> blobMetadata,
           final ExecutionContext context) {
 
-    int contentLength = 0;
-   // dontUse = null; // help GC
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
-              "[FDR1] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
+              "[FDR1] Skipping processing for Blob container: {}, name: {}",
               fdr1Container,
-              blobName,
-              contentLength);
+              blobName);
       return; // Skip execution
     }
 
     logger.info(
-            "[FDR1] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
+            "[FDR1] Triggered at: {} for Blob container: {}, name: {}",
             LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
             fdr1Container,
-            blobName,
-            contentLength
-    );
-
-    //String containerName = System.getenv("BLOB_STORAGE_FDR1_CONTAINER");
-    //BlobClient blobClient = getBlobClient(containerName, blobName);
+            blobName);
 
     FlussoRendicontazione flusso = null;
     try (InputStream originalInputStream = blobClient.openInputStream()) {
@@ -143,12 +135,10 @@ public class BlobProcessingFunction {
           flusso.setMetadata(blobMetadata);
 
           logger.info(
-                "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                "[FDR1] Parsed Finished at: {} for Blob container: {}, name: {}",
                 LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                 fdr1Container,
-                blobName,
-                contentLength
-          );
+                blobName);
 
           // waits for confirmation of sending the entire flow to the Event Hub
           boolean eventBatchSent = CommonUtil.processXmlBlobAndSendToEventHub(
@@ -163,12 +153,10 @@ public class BlobProcessingFunction {
           }
 
           logger.info(
-                  "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  "[FDR1] Execution Finished at: {} for Blob container: {}, name: {}",
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr1Container,
-                  blobName,
-                  contentLength
-          );
+                  blobName);
         }
       }
       else {
@@ -217,30 +205,23 @@ public class BlobProcessingFunction {
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
-    int contentLength = 0;// dontUse.length;
-    //dontUse = null; // help GC
-
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
-          "[FDR3] Skipping processing for Blob container: {}, name: {}, size in bytes: {}",
+          "[FDR3] Skipping processing for Blob container: {}, name: {}",
           fdr3Container,
-          blobName,
-          contentLength);
+          blobName);
       return; // Skip execution
     }
 
     logger.info(
-        "[FDR3] Triggered at: {} for Blob container: {}, name: {}, size in bytes: {}",
+        "[FDR3] Triggered at: {} for Blob container: {}, name: {}",
         LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
         fdr3Container,
-        blobName,
-        contentLength);
+        blobName);
 
-   // String containerName = System.getenv("BLOB_STORAGE_FDR3_CONTAINER");
-    //BlobClient blobClient = getBlobClient(containerName, blobName);
     Flow flow = null;
     try (InputStream originalInputStream = blobClient.openInputStream()) {
       CommonUtil.Pair<InputStream, Boolean> resultGzip = isGzipStream(originalInputStream);
@@ -253,11 +234,10 @@ public class BlobProcessingFunction {
           String flowId = flow.getFdr();
 
           logger.info(
-                  "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  "[FDR3] Parsed Finished at: {} for Blob container: {}, name: {}",
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr3Container,
-                  blobName,
-                  contentLength);
+                  blobName);
 
           // waits for confirmation of sending the entire flow to the Event Hub
           boolean eventBatchSent = CommonUtil.processJsonBlobAndSendToEventHub(
@@ -273,11 +253,10 @@ public class BlobProcessingFunction {
           }
 
           logger.info(
-                  "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}, size in bytes: {}",
+                  "[FDR3] Execution Finished at: {} for Blob container: {}, name: {}",
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr3Container,
-                  blobName,
-                  contentLength);
+                  blobName);
         }
       }
       else {
