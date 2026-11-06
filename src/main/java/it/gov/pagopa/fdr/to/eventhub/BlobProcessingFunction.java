@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.GZIPInputStream;
 
 import lombok.Getter;
@@ -106,6 +107,22 @@ public class BlobProcessingFunction {
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
+    Map<String, String> storageMetadata =
+        blobClient.getProperties().getMetadata();
+
+    logger.info(
+        "[FDR3] Blob: {} | Binding metadata: {} | Storage metadata: {}",
+        blobName,
+        blobMetadata,
+        storageMetadata
+    );
+
+
+    logger.info(
+        "[FDR3] Blob: {} | Metadata equals: {}",
+        blobName,
+        Objects.equals(blobMetadata, storageMetadata)
+    );
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
@@ -206,7 +223,6 @@ public class BlobProcessingFunction {
   public void processFDR3BlobFiles(
       @BlobTrigger(
               name = "Fdr3BlobTrigger",
-              dataType = "binary",
               path = "%BLOB_STORAGE_FDR3_CONTAINER%/{blobName}",
               connection = "FDR_SA_CONNECTION_STRING")
       BlobClient blobClient,
@@ -215,7 +231,22 @@ public class BlobProcessingFunction {
       final ExecutionContext context) {
 
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
+    Map<String, String> storageMetadata =
+        blobClient.getProperties().getMetadata();
 
+    logger.info(
+        "[FDR3] Blob: {} | Binding metadata: {} | Storage metadata: {}",
+        blobName,
+        blobMetadata,
+        storageMetadata
+    );
+
+
+    logger.info(
+        "[FDR3] Blob: {} | Metadata equals: {}",
+        blobName,
+        Objects.equals(blobMetadata, storageMetadata)
+    );
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
