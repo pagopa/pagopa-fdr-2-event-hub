@@ -27,6 +27,7 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryDiscovery
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryJob;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -128,7 +129,8 @@ class RecoveryDiscoveryLeaseGuardTest {
         "flow-10",
         1L,
         "88888888888",
-        "77777777777");
+        "77777777777",
+        LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000));
   }
 
   private List<RecoveryDiscoveryItem> items(

@@ -17,6 +17,7 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryAdxRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +46,7 @@ class RecoveryDailyDiscoveryServiceTest {
 
   private RecoveryFlowCandidate candidate(long id, String name) {
     return new RecoveryFlowCandidate(
-        id, name, 1L, PSP, ORGANIZATION);
+        id, name, 1L, PSP, ORGANIZATION, LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000));
   }
 
   @Test

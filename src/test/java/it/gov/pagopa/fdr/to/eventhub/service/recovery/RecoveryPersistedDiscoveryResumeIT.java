@@ -32,6 +32,7 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryDiscoveryCheckpoint;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -213,7 +214,8 @@ class RecoveryPersistedDiscoveryResumeIT {
         "TEST-PIDM2543-RESUME-" + id,
         1L,
         PSP,
-        ORGANIZATION);
+        ORGANIZATION,
+        LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000));
   }
 
   private List<TableEntity> readFlowEntities(

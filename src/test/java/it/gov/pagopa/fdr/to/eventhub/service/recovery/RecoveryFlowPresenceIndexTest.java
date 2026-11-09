@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryAdxFlowPresence;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
+
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -24,7 +26,7 @@ class RecoveryFlowPresenceIndexTest {
       String organization) {
 
     return new RecoveryFlowCandidate(
-        id, name, revision, psp, organization);
+        id, name, revision, psp, organization, LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000));
   }
 
   private RecoveryFlowCandidate candidate() {
