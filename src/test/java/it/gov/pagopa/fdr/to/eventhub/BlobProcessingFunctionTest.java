@@ -12,7 +12,6 @@ import static org.mockito.Mockito.*;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import com.microsoft.azure.functions.ExecutionContext;
@@ -59,8 +58,29 @@ class BlobProcessingFunctionTest {
   @Mock private RetryContext retryContext;
   @Mock private FDR1XmlStAXParser mockFDR1XmlParser;
   @Mock private AppInsightTelemetryClient aiTelemetryClientMock;
-  @Mock private BlobServiceClient blobServiceClientMock;
+
   private BlobProcessingFunction function;
+
+  /** Simula la lettura streaming del Blob senza caricare dati tramite il binding della Function. */
+  private BlobClient mockBlob(byte[] content) throws IOException {
+    BlobClient blobClient = mock(BlobClient.class);
+    BlobInputStream blobStream = mock(BlobInputStream.class);
+    ByteArrayInputStream delegate = new ByteArrayInputStream(content);
+
+    when(blobClient.openInputStream()).thenReturn(blobStream);
+    lenient().doAnswer(invocation -> {
+      byte[] buffer = invocation.getArgument(0);
+      int offset = invocation.getArgument(1);
+      int length = invocation.getArgument(2);
+      return delegate.read(buffer, offset, length);
+    }).when(blobStream).read(any(byte[].class), anyInt(), anyInt());
+    lenient().doAnswer(invocation -> delegate.read()).when(blobStream).read();
+    lenient().doAnswer(invocation -> {
+      delegate.close();
+      return null;
+    }).when(blobStream).close();
+    return blobClient;
+  }
 
   @BeforeEach
   void setup() {
@@ -68,7 +88,6 @@ class BlobProcessingFunctionTest {
         new BlobProcessingFunction(
             eventHubClientFlowTx,
             eventHubClientReportedIUV,
-            blobServiceClientMock,
             aiTelemetryClientMock,
             mockFDR1XmlParser);
     lenient().when(eventHubClientFlowTx.createBatch()).thenReturn(mock(EventDataBatch.class));
@@ -88,40 +107,20 @@ class BlobProcessingFunctionTest {
     FlussoRendicontazione mockFlusso = mock(FlussoRendicontazione.class);
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
-      mockedUtil.when(() -> mockFlusso.getIdentificativoFlusso()).thenReturn("1234");
-      mockedUtil.when(() -> mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
+      when(mockFlusso.getIdentificativoFlusso()).thenReturn("1234");
+      when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class))).thenReturn(mockFlusso);
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> { delegateStream.close(); return null; }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       assertDoesNotThrow(() ->
-              function.processFDR1BlobFiles(compressedData, "sampleBlob", metadata, executionContext)
+          function.processFDR1BlobFiles(
+              mockBlob(compressedData), "sampleBlob", metadata, executionContext)
       );
     }
   }
@@ -139,42 +138,19 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "true");
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
-      mockedUtil.when(() -> mockFlusso.getIdentificativoFlusso()).thenReturn("1234");
-      mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-      mockedUtil.when(() -> blobServiceClientMock.getBlobContainerClient(any())).thenReturn(mock(BlobContainerClient.class));
+      when(mockFlusso.getIdentificativoFlusso()).thenReturn("1234");
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> { delegateStream.close(); return null; }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       assertDoesNotThrow(
           () ->
               function.processFDR1BlobFiles(
-                  compressedData, "sampleBlob", metadata, executionContext));
+                  mockBlob(compressedData), "sampleBlob", metadata, executionContext));
     }
   }
 
@@ -203,36 +179,19 @@ class BlobProcessingFunctionTest {
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(invalidData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR1BlobFiles(
-                                      invalidData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      mockBlob(invalidData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -256,43 +215,19 @@ class BlobProcessingFunctionTest {
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR1BlobFiles(
-                                      compressedData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -317,43 +252,19 @@ class BlobProcessingFunctionTest {
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR1BlobFiles(
-                                      compressedData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -366,7 +277,7 @@ class BlobProcessingFunctionTest {
   @Test
   void testFDR1ValidateBlobMetadata_NullMetadata() {
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", null, executionContext));
+        () -> function.processFDR1BlobFiles(mock(BlobClient.class), "testBlob", null, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -379,7 +290,7 @@ class BlobProcessingFunctionTest {
     assertDoesNotThrow(
         () ->
             function.processFDR1BlobFiles(
-                new byte[] {}, "testBlob", emptyMetadata, executionContext));
+                mock(BlobClient.class), "testBlob", emptyMetadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -395,7 +306,7 @@ class BlobProcessingFunctionTest {
     assertDoesNotThrow(
         () ->
             function.processFDR1BlobFiles(
-                new byte[] {}, "testBlob", invalidMetadata, executionContext));
+                mock(BlobClient.class), "testBlob", invalidMetadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -410,7 +321,7 @@ class BlobProcessingFunctionTest {
     metadata.put("elaborate", "false");
 
     assertDoesNotThrow(
-        () -> function.processFDR1BlobFiles(new byte[] {}, "testBlob", metadata, executionContext));
+        () -> function.processFDR1BlobFiles(mock(BlobClient.class), "testBlob", metadata, executionContext));
 
     verify(eventHubClientFlowTx, never()).send(any(EventDataBatch.class));
     verify(eventHubClientReportedIUV, never()).send(any(EventDataBatch.class));
@@ -433,43 +344,19 @@ class BlobProcessingFunctionTest {
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR1BlobFiles(
-                                      compressedData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -492,43 +379,19 @@ class BlobProcessingFunctionTest {
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class)) {
       mockedUtil.when(() -> CommonUtil.validateBlobMetadata(any())).thenReturn(true);
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
-              any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
+          any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR1BlobFiles(
-                                      compressedData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR1BlobFiles(
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -583,39 +446,17 @@ class BlobProcessingFunctionTest {
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
 
       mockedUtil.when(() -> CommonUtil.processJsonBlobAndSendToEventHub(any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> { delegateStream.close(); return null; }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
 
       assertDoesNotThrow(
           () ->
               function.processFDR3BlobFiles(
-                  compressedData, "sampleBlob", metadata, executionContext));
-
+                  mockBlob(compressedData), "sampleBlob", metadata, executionContext));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
     }
   }
@@ -630,46 +471,22 @@ class BlobProcessingFunctionTest {
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
 
       mockedUtil.when(() -> CommonUtil.processJsonBlobAndSendToEventHub(any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
 
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(1).when(retryContext).getMaxretrycount();
 
       AlertAppException thrown =
-              assertThrows(
-                      AlertAppException.class,
-                      () ->
-                              function.processFDR3BlobFiles(
-                                      compressedData, "sampleBlob", metadata, executionContext));
+          assertThrows(
+              AlertAppException.class,
+              () ->
+                  function.processFDR3BlobFiles(
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -686,36 +503,12 @@ class BlobProcessingFunctionTest {
 
     try (MockedStatic<CommonUtil> mockedUtil = mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
       mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
-              .thenAnswer(invocation -> {
-                InputStream in = invocation.getArgument(0);
-                return new CommonUtil.Pair<>(in, true);
-              });
+          .thenAnswer(invocation -> {
+            InputStream in = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(in, true);
+          });
 
       mockedUtil.when(() -> CommonUtil.processJsonBlobAndSendToEventHub(any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
-      BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-      BlobClient blobClient = mock(BlobClient.class);
-      when(blobServiceClientMock.getBlobContainerClient(any())).thenReturn(blobContainerClient);
-      when(blobContainerClient.getBlobClient(any())).thenReturn(blobClient);
-
-      ByteArrayInputStream delegateStream = new ByteArrayInputStream(compressedData);
-      BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-      doAnswer(invocation -> {
-        byte[] buffer = invocation.getArgument(0);
-        int off = invocation.getArgument(1);
-        int len = invocation.getArgument(2);
-        return delegateStream.read(buffer, off, len);
-      }).when(mockBlobInputStream).read(any(byte[].class), anyInt(), anyInt());
-
-      doAnswer(invocation -> delegateStream.read()).when(mockBlobInputStream).read();
-
-      doAnswer(invocation -> {
-        delegateStream.close();
-        return null;
-      }).when(mockBlobInputStream).close();
-
-      when(blobClient.openInputStream()).thenReturn(mockBlobInputStream);
 
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(5).when(retryContext).getMaxretrycount();
@@ -725,7 +518,7 @@ class BlobProcessingFunctionTest {
               AlertAppException.class,
               () ->
                   function.processFDR3BlobFiles(
-                      compressedData, "sampleBlob", metadata, executionContext));
+                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -780,11 +573,6 @@ class BlobProcessingFunctionTest {
                   "fake-reportediuv-name"))
           .thenReturn(reportedIuvClient);
 
-      mockedCommonUtil
-          .when(() ->
-              CommonUtil.createBlobServiceClient(
-                  "fake-fdr-sa-conn-string"))
-          .thenReturn(blobServiceClient);
 
       // Prima istanza: inizializza ClientsHolder
       BlobProcessingFunction first =
@@ -803,9 +591,6 @@ class BlobProcessingFunctionTest {
           reportedIuvClient,
           first.getEventHubClientReportedIUV());
 
-      assertSame(
-          blobServiceClient,
-          first.getBlobServiceClient());
 
       // Le due Function condividono gli stessi client
       assertSame(
@@ -816,9 +601,6 @@ class BlobProcessingFunctionTest {
           first.getEventHubClientReportedIUV(),
           second.getEventHubClientReportedIUV());
 
-      assertSame(
-          first.getBlobServiceClient(),
-          second.getBlobServiceClient());
 
       // Le factory devono essere chiamate UNA SOLA VOLTA
       mockedCommonUtil.verify(
@@ -833,12 +615,6 @@ class BlobProcessingFunctionTest {
               CommonUtil.createEventHubClient(
                   "fake-reportediuv-conn-string",
                   "fake-reportediuv-name"),
-          times(1));
-
-      mockedCommonUtil.verify(
-          () ->
-              CommonUtil.createBlobServiceClient(
-                  "fake-fdr-sa-conn-string"),
           times(1));
     }
   }
@@ -858,51 +634,10 @@ class BlobProcessingFunctionTest {
         new BlobProcessingFunction(
             eventHubClientFlowTx,
             eventHubClientReportedIUV,
-            blobServiceClientMock,
             aiTelemetryClientMock,
             new FDR1XmlStAXParser());
 
     when(executionContext.getRetryContext()).thenReturn(null);
-
-    BlobContainerClient blobContainerClient = mock(BlobContainerClient.class);
-    BlobClient blobClient = mock(BlobClient.class);
-
-    when(blobServiceClientMock.getBlobContainerClient(any()))
-        .thenReturn(blobContainerClient);
-
-    when(blobContainerClient.getBlobClient(any()))
-        .thenReturn(blobClient);
-
-    ByteArrayInputStream delegateStream =
-        new ByteArrayInputStream(compressedData);
-
-    BlobInputStream mockBlobInputStream = mock(BlobInputStream.class);
-
-    doAnswer(
-        invocation -> {
-          byte[] buffer = invocation.getArgument(0);
-          int off = invocation.getArgument(1);
-          int len = invocation.getArgument(2);
-
-          return delegateStream.read(buffer, off, len);
-        })
-        .when(mockBlobInputStream)
-        .read(any(byte[].class), anyInt(), anyInt());
-
-    doAnswer(invocation -> delegateStream.read())
-        .when(mockBlobInputStream)
-        .read();
-
-    doAnswer(
-        invocation -> {
-          delegateStream.close();
-          return null;
-        })
-        .when(mockBlobInputStream)
-        .close();
-
-    when(blobClient.openInputStream())
-        .thenReturn(mockBlobInputStream);
 
     when(eventHubClientFlowTx.createBatch())
         .thenThrow(
@@ -921,28 +656,25 @@ class BlobProcessingFunctionTest {
                 return new CommonUtil.Pair<>(in, true);
               });
 
-      AlertAppException thrown =
+      OutOfMemoryError thrown =
           assertThrows(
-              AlertAppException.class,
+              OutOfMemoryError.class,
               () ->
                   function.processFDR1BlobFiles(
-                      compressedData,
+                      mockBlob(compressedData),
                       "sampleBlob",
                       metadata,
                       executionContext));
 
-      assertTrue(thrown.getCause() instanceof OutOfMemoryError);
+      assertNotNull(thrown);
 
       assertEquals(
           "unable to create native thread: "
               + "possibly out of memory or process/resource limits reached",
-          thrown.getCause().getMessage());
+          thrown.getMessage());
 
-      verify(aiTelemetryClientMock, times(1))
-          .createCustomEventForAlert(
-              any(),
-              anyString(),
-              isA(OutOfMemoryError.class));
+      verify(aiTelemetryClientMock, never())
+          .createCustomEventForAlert(any(), anyString(), any());
 
       verify(eventHubClientFlowTx, atLeastOnce())
           .createBatch();
