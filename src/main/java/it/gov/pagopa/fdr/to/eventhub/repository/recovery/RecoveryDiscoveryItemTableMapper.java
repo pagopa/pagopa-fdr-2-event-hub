@@ -5,13 +5,15 @@ import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryDiscoveryItem;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFlowPresenceIndex;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
 public final class RecoveryDiscoveryItemTableMapper {
 
   private static final String SCHEMA_VERSION = "SchemaVersion";
-  private static final String CURRENT_SCHEMA_VERSION = "1";
+  private static final String CURRENT_SCHEMA_VERSION = "2";
+  private static final String FLOW_DATE = "FlowDate";
 
   private static final String JOB_ID = "JobId";
   private static final String DAY = "Day";
@@ -41,6 +43,7 @@ public final class RecoveryDiscoveryItemTableMapper {
         .addProperty(REVISION, candidate.revision())
         .addProperty(PSP_DOMAIN_ID, candidate.pspDomainId())
         .addProperty(ORG_DOMAIN_ID, candidate.orgDomainId())
+        .addProperty(FLOW_DATE, candidate.flowDate().toString())
         .addProperty(PRESENCE, item.presence().name())
         .addProperty(PRESENT_ROWS, item.presentRows());
   }
@@ -57,13 +60,9 @@ public final class RecoveryDiscoveryItemTableMapper {
     UUID jobId = UUID.fromString(requiredString(entity, JOB_ID));
     LocalDate day = LocalDate.parse(requiredString(entity, DAY));
 
-    RecoveryFlowCandidate candidate =
-        new RecoveryFlowCandidate(
-            requiredLong(entity, FLOW_ID),
-            requiredString(entity, FLOW_NAME),
-            requiredLong(entity, REVISION),
-            requiredString(entity, PSP_DOMAIN_ID),
-            requiredString(entity, ORG_DOMAIN_ID));
+    RecoveryFlowCandidate candidate = new RecoveryFlowCandidate(requiredLong(entity, FLOW_ID),
+            requiredString(entity, FLOW_NAME), requiredLong(entity, REVISION), requiredString(entity, PSP_DOMAIN_ID),
+            requiredString(entity, ORG_DOMAIN_ID), LocalDateTime.parse(requiredString(entity, FLOW_DATE)));
 
     RecoveryFlowPresenceIndex.Presence presence =
         RecoveryFlowPresenceIndex.Presence.valueOf(

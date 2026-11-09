@@ -65,16 +65,15 @@ public final class RecoveryDiscoveryProgressFunction {
     final LocalDate parsedDay;
 
     try {
-      parsedJobId = parseJobId(jobId);
-      parsedDay = parseDay(day);
-
+        parsedJobId = parseJobId(jobId);
     } catch (IllegalArgumentException e) {
-      return response(
-          request,
-          HttpStatus.BAD_REQUEST,
-          Map.of(
-              MESSAGE,
-              "jobId must be a canonical UUID and day must use YYYY-MM-DD"));
+        return response(request, HttpStatus.BAD_REQUEST, Map.of(MESSAGE, "jobId must be a canonical UUID"));
+    }
+
+    try {
+        parsedDay = parseDay(day);
+    } catch (IllegalArgumentException e) {
+        return response(request, HttpStatus.BAD_REQUEST, Map.of(MESSAGE, e.getMessage()));
     }
 
     try {
@@ -123,15 +122,15 @@ public final class RecoveryDiscoveryProgressFunction {
   }
 
   private static LocalDate parseDay(String value) {
-    if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
-      throw new IllegalArgumentException("day must use YYYY-MM-DD");
-    }
+      if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+          throw new IllegalArgumentException("day must use YYYY-MM-DD format");
+      }
 
-    try {
-      return LocalDate.parse(value);
-    } catch (DateTimeParseException e) {
-      throw new IllegalArgumentException("day must be a valid date", e);
-    }
+      try {
+          return LocalDate.parse(value);
+      } catch (DateTimeParseException e) {
+          throw new IllegalArgumentException("day must be an existing calendar date", e);
+      }
   }
 
   private synchronized RecoveryDiscoveryProgressService getService() {

@@ -17,20 +17,22 @@ public final class RecoveryFlowRepository {
   private static final int MAX_PAGE_SIZE = 1000;
 
   private static final String FIND_PAGE_SQL = """
-      SELECT DISTINCT
-          f.id,
-          f.name,
-          f.revision,
-          f.psp_domain_id,
-          f.org_domain_id
-      FROM fdr3.payment_full_view p
-      INNER JOIN fdr3.flow f ON p.flow_id = f.id
-      WHERE p.pay_date >= ?
-        AND p.pay_date < ?
-        AND f.id > ?
-      ORDER BY f.id
-      LIMIT ?
-      """;
+          SELECT DISTINCT
+              f.id,
+              f.name,
+              f.revision,
+              f.psp_domain_id,
+              f.org_domain_id,
+              f.date AS flow_date
+          FROM fdr3.payment_full_view p
+          INNER JOIN fdr3.flow f ON p.flow_id = f.id
+          WHERE p.pay_date >= ?
+            AND p.pay_date < ?
+            AND f.status = 'PUBLISHED'
+            AND f.id > ?
+          ORDER BY f.id
+          LIMIT ?
+          """;
 
   private final DataSource dataSource;
   private final int queryTimeoutSeconds;
@@ -82,16 +84,16 @@ public final class RecoveryFlowRepository {
         List<RecoveryFlowCandidate> candidates = new ArrayList<>();
 
         while (resultSet.next()) {
-          long flowId = requiredLong(resultSet, "id");
-          long revision = requiredLong(resultSet, "revision");
+            long flowId = requiredLong(resultSet, "id");
+            long revision = requiredLong(resultSet, "revision");
+            LocalDateTime flowDate = resultSet.getObject("flow_date", LocalDateTime.class);
 
-          candidates.add(
-              new RecoveryFlowCandidate(
-                  flowId,
-                  resultSet.getString("name"),
-                  revision,
-                  resultSet.getString("psp_domain_id"),
-                  resultSet.getString("org_domain_id")));
+            if (flowDate == null) {
+                throw new SQLException("Missing required value: flow_date");
+            }
+
+            candidates.add(new RecoveryFlowCandidate(flowId, resultSet.getString("name"), revision,
+                    resultSet.getString("psp_domain_id"), resultSet.getString("org_domain_id"), flowDate));
         }
 
         return List.copyOf(candidates);

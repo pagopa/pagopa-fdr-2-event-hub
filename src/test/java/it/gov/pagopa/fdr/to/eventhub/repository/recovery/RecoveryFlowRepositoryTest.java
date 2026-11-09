@@ -16,6 +16,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,15 +58,21 @@ class RecoveryFlowRepositoryTest {
     when(resultSet.getString("org_domain_id"))
         .thenReturn("DOMAIN-A", "DOMAIN-B");
 
+    LocalDateTime firstFlowDate = LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_123_000);
+
+    LocalDateTime secondFlowDate = LocalDateTime.of(2026, 10, 2, 12, 43, 19, 183_456_000);
+
+    when(resultSet.getObject("flow_date", LocalDateTime.class)).thenReturn(firstFlowDate, secondFlowDate);
+
     List<RecoveryFlowCandidate> result =
         repository.findPage(DAY, 0, 100);
 
     assertEquals(
         List.of(
             new RecoveryFlowCandidate(
-                68L, "2026-10-02-FLOW-A", 1L, "PSP-A", "DOMAIN-A"),
+                68L, "2026-10-02-FLOW-A", 1L, "PSP-A", "DOMAIN-A",firstFlowDate),
             new RecoveryFlowCandidate(
-                74L, "2026-10-02-FLOW-B", 2L, "PSP-B", "DOMAIN-B")),
+                74L, "2026-10-02-FLOW-B", 2L, "PSP-B", "DOMAIN-B", secondFlowDate)),
         result);
 
     assertEquals(
@@ -164,6 +171,28 @@ class RecoveryFlowRepositoryTest {
             () -> repository.findPage(DAY, 0, 100));
 
     assertEquals("Missing required value: revision", failure.getMessage());
+
+    verify(resultSet).close();
+    verify(statement).close();
+    verify(connection).close();
+  }
+
+  @Test
+  void shouldRejectMissingFlowDate() throws SQLException {
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getObject("id", Long.class)).thenReturn(68L);
+    when(resultSet.getObject("revision", Long.class)).thenReturn(1L);
+    when(resultSet.getObject("flow_date", LocalDateTime.class))
+        .thenReturn(null);
+
+    SQLException failure =
+        assertThrows(
+            SQLException.class,
+            () -> repository.findPage(DAY, 0, 100));
+
+    assertEquals(
+        "Missing required value: flow_date",
+        failure.getMessage());
 
     verify(resultSet).close();
     verify(statement).close();

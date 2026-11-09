@@ -8,6 +8,8 @@ import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryDiscoveryItem;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFlowPresenceIndex;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,7 +42,8 @@ class RecoveryDiscoveryItemTableMapperTest {
             "flow-1",
             2L,
             "88888888888",
-            "77777777777"),
+            "77777777777",
+            LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_123_000)),
         presence,
         presentRows);
   }
@@ -52,24 +55,24 @@ class RecoveryDiscoveryItemTableMapperTest {
 
   @ParameterizedTest
   @EnumSource(RecoveryFlowPresenceIndex.Presence.class)
-  void shouldRoundTripBothPresenceStates(
-      RecoveryFlowPresenceIndex.Presence presence) {
+  void shouldRoundTripBothPresenceStates(RecoveryFlowPresenceIndex.Presence presence) {
 
-    RecoveryDiscoveryItem original = item(presence);
+      RecoveryDiscoveryItem original = item(presence);
 
-    TableEntity entity = mapper.toEntity(original);
-    RecoveryDiscoveryItem restored = mapper.toItem(entity);
+      TableEntity entity = mapper.toEntity(original);
+      RecoveryDiscoveryItem restored = mapper.toItem(entity);
 
-    assertEquals(original, restored);
-    assertEquals(original.partitionKey(), entity.getPartitionKey());
-    assertEquals(original.rowKey(), entity.getRowKey());
-    assertEquals("1", entity.getProperties().get("SchemaVersion"));
-    assertEquals(68L, entity.getProperties().get("FlowId"));
-    assertEquals(2L, entity.getProperties().get("Revision"));
+      assertEquals(original, restored);
+      assertEquals(original.partitionKey(), entity.getPartitionKey());
+      assertEquals(original.rowKey(), entity.getRowKey());
+      assertEquals("2", entity.getProperties().get("SchemaVersion"));
+      assertEquals(68L, entity.getProperties().get("FlowId"));
+      assertEquals(2L, entity.getProperties().get("Revision"));
+      assertEquals(original.candidate().flowDate().toString(), entity.getProperties().get("FlowDate"));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"0", "2", " "})
+  @ValueSource(strings = {"0", "1", "3", " "})
   void shouldRejectUnsupportedSchemaVersion(String version) {
     TableEntity entity = absentEntity();
     entity.addProperty("SchemaVersion", version);
@@ -139,6 +142,16 @@ class RecoveryDiscoveryItemTableMapperTest {
 
     assertThrows(
         IllegalArgumentException.class,
+        () -> mapper.toItem(entity));
+  }
+
+  @Test
+  void shouldRejectInvalidFlowDate() {
+    TableEntity entity = absentEntity();
+    entity.addProperty("FlowDate", "not-a-date");
+
+    assertThrows(
+        DateTimeParseException.class,
         () -> mapper.toItem(entity));
   }
 }

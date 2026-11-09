@@ -25,6 +25,7 @@ import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFlowPresenceIndex;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -55,7 +56,8 @@ class RecoveryDiscoveryItemRepositoryTest {
             "flow-1",
             revision,
             "88888888888",
-            "77777777777"),
+            "77777777777",
+            LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000)),
         presence,
         presence == RecoveryFlowPresenceIndex.Presence.ABSENT
             ? 0L

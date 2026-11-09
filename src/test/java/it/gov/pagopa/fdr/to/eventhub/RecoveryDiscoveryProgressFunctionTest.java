@@ -197,6 +197,35 @@ class RecoveryDiscoveryProgressFunctionTest {
         payload(result).get("message").asText());
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"2026-02-30", "2026-13-01"})
+  void shouldExplainNonexistentCalendarDate(String day)
+      throws Exception {
+
+    HttpResponseMessage result =
+        function.get(request, JOB_ID.toString(), day, context);
+
+    assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
+    assertEquals(
+        "day must be an existing calendar date",
+        payload(result).get("message").asText());
+
+    verifyNoInteractions(service);
+  }
+
+  @Test
+  void shouldExplainInvalidDateFormat() throws Exception {
+    HttpResponseMessage result =
+        function.get(request, JOB_ID.toString(), "2026-2-03", context);
+
+    assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
+    assertEquals(
+        "day must use YYYY-MM-DD format",
+        payload(result).get("message").asText());
+
+    verifyNoInteractions(service);
+  }
+
   private JsonNode payload(HttpResponseMessage result) throws Exception {
     return new ObjectMapper().readTree((String) result.getBody());
   }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFlowPresenceIndex;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,25 +24,13 @@ class RecoveryDiscoveryCheckpointTest {
     return RecoveryDiscoveryCheckpoint.start(JOB_ID, DAY);
   }
 
-  private RecoveryDiscoveryItem item(
-      UUID jobId,
-      LocalDate day,
-      long flowId,
-      RecoveryFlowPresenceIndex.Presence presence) {
+  private RecoveryDiscoveryItem item(UUID jobId, LocalDate day, long flowId,
+          RecoveryFlowPresenceIndex.Presence presence) {
 
-    return new RecoveryDiscoveryItem(
-        jobId,
-        day,
-        new RecoveryFlowCandidate(
-            flowId,
-            "flow-" + flowId,
-            1L,
-            "88888888888",
-            "77777777777"),
-        presence,
-        presence == RecoveryFlowPresenceIndex.Presence.ABSENT
-            ? 0L
-            : 25L);
+      return new RecoveryDiscoveryItem(jobId, day,
+              new RecoveryFlowCandidate(flowId, "flow-" + flowId, 1L, "88888888888", "77777777777",
+                      LocalDateTime.of(2026, 10, 2, 12, 43, 18, 448_000_000)),
+              presence, presence == RecoveryFlowPresenceIndex.Presence.ABSENT ? 0L : 25L);
   }
 
   private RecoveryDiscoveryItem absent(long flowId) {
