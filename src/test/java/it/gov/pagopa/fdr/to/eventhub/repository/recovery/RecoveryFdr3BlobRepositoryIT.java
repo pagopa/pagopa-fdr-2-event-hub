@@ -11,6 +11,7 @@ import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -136,7 +137,7 @@ class RecoveryFdr3BlobRepositoryIT {
     List<String> values =
         snapshot.metadata().entrySet().stream()
             .filter(entry -> name.equalsIgnoreCase(entry.getKey()))
-            .map(entry -> entry.getValue())
+            .map(Map.Entry::getValue)
             .toList();
 
     assertEquals(

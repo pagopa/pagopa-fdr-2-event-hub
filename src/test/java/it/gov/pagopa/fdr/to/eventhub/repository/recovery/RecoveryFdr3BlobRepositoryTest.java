@@ -212,9 +212,11 @@ class RecoveryFdr3BlobRepositoryTest {
 
     assertEquals(SESSION_ID, result.metadata().get("sessionId"));
 
+    Map<String, String> storedMetadata = result.metadata();
+
     assertThrows(
         UnsupportedOperationException.class,
-        () -> result.metadata().put("sessionId", "another-value"));
+        () -> storedMetadata.put("sessionId", "another-value"));
   }
 
   @Test
