@@ -61,4 +61,36 @@ class AppInsightTelemetryClientTest {
     );
   }
 
+  @Test
+  void createCustomEventForAlertWithNestedCause() {
+
+    Exception rootCause = new RuntimeException("root cause error");
+    Exception exception = new IllegalArgumentException(
+        "test error",
+        rootCause
+    );
+
+    sut.createCustomEventForAlert(
+        ErrorCodes.FDR1_E1,
+        "error detail",
+        exception
+    );
+
+    ArgumentCaptor<Map<String, String>> propertiesCaptor =
+        ArgumentCaptor.forClass(Map.class);
+
+    verify(telemetryClientMock).trackEvent(
+        eq("FDR_TO_EVH_ALERT"),
+        propertiesCaptor.capture(),
+        isNull()
+    );
+
+    Map<String, String> properties = propertiesCaptor.getValue();
+
+    assertEquals(
+        "root cause error",
+        properties.get("cause")
+    );
+  }
+
 }

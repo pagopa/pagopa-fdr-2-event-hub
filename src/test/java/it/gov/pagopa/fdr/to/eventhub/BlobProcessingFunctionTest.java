@@ -870,6 +870,27 @@ class BlobProcessingFunctionTest {
     verifyNoInteractions(aiTelemetryClientMock);
   }
 
+  @ParameterizedTest
+  @MethodSource("invalidMetadataProvider")
+  void testFDR3InvalidMetadataSkipsProcessing(
+      Map<String, String> metadata) {
+
+    ExecutionContext context = mock(ExecutionContext.class);
+    BlobClient blobClient = mock(BlobClient.class);
+
+    assertDoesNotThrow(() ->
+        function.processFDR3BlobFiles(
+            blobClient,
+            "sampleBlob",
+            metadata,
+            context
+        )
+    );
+
+    verify(blobClient, never()).openInputStream();
+    verifyNoInteractions(aiTelemetryClientMock);
+  }
+
   private static Stream<Arguments> invalidMetadataProvider() {
     return Stream.of(
         Arguments.of((Map<String, String>) null),
@@ -886,11 +907,7 @@ class BlobProcessingFunctionTest {
             "sessionId", "test-session-123",
             "insertedTimestamp", "2026-11-10T10:00:00",
             "elaborate", "false"
-        ),
-        Arguments.of(Map.of(
-            "sessionId", "test-session-123",
-            "insertedTimestamp", "2026-11-10T10:00:00"
-        )))
+        ))
     );
   }
 }
