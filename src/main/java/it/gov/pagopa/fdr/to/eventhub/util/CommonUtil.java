@@ -399,7 +399,7 @@ public class CommonUtil {
           if (!currentBatch.tryAdd(eventData)) {
             if (currentBatch.getCount() > 0) {
               eventHubClientReportedIUV.send(currentBatch);
-              logger.info("Sent a batch of " + currentBatch.getCount() + " payment events.");
+              logger.info("Sent a batch of {} payment events.", currentBatch.getCount());
             }
 
             // create a new batch
@@ -417,14 +417,14 @@ public class CommonUtil {
         // send last batch if it has events
         if (currentBatch.getCount() > 0) {
           eventHubClientReportedIUV.send(currentBatch);
-          logger.info("Sent final batch of " + currentBatch.getCount() + " payment events.");
+          logger.info("Sent final batch of {} payment events.", currentBatch.getCount());
         }
 
         logger.info("Finished sending all payment events.");
 
       } catch (Exception e) {
         // catch errors during sending or serialization
-        logger.error("Error while processing or sending payment events stream: " + e.getMessage());
+        logger.error("Error while processing or sending payment events stream: {}", e.getMessage());
         allPaymentEventsSent = false;
       }
 
