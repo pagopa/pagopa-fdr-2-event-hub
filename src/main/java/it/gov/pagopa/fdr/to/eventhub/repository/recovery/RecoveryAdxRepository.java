@@ -21,6 +21,11 @@ import java.util.UUID;
 public final class RecoveryAdxRepository {
 
   private static final int MAX_GROUPS = 100_000;
+  private static final String FLOW_NAME_COLUMN = "ID_FLUSSO";
+  private static final String PSP_COLUMN = "PSP";
+  private static final String ORGANIZATION_COLUMN = "ID_DOMINIO";
+  private static final String PUBLICATION_ID_COLUMN = "PublicationId";
+  private static final String PRESENT_ROWS_COLUMN = "PresentRows";
 
   private final Client client;
   private final String database;
@@ -79,10 +84,10 @@ public final class RecoveryAdxRepository {
     KustoResultSetTable table = primaryTables.get(0);
 
     // Validate the expected columns even when the result contains no rows.
-    table.findColumn("ID_FLUSSO");
-    table.findColumn("PSP");
-    table.findColumn("ID_DOMINIO");
-    table.findColumn("PresentRows");
+    table.findColumn(FLOW_NAME_COLUMN);
+    table.findColumn(PSP_COLUMN);
+    table.findColumn(ORGANIZATION_COLUMN);
+    table.findColumn(PRESENT_ROWS_COLUMN);
 
     List<RecoveryAdxFlowPresence> flows = new ArrayList<>();
 
@@ -92,7 +97,7 @@ public final class RecoveryAdxRepository {
             "ADX daily result exceeds the supported number of groups");
       }
 
-      Long presentRows = table.getLongObject("PresentRows");
+      Long presentRows = table.getLongObject(PRESENT_ROWS_COLUMN);
 
       if (presentRows == null) {
         throw new IllegalStateException("ADX returned a null PresentRows");
@@ -100,9 +105,9 @@ public final class RecoveryAdxRepository {
 
       flows.add(
           new RecoveryAdxFlowPresence(
-              table.getString("ID_FLUSSO"),
-              table.getString("PSP"),
-              table.getString("ID_DOMINIO"),
+              table.getString(FLOW_NAME_COLUMN),
+              table.getString(PSP_COLUMN),
+              table.getString(ORGANIZATION_COLUMN),
               presentRows));
     }
 
@@ -131,14 +136,14 @@ public final class RecoveryAdxRepository {
               throw new IllegalStateException("ADX returned a publication outside the requested batch");
           }
 
-          Long presentRows = table.getLongObject("PresentRows");
+          Long presentRows = table.getLongObject(PRESENT_ROWS_COLUMN);
 
           if (presentRows == null) {
               throw new IllegalStateException("ADX returned a null PresentRows");
           }
 
-          presences.add(new RecoveryAdxPublicationPresence(day, table.getString("ID_FLUSSO"), table.getString("PSP"),
-                  table.getString("ID_DOMINIO"), publicationId, presentRows));
+          presences.add(new RecoveryAdxPublicationPresence(day, table.getString(FLOW_NAME_COLUMN), table.getString("PSP"),
+                  table.getString(ORGANIZATION_COLUMN), publicationId, presentRows));
       }
 
       return List.copyOf(presences);
@@ -170,18 +175,18 @@ public final class RecoveryAdxRepository {
       var table = primaryTables.get(0);
 
       // Validate the schema even when the result contains no rows.
-      table.findColumn("ID_FLUSSO");
-      table.findColumn("PSP");
-      table.findColumn("ID_DOMINIO");
-      table.findColumn("PublicationId");
-      table.findColumn("PresentRows");
+      table.findColumn(FLOW_NAME_COLUMN);
+      table.findColumn(PSP_COLUMN);
+      table.findColumn(ORGANIZATION_COLUMN);
+      table.findColumn(PUBLICATION_ID_COLUMN);
+      table.findColumn(PRESENT_ROWS_COLUMN);
 
       return table;
   }
 
   private static UUID requiredPublicationId(KustoResultSetTable table) {
 
-      String value = table.getString("PublicationId");
+      String value = table.getString(PUBLICATION_ID_COLUMN);
 
       if (value == null || value.isBlank()) {
           throw new IllegalStateException("ADX returned a missing PublicationId");

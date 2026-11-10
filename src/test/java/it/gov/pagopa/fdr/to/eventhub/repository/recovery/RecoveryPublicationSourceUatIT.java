@@ -8,13 +8,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+
+import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryAdxClientFactory;
+import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryAdxConfiguration;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationSource;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.*;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -149,6 +158,102 @@ class RecoveryPublicationSourceUatIT {
                     + "sessionId=%s, blob=%s, eventFlowDate=%s, writes=none%n",
             candidate.flowId(), candidate.revision(), selected.source().sourceType(), selected.source().sessionId(),
             selected.source().blob().blobName(), selected.source().eventFlowDate());
+  }
+
+  @Test
+  @EnabledIfEnvironmentVariable(
+      named = "RECOVERY_ADX_UAT_INTEGRATION_TESTS",
+      matches = "true")
+  void shouldCompareSelectedUatPublicationsAgainstAdx()
+      throws Exception {
+
+    String clusterUrl =
+        System.getenv("RECOVERY_ADX_UAT_CLUSTER_URL");
+
+    assertNotNull(
+        clusterUrl, "RECOVERY_ADX_UAT_CLUSTER_URL is required");
+
+    assertEquals(
+        "https://pagopaudataexplorer.westeurope.kusto.windows.net",
+        clusterUrl,
+        "This integration test must target the verified UAT cluster");
+
+    var configuration =
+        new RecoveryAdxConfiguration(
+            clusterUrl,
+            "re",
+            RecoveryAdxConfiguration.AuthMode.AZURE_CLI,
+            60);
+
+    var factory = new RecoveryAdxClientFactory(configuration);
+
+    var repository =
+        new RecoveryAdxRepository(factory.client(), "re", 60);
+
+    var batchService =
+        new RecoveryPublicationBatchService(
+            inspector(uatService()),
+            new RecoveryPublicationSourceSelector(
+                new RecoveryPublicationSourceMapper(
+                    new RecoveryFdr1DateNormalizer())),
+            new RecoveryPublicationPresenceService(repository));
+
+    var nativeCandidates =
+        List.of(
+            nativeCandidate(
+                155333L, 1L, "2026-10-05T10:31:35"),
+            nativeCandidate(
+                155336L, 2L, "2026-10-05T10:32:35"),
+            nativeCandidate(
+                155735L, 3L, "2026-10-05T15:32:35"));
+
+    var expectedNativeSessions =
+        Map.of(
+            155333L, "6fd3e2eb-1d1d-4068-ba74-fa9866141524",
+            155336L, "24fea4e9-c5d3-4d21-b74b-d51be0774d11",
+            155735L, "6456ec11-a040-4129-97de-b75369990280");
+
+    LocalDate nativeDay = LocalDate.of(2026, 10, 1);
+
+    var nativeResults =
+        batchService.compare(nativeDay, nativeCandidates);
+
+    assertBatchPresent(
+        nativeDay,
+        nativeResults,
+        expectedNativeSessions,
+        RecoveryPublicationSource.SourceType.FDR3_JSON);
+
+    var xmlCandidate =
+        new RecoveryFlowCandidate(
+            155487L,
+            "2026-10-09ABI06270-PPA7777801000620",
+            1L,
+            "ABI06270",
+            "77777777777",
+            LocalDateTime.parse("2026-10-08T23:00:06.208"));
+
+    LocalDate xmlDay = LocalDate.of(2026, 10, 8);
+
+    var xmlResults =
+        batchService.compare(xmlDay, List.of(xmlCandidate));
+
+    assertBatchPresent(
+        xmlDay,
+        xmlResults,
+        Map.of(
+            155487L, "ec92305b-47b2-4553-9599-ff086c5dfd93"),
+        RecoveryPublicationSource.SourceType.FDR1_XML);
+
+    var xmlCompared =
+        assertInstanceOf(
+            RecoveryPublicationBatchService.Compared.class,
+            xmlResults.get(0));
+
+    assertEquals(
+        java.time.Instant.parse(
+            "2026-10-08T23:00:06.208475643Z"),
+        xmlCompared.comparison().source().eventFlowDate());
   }
 
   private static List<RecoveryFdr1SourceVerifier.Result> xmlInspections(
@@ -330,5 +435,35 @@ class RecoveryPublicationSourceUatIT {
         "CIPBITMM",
         "81000730077",
         LocalDateTime.parse(date));
+  }
+
+  private static void assertBatchPresent(LocalDate day, List<RecoveryPublicationBatchService.Result> results,
+          Map<Long, String> expectedSessions, RecoveryPublicationSource.SourceType expectedType) {
+
+      assertEquals(expectedSessions.size(), results.size());
+
+      var actualFlowIds = results.stream().map(result -> result.candidate().flowId()).collect(Collectors.toSet());
+
+      assertEquals(expectedSessions.keySet(), actualFlowIds);
+
+      for (var result : results) {
+          var compared = assertInstanceOf(RecoveryPublicationBatchService.Compared.class, result);
+
+          var comparison = compared.comparison();
+          var source = comparison.source();
+
+          assertEquals(day, comparison.paymentDay());
+          assertEquals(expectedType, source.sourceType());
+
+          assertEquals(expectedSessions.get(source.candidate().flowId()), source.sessionId());
+
+          assertEquals(RecoveryPublicationPresenceIndex.Presence.PRESENT_UNVERIFIED, comparison.presence());
+
+          System.out.printf(
+                  "UAT full publication comparison verified: " + "day=%s, flowId=%d, revision=%d, "
+                          + "sourceType=%s, sessionId=%s, " + "presence=%s, rows=%d, writes=none%n",
+                  day, source.candidate().flowId(), source.candidate().revision(), source.sourceType(),
+                  source.sessionId(), comparison.presence(), comparison.presentRows());
+      }
   }
 }

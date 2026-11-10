@@ -112,9 +112,7 @@ class RecoveryPublicationPresenceServiceTest {
 
     var result = service.compare(DAY, List.of(source));
 
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> result.clear());
+    assertThrows(UnsupportedOperationException.class, result::clear);
   }
 
   @Test
