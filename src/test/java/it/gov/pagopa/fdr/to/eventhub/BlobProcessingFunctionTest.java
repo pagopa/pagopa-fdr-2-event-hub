@@ -12,7 +12,6 @@ import static org.mockito.Mockito.*;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.RetryContext;
@@ -46,7 +45,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.AdditionalAnswers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -888,7 +886,11 @@ class BlobProcessingFunctionTest {
             "sessionId", "test-session-123",
             "insertedTimestamp", "2026-11-10T10:00:00",
             "elaborate", "false"
-        ))
+        ),
+        Arguments.of(Map.of(
+            "sessionId", "test-session-123",
+            "insertedTimestamp", "2026-11-10T10:00:00"
+        )))
     );
   }
 }
