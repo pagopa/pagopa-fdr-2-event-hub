@@ -262,6 +262,8 @@ public class BlobProcessingFunction {
           flow = CommonUtil.parseJSON(gzipStream);
           flow.setMetadata(blobMetadata);
 
+          simulateOutOfMemory();
+
           String flowId = flow.getFdr();
 
           logger.info(
@@ -322,6 +324,10 @@ public class BlobProcessingFunction {
         flow.releaseResources();
       }
     }
+  }
+
+  private void simulateOutOfMemory() {
+    throw new OutOfMemoryError("Simulated OOM for testing");
   }
 
   private void updateBlobStatus(
