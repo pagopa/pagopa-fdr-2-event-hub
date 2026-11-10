@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "1.1.0"
+    tag: "1.1.0-1-PIDM-2586-tag-processingStatus-simulate-OOM"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   # livenessProbe:
@@ -174,6 +174,7 @@ fdr3-blobtrigger:
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhubfdr3"
     AzureFunctionsJobHost__functions__0: "Info"
     AzureFunctionsJobHost__functions__1: "ProcessFDR3BlobFiles"
+    SIMULATE_OOM: "true"
     # AzureFunctionsJobHost__logging__logLevel__default: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Results: "Debug"
     # AzureFunctionsJobHost__logging__logLevel__Host__Aggregator: "Debug"

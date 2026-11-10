@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
@@ -69,6 +70,12 @@ public class BlobProcessingFunction {
     }
   }
 
+  private enum BlobProcessingStatus {
+    IN_ELABORAZIONE,
+    ERRORE,
+    ELABORATO
+  }
+
   public BlobProcessingFunction() {
     this.eventHubClientFlowTx =
         ClientsHolder.EVENT_HUB_CLIENT_FLOW_TX;
@@ -103,13 +110,13 @@ public class BlobProcessingFunction {
           @BindingName("Metadata") Map<String, String> blobMetadata,
           final ExecutionContext context) {
 
-
+    updateBlobStatus(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR1");
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
       logger.warn(
-          "[FDR3] Skipping blob: {}. "
+          "[FDR1] Skipping blob: {}. "
               + "metadataNull={}, "
               + "sessionIdPresent={}, "
               + "insertedTimestampPresent={}, "
@@ -121,6 +128,7 @@ public class BlobProcessingFunction {
           blobMetadata != null
               && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
       );
+      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
       return; // Skip execution
     }
 
@@ -166,9 +174,11 @@ public class BlobProcessingFunction {
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr1Container,
                   blobName);
+          updateBlobStatus(blobClient, BlobProcessingStatus.ELABORATO, "FDR1");
         }
       }
       else {
+        updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR1_E1_1.getCode(),
@@ -180,6 +190,7 @@ public class BlobProcessingFunction {
       }
 
     } catch (Exception e) {
+      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
       String exceptionDetails =
               getExceptionDetails(
                       ErrorCodes.FDR1_E1.getCode(),
@@ -213,6 +224,8 @@ public class BlobProcessingFunction {
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
+    updateBlobStatus(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR3");
+
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
@@ -230,6 +243,7 @@ public class BlobProcessingFunction {
           blobMetadata != null
               && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
       );
+      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR3");
       return; // Skip execution
     }
 
@@ -247,6 +261,8 @@ public class BlobProcessingFunction {
         try (GZIPInputStream gzipStream = new GZIPInputStream(resultGzip.key)) {
           flow = CommonUtil.parseJSON(gzipStream);
           flow.setMetadata(blobMetadata);
+
+          simulateOutOfMemory();
 
           String flowId = flow.getFdr();
 
@@ -274,9 +290,11 @@ public class BlobProcessingFunction {
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr3Container,
                   blobName);
+          updateBlobStatus(blobClient, BlobProcessingStatus.ELABORATO, "FDR3");
         }
       }
       else {
+        updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE,"FDR3");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR3_E1_1.getCode(),
@@ -287,6 +305,7 @@ public class BlobProcessingFunction {
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1_1, exceptionDetails, null);
       }
     } catch (Exception  e) {
+      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR3");
       String exceptionDetails =
           getExceptionDetails(
               ErrorCodes.FDR3_E1.getCode(),
@@ -304,6 +323,34 @@ public class BlobProcessingFunction {
       if (flow != null) {
         flow.releaseResources();
       }
+    }
+  }
+
+  private void simulateOutOfMemory() {
+    if (Boolean.parseBoolean(
+        System.getenv().getOrDefault("SIMULATE_OOM", "false"))) {
+
+      logger.warn("Simulating OutOfMemoryError for testing");
+      throw new OutOfMemoryError("Simulated OOM for testing");
+    }
+  }
+
+  private void updateBlobStatus(
+      BlobClient blobClient,
+      BlobProcessingStatus status,
+      String fdrType) {
+
+    try {
+      Map<String, String> tags = new HashMap<>(blobClient.getTags());
+      tags.put("processingStatus", status.name());
+      blobClient.setTags(tags);
+
+      logger.info("[{}] Blob {} status updated to {}",
+          fdrType, blobClient.getBlobName(), status);
+
+    } catch (Exception e) {
+      logger.error("[{}] Failed to update blob {} status to {}",
+          fdrType, blobClient.getBlobName(), status, e);
     }
   }
 }
