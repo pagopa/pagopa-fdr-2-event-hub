@@ -167,7 +167,7 @@ class BlobProcessingFunctionTest {
 //  }
 
   @Test
-  void testFDR1ProcessBlobWithInvalidGzipData() throws IOException {
+  void testFDR1ProcessBlobWithInvalidGzipData() throws IOException{
     doReturn(retryContext).when(executionContext).getRetryContext();
     doReturn(1).when(retryContext).getMaxretrycount();
     byte[] invalidData = "invalidData".getBytes(StandardCharsets.UTF_8);
@@ -186,12 +186,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blob = mockBlob(invalidData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(invalidData), "sampleBlob", metadata, executionContext));
+                      blob, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -222,12 +223,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient , "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -259,12 +261,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -350,13 +353,13 @@ class BlobProcessingFunctionTest {
           });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient , "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -386,12 +389,14 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -481,12 +486,14 @@ class BlobProcessingFunctionTest {
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(1).when(retryContext).getMaxretrycount();
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR3BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -513,12 +520,14 @@ class BlobProcessingFunctionTest {
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(5).when(retryContext).getMaxretrycount();
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR3BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                     blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -555,9 +564,6 @@ class BlobProcessingFunctionTest {
 
       EventHubProducerClient reportedIuvClient =
           mock(EventHubProducerClient.class);
-
-      BlobServiceClient blobServiceClient =
-          mock(BlobServiceClient.class);
 
       mockedCommonUtil
           .when(() ->
@@ -656,12 +662,14 @@ class BlobProcessingFunctionTest {
                 return new CommonUtil.Pair<>(in, true);
               });
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       OutOfMemoryError thrown =
           assertThrows(
               OutOfMemoryError.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData),
+                      blobClient,
                       "sampleBlob",
                       metadata,
                       executionContext));

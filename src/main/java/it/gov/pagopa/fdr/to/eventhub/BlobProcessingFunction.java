@@ -116,7 +116,7 @@ public class BlobProcessingFunction {
               + "elaborateFalse={}",
           blobName,
           blobMetadata == null,
-          blobMetadata != null && blobMetadata.containsKey("sessionId"),
+          blobMetadata != null && blobMetadata.containsKey(SESSION_ID_METADATA_KEY),
           blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
           blobMetadata != null
               && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
@@ -225,7 +225,7 @@ public class BlobProcessingFunction {
               + "elaborateFalse={}",
           blobName,
           blobMetadata == null,
-          blobMetadata != null && blobMetadata.containsKey("sessionId"),
+          blobMetadata != null && blobMetadata.containsKey(SESSION_ID_METADATA_KEY),
           blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
           blobMetadata != null
               && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
