@@ -327,7 +327,12 @@ public class BlobProcessingFunction {
   }
 
   private void simulateOutOfMemory() {
-    throw new OutOfMemoryError("Simulated OOM for testing");
+    if (Boolean.parseBoolean(
+        System.getenv().getOrDefault("SIMULATE_OOM", "false"))) {
+
+      logger.warn("Simulating OutOfMemoryError for testing");
+      throw new OutOfMemoryError("Simulated OOM for testing");
+    }
   }
 
   private void updateBlobStatus(
