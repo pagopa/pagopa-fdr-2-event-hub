@@ -2,8 +2,6 @@ package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
 import java.io.IOException;
 import java.time.DateTimeException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -206,9 +204,8 @@ public final class RecoveryFdr1ReportReader {
     }
 
     private ReportIdentity identity() throws IOException {
-      String date = required(Field.DATE);
 
-      LocalDateTime.parse(date, DateTimeFormatter.ISO_DATE_TIME);
+      String date = RecoveryFdr1DateSyntax.validate(required(Field.DATE));
 
       long declared =
           Long.parseLong(required(Field.DECLARED_COUNT));

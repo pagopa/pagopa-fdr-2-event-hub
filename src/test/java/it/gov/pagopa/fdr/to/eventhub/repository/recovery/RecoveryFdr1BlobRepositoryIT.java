@@ -34,6 +34,7 @@ import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFdr3SourceInspecto
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryFdr3SourceVerifier;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryPublicationSourceInspector;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryPublicationSourceMapper;
+import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryPublicationSourceSelector;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -872,6 +873,37 @@ class RecoveryFdr1BlobRepositoryIT {
     assertEquals(
         RecoveryPublicationSource.SourceType.FDR1_XML,
         xmlSource.sourceType());
+
+    assertFalse(json.metadata().elaborate());
+    assertFalse(xml.source().metadata().elaborate());
+
+    var selector =
+        new RecoveryPublicationSourceSelector(
+            new RecoveryPublicationSourceMapper(
+                new RecoveryFdr1DateNormalizer()));
+
+    var selection = selector.select(result);
+
+    var unresolved =
+        assertInstanceOf(
+            RecoveryPublicationSourceSelector.Unresolved.class,
+            selection);
+
+    assertEquals(
+        RecoveryPublicationSourceSelector.UnresolvedReason
+            .ORIGIN_UNDETERMINED,
+        unresolved.reason());
+
+    assertEquals(result, unresolved.evidence());
+
+    System.out.printf(
+        "DEV ambiguous publication preserved: "
+            + "flowId=%d, reason=%s, "
+            + "jsonSessionId=%s, xmlSessionId=%s, writes=none%n",
+        candidate.flowId(),
+        unresolved.reason(),
+        json.metadata().sessionId(),
+        xml.source().metadata().sessionId());
 
     System.out.printf(
         "DEV publication source evidence: "

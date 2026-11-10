@@ -137,6 +137,23 @@ class RecoveryFdr1IdentityMatcherTest {
         LocalDateTime.parse("2026-10-29T16:39:37.810"));
   }
 
+  @Test
+  void shouldMatchXmlDateProjectedToPostgresMilliseconds() {
+    var candidate = candidate();
+
+    var identity =
+        identity(
+            FLOW,
+            PSP,
+            ORGANIZATION,
+            "2026-10-29T16:39:37.810475Z");
+
+    var comparison = matcher.compare(candidate, identity);
+
+    assertTrue(comparison.matches());
+    assertEquals(Set.of(), comparison.differences());
+  }
+
   private static RecoveryFdr1EnvelopeReader.RequestIdentity identity(
       String name,
       String psp,

@@ -140,7 +140,7 @@ class RecoveryFdr1SourceInspectorTest {
   }
 
   @Test
-  void shouldStopWhenDownloadFails() throws IOException {
+  void shouldStopWhenDownloadFails() {
     var failure = new IllegalStateException("Download failed");
 
     when(contentRepository.download(blob)).thenThrow(failure);

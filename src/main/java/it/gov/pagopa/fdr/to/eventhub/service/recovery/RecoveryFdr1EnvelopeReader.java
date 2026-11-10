@@ -1,10 +1,8 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
-import java.io.ByteArrayInputStream;
+
 import java.io.IOException;
 import java.time.DateTimeException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,33 +97,27 @@ public final class RecoveryFdr1EnvelopeReader {
       }
     }
 
-    private void validateStructure(String uri, String name)
-        throws SAXException {
+    private void validateStructure(String uri, String name) throws SAXException {
 
-      if (path.size() == 1) {
-        if (!"Envelope".equals(name)
-            || !SOAP_NAMESPACES.contains(uri)) {
+        if (path.size() == 1) {
+            if (!"Envelope".equals(name) || !SOAP_NAMESPACES.contains(uri)) {
 
-          throw new SAXException("Expected SOAP Envelope");
+                throw new SAXException("Expected SOAP Envelope");
+            }
+
+            soapNamespace = uri;
         }
 
-        soapNamespace = uri;
-      }
+        if (path.size() == 2 && "Body".equals(name) && (!soapNamespace.equals(uri) || ++bodies > 1)) {
 
-      if (path.size() == 2 && "Body".equals(name)) {
-        if (!soapNamespace.equals(uri) || ++bodies > 1) {
-          throw new SAXException("Expected one SOAP Body");
+            throw new SAXException("Expected one SOAP Body");
         }
-      }
 
-      if (path.size() == 3
-          && "Body".equals(path.get(1))
-          && REQUEST.equals(name)) {
+        if (path.size() == 3 && "Body".equals(path.get(1)) && REQUEST.equals(name)
+                && (!REQUEST_NAMESPACE.equals(uri) || ++requests > 1)) {
 
-        if (!REQUEST_NAMESPACE.equals(uri) || ++requests > 1) {
-          throw new SAXException("Expected one FDR1 request");
+            throw new SAXException("Expected one FDR1 request");
         }
-      }
     }
 
     private boolean isRequestChild() {
@@ -204,10 +196,8 @@ public final class RecoveryFdr1EnvelopeReader {
         throw new IOException("Missing FDR1 request or payload");
       }
 
-      String date = required(FLOW_DATE);
-
-      // Validate syntax without assigning a timezone or losing precision.
-      LocalDateTime.parse(date, DateTimeFormatter.ISO_DATE_TIME);
+      String date =
+              RecoveryFdr1DateSyntax.validate(required(FLOW_DATE));
 
       return new RequestIdentity(
           required(FLOW_NAME),

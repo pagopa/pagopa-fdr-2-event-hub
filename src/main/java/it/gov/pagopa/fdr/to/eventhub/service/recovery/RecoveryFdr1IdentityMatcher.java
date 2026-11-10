@@ -8,6 +8,8 @@ import java.util.Set;
 
 public final class RecoveryFdr1IdentityMatcher {
 
+  private final RecoveryFdr1FlowDateMatcher flowDateMatcher = new RecoveryFdr1FlowDateMatcher();
+
   public enum Field {
     FLOW_NAME,
     PSP_DOMAIN_ID,
@@ -62,8 +64,8 @@ public final class RecoveryFdr1IdentityMatcher {
     var expectedDate = candidate.flowDate().toInstant(ZoneOffset.UTC);
     var actualDate = dateNormalizer.normalize(identity.flowDate());
 
-    if (!expectedDate.equals(actualDate)) {
-      differences.add(Field.FLOW_DATE);
+    if (flowDateMatcher.compare(expectedDate, actualDate) == RecoveryFdr1FlowDateMatcher.Match.DIFFERENT) {
+        differences.add(Field.FLOW_DATE);
     }
 
     return new Comparison(differences);

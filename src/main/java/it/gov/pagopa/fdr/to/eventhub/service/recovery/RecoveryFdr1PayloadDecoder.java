@@ -66,18 +66,15 @@ public final class RecoveryFdr1PayloadDecoder {
       XMLStreamReader parser = resource.parser();
 
       while (parser.hasNext()) {
-        switch (parser.next()) {
-          case XMLStreamConstants.START_ELEMENT ->
-              state.start(parser);
-          case XMLStreamConstants.END_ELEMENT ->
-              state.end();
-          case XMLStreamConstants.DTD,
-              XMLStreamConstants.ENTITY_REFERENCE ->
-              throw new IOException(
-                  "DTD and entity references are not allowed");
+          switch (parser.next()) {
+          case XMLStreamConstants.START_ELEMENT -> state.start(parser);
+          case XMLStreamConstants.END_ELEMENT -> state.end();
+          case XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE ->
+              throw new IOException("DTD and entity references are not allowed");
           default -> {
+              // Other XML events carry no envelope structure to validate here.
           }
-        }
+          }
       }
 
       return state.result();
@@ -88,147 +85,123 @@ public final class RecoveryFdr1PayloadDecoder {
     }
   }
 
-  private byte[] decodeElement(XMLStreamReader parser)
-      throws IOException {
-
-    ElementInputStream encoded = new ElementInputStream(parser);
-
-    try (InputStream decoded =
-        Base64.getDecoder().wrap(encoded)) {
-
-      ByteArrayOutputStream output =
-          new ByteArrayOutputStream(
-              Math.min(8192, maxDecodedBytes));
-
-      byte[] buffer = new byte[8192];
-
-      while (true) {
-        int remaining = maxDecodedBytes - output.size();
-
-        int requested =
-            (int) Math.min(buffer.length, (long) remaining + 1);
-
-        int read = decoded.read(buffer, 0, requested);
-
-        if (read == -1) {
-          break;
-        }
-
-        if (read > remaining) {
-          throw new IOException(
-              "Decoded XML exceeds maxDecodedBytes");
-        }
-
-        output.write(buffer, 0, read);
-      }
-
-      if (encoded.read() != -1) {
-        throw new IOException(
-            "Unexpected content after Base64 padding");
-      }
-
-      return output.toByteArray();
-    }
-  }
-
   private final class ScanState {
 
-    private final List<String> path = new ArrayList<>();
+      private final List<String> path = new ArrayList<>();
 
-    private String soapNamespace;
-    private int bodies;
-    private int requests;
-    private int payloads;
-    private byte[] content;
+      private String soapNamespace;
+      private int bodies;
+      private int requests;
+      private int payloads;
+      private byte[] content;
 
-    private boolean requestPath() {
-      return path.size() >= 3
-          && "Body".equals(path.get(1))
-          && REQUEST.equals(path.get(2));
-    }
-
-    private void start(XMLStreamReader parser)
-        throws IOException {
-
-      path.add(parser.getLocalName());
-
-      if (path.size() > 64) {
-        throw new IOException("XML nesting limit exceeded");
+      private boolean requestPath() {
+          return path.size() >= 3 && "Body".equals(path.get(1)) && REQUEST.equals(path.get(2));
       }
 
-      validateStructure(parser);
+      private void start(XMLStreamReader parser) throws IOException {
 
-      if (path.size() == 4
-          && requestPath()
-          && PAYLOAD.equals(parser.getLocalName())) {
+          path.add(parser.getLocalName());
 
-        if (++payloads > 1) {
-          throw new IOException("Duplicate FDR1 payload");
-        }
+          if (path.size() > 64) {
+              throw new IOException("XML nesting limit exceeded");
+          }
 
-        String namespace = parser.getNamespaceURI();
+          validateStructure(parser);
 
-        if (namespace != null
-            && !namespace.isEmpty()
-            && !REQUEST_NAMESPACE.equals(namespace)) {
+          if (path.size() == 4 && requestPath() && PAYLOAD.equals(parser.getLocalName())) {
 
-          throw new IOException("Unexpected payload namespace");
-        }
+              if (++payloads > 1) {
+                  throw new IOException("Duplicate FDR1 payload");
+              }
 
-        content = decodeElement(parser);
+              String namespace = parser.getNamespaceURI();
 
-        // decodeElement consumes the payload's closing element.
-        end();
-      }
-    }
+              if (namespace != null && !namespace.isEmpty() && !REQUEST_NAMESPACE.equals(namespace)) {
 
-    private void validateStructure(XMLStreamReader parser)
-        throws IOException {
+                  throw new IOException("Unexpected payload namespace");
+              }
 
-      String name = parser.getLocalName();
-      String namespace = parser.getNamespaceURI();
+              content = decodeElement(parser);
 
-      if (path.size() == 1) {
-        if (!"Envelope".equals(name)
-            || namespace == null
-            || !SOAP_NAMESPACES.contains(namespace)) {
-
-          throw new IOException("Expected SOAP Envelope");
-        }
-
-        soapNamespace = namespace;
+              // decodeElement consumes the payload's closing element.
+              end();
+          }
       }
 
-      if (path.size() == 2 && "Body".equals(name)) {
-        if (!soapNamespace.equals(namespace) || ++bodies > 1) {
-          throw new IOException("Expected one SOAP Body");
-        }
+      private void validateStructure(XMLStreamReader parser) throws IOException {
+
+          String name = parser.getLocalName();
+          String namespace = parser.getNamespaceURI();
+
+          if (path.size() == 1) {
+              if (!"Envelope".equals(name) || namespace == null || !SOAP_NAMESPACES.contains(namespace)) {
+
+                  throw new IOException("Expected SOAP Envelope");
+              }
+
+              soapNamespace = namespace;
+          }
+
+          if (path.size() == 2 && "Body".equals(name) && (!soapNamespace.equals(namespace) || ++bodies > 1)) {
+
+              throw new IOException("Expected one SOAP Body");
+          }
+
+          if (path.size() == 3 && requestPath() && (!REQUEST_NAMESPACE.equals(namespace) || ++requests > 1)) {
+
+              throw new IOException("Expected one FDR1 request");
+          }
       }
 
-      if (path.size() == 3 && requestPath()) {
-        if (!REQUEST_NAMESPACE.equals(namespace)
-            || ++requests > 1) {
-
-          throw new IOException("Expected one FDR1 request");
-        }
-      }
-    }
-
-    private void end() {
-      path.remove(path.size() - 1);
-    }
-
-    private byte[] result() throws IOException {
-      if (bodies != 1
-          || requests != 1
-          || payloads != 1
-          || content == null) {
-
-        throw new IOException("Missing FDR1 payload");
+      private void end() {
+          path.remove(path.size() - 1);
       }
 
-      return content;
-    }
+      private byte[] result() throws IOException {
+          if (bodies != 1 || requests != 1 || payloads != 1 || content == null) {
+
+              throw new IOException("Missing FDR1 payload");
+          }
+
+          return content;
+      }
+
+      private byte[] decodeElement(XMLStreamReader parser) throws IOException {
+
+          ElementInputStream encoded = new ElementInputStream(parser);
+
+          try (InputStream decoded = Base64.getDecoder().wrap(encoded)) {
+
+              ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(8192, maxDecodedBytes));
+
+              byte[] buffer = new byte[8192];
+
+              while (true) {
+                  int remaining = maxDecodedBytes - output.size();
+
+                  int requested = (int) Math.min(buffer.length, (long) remaining + 1);
+
+                  int read = decoded.read(buffer, 0, requested);
+
+                  if (read == -1) {
+                      break;
+                  }
+
+                  if (read > remaining) {
+                      throw new IOException("Decoded XML exceeds maxDecodedBytes");
+                  }
+
+                  output.write(buffer, 0, read);
+              }
+
+              if (encoded.read() != -1) {
+                  throw new IOException("Unexpected content after Base64 padding");
+              }
+
+              return output.toByteArray();
+          }
+      }
   }
 
   private record XmlResource(XMLStreamReader parser)
@@ -284,44 +257,38 @@ public final class RecoveryFdr1PayloadDecoder {
     }
 
     private void advance() throws IOException {
-      try {
-        if (!parser.hasNext()) {
-          throw new IOException("Incomplete Base64 element");
-        }
-
-        switch (parser.next()) {
-          case XMLStreamConstants.CHARACTERS,
-              XMLStreamConstants.CDATA,
-              XMLStreamConstants.SPACE -> {
-
-            position = parser.getTextStart();
-            end = position + parser.getTextLength();
-          }
-
-          case XMLStreamConstants.END_ELEMENT -> {
-            if (!PAYLOAD.equals(parser.getLocalName())) {
-              throw new IOException(
-                  "Unexpected Base64 element end");
+        try {
+            if (!parser.hasNext()) {
+                throw new IOException("Incomplete Base64 element");
             }
 
-            finished = true;
-          }
+            switch (parser.next()) {
+            case XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA, XMLStreamConstants.SPACE -> {
 
-          case XMLStreamConstants.START_ELEMENT,
-              XMLStreamConstants.DTD,
-              XMLStreamConstants.ENTITY_REFERENCE,
-              XMLStreamConstants.END_DOCUMENT ->
-              throw new IOException(
-                  "Unexpected XML content inside Base64 payload");
+                position = parser.getTextStart();
+                end = position + parser.getTextLength();
+            }
 
-          default -> {
-          }
+            case XMLStreamConstants.END_ELEMENT -> {
+                if (!PAYLOAD.equals(parser.getLocalName())) {
+                    throw new IOException("Unexpected Base64 element end");
+                }
+
+                finished = true;
+            }
+
+            case XMLStreamConstants.START_ELEMENT, XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE,
+                    XMLStreamConstants.END_DOCUMENT ->
+                throw new IOException("Unexpected XML content inside Base64 payload");
+
+            default -> {
+                // Comments and processing instructions contribute no Base64 characters.
+            }
+            }
+
+        } catch (XMLStreamException exception) {
+            throw new IOException("Cannot read Base64 element", exception);
         }
-
-      } catch (XMLStreamException exception) {
-        throw new IOException(
-            "Cannot read Base64 element", exception);
-      }
     }
 
     @Override
