@@ -14,10 +14,11 @@ import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryTableClients;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryCheckpointRepository;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryCheckpointTableMapper;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointTableMapper;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.UnsupportedRecoveryJobFormatException;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryProgressService;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -30,6 +31,9 @@ import java.util.logging.Level;
 public final class RecoveryDiscoveryProgressFunction {
 
   private static final String MESSAGE = "message";
+
+  private static final String INCOMPATIBLE_JOB_MESSAGE =
+          "Recovery job uses an incompatible discovery format; create a new job";
 
   private static final JsonMapper OBJECT_MAPPER =
       JsonMapper.builder()
@@ -94,6 +98,12 @@ public final class RecoveryDiscoveryProgressFunction {
           HttpStatus.BAD_REQUEST,
           Map.of(MESSAGE, "day must belong to the recovery job date range"));
 
+    } catch (UnsupportedRecoveryJobFormatException e) {
+      return response(
+                request,
+                HttpStatus.CONFLICT,
+                Map.of(MESSAGE, INCOMPATIBLE_JOB_MESSAGE));
+
     } catch (Exception e) {
       context.getLogger().log(
           Level.SEVERE,
@@ -134,19 +144,16 @@ public final class RecoveryDiscoveryProgressFunction {
   }
 
   private synchronized RecoveryDiscoveryProgressService getService() {
-    if (service == null) {
-      RecoveryTableClients clients = RecoveryTableClients.fromEnvironment();
+      if (service == null) {
+          var clients = RecoveryTableClients.fromEnvironment();
 
-      service = new RecoveryDiscoveryProgressService(
-          new RecoveryJobRepository(
-              clients.jobs(),
-              new RecoveryJobTableMapper()),
-          new RecoveryDiscoveryCheckpointRepository(
-              clients.items(),
-              new RecoveryDiscoveryCheckpointTableMapper()));
-    }
+          service = new RecoveryDiscoveryProgressService(
+                  new RecoveryJobRepository(clients.jobs(), RecoveryJobTableMapper.forPublicationDiscovery()),
+                  new RecoveryPublicationDiscoveryCheckpointRepository(clients.items(),
+                          new RecoveryPublicationDiscoveryCheckpointTableMapper()));
+      }
 
-    return service;
+      return service;
   }
 
   private static HttpResponseMessage response(

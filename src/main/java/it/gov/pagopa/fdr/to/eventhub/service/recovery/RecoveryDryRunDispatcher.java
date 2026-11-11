@@ -3,6 +3,8 @@ package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 import com.microsoft.azure.kusto.data.exceptions.DataClientException;
 import com.microsoft.azure.kusto.data.exceptions.DataServiceException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryRunnableJobRepository;
+
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -39,7 +41,7 @@ public final class RecoveryDryRunDispatcher {
   }
 
   public Optional<Attempt> runNext()
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException, DataClientException, DataServiceException {
 
     if (!dispatching.compareAndSet(false, true)) {
       return Optional.empty();
@@ -53,7 +55,7 @@ public final class RecoveryDryRunDispatcher {
   }
 
   private Optional<Attempt> dispatchNext()
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException, DataClientException, DataServiceException {
 
     if (pending.isEmpty()) {
       RecoveryRunnableJobRepository.JobPage page =

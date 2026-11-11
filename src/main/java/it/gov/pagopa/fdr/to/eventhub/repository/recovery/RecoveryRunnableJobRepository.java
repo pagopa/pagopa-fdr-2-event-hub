@@ -42,13 +42,14 @@ public final class RecoveryRunnableJobRepository {
 
     ListEntitiesOptions options =
         new ListEntitiesOptions()
-            .setFilter(FILTER)
+            .setFilter(runnableFilter())
             .setTop(pageSize)
             .setSelect(
                 List.of(
                     "PartitionKey",
                     "RowKey",
                     "SchemaVersion",
+                    "DiscoveryMode",
                     "Status",
                     "JobJson"));
 
@@ -100,5 +101,12 @@ public final class RecoveryRunnableJobRepository {
     public JobPage {
       jobIds = List.copyOf(jobIds);
     }
+  }
+
+  private String runnableFilter() {
+      String filter = "RowKey eq 'JOB' and SchemaVersion eq '%s' and ".formatted(mapper.schemaVersion())
+              + "(Status eq 'PENDING' or Status eq 'RUNNING' " + "or Status eq 'PAUSING')";
+
+      return mapper.discoveryMode().map(mode -> filter + " and DiscoveryMode eq '" + mode + "'").orElse(filter);
   }
 }

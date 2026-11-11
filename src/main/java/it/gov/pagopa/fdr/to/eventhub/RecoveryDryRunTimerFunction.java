@@ -8,6 +8,8 @@ import com.microsoft.azure.kusto.data.exceptions.DataServiceException;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryDryRunRuntime;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryDryRunRuntimeProvider;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDispatcher;
+
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,7 +54,7 @@ public final class RecoveryDryRunTimerFunction {
           schedule = "%RECOVERY_WORKER_SCHEDULE%")
       String timerInfo,
       ExecutionContext context)
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException, DataClientException, DataServiceException {
 
     if (!enabled.getAsBoolean()) {
       return;

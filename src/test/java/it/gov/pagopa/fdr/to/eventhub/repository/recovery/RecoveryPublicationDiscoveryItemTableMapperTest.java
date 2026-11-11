@@ -13,9 +13,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryPublicationDiscoveryItemTableMapperTest {
@@ -65,16 +69,6 @@ class RecoveryPublicationDiscoveryItemTableMapperTest {
         () -> mapper.toItem(entity));
   }
 
-  @Test
-  void shouldRejectInvalidSessionId() {
-    var entity = comparedEntity();
-    entity.addProperty("SessionId", "invalid");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toItem(entity));
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {
       "[]",
@@ -91,39 +85,9 @@ class RecoveryPublicationDiscoveryItemTableMapperTest {
   }
 
   @Test
-  void shouldRejectWrongPartitionKey() {
-    var entity = comparedEntity();
-    entity.addProperty("PartitionKey", "wrong-partition");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toItem(entity));
-  }
-
-  @Test
-  void shouldRejectWrongRowKey() {
-    var entity = comparedEntity();
-    entity.addProperty("RowKey", "wrong-row");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toItem(entity));
-  }
-
-  @Test
   void shouldRejectMissingCount() {
     var entity = comparedEntity();
     entity.getProperties().remove("PresentRows");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toItem(entity));
-  }
-
-  @Test
-  void shouldRejectDiagnosticsOnComparedItem() {
-    var entity = comparedEntity();
-    entity.addProperty("DiagnosticDetails", "{}");
 
     assertThrows(
         IllegalArgumentException.class,
@@ -147,16 +111,6 @@ class RecoveryPublicationDiscoveryItemTableMapperTest {
   }
 
   @Test
-  void shouldRejectInt32WhereInt64IsRequired() {
-    var entity = comparedEntity();
-    entity.addProperty("FlowId", Integer.valueOf(155333));
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toItem(entity));
-  }
-
-  @Test
   void shouldRejectMissingDiagnosticDetails() {
     var entity = mapper.toEntity(unresolvedItem());
     entity.getProperties().remove("DiagnosticDetails");
@@ -164,6 +118,45 @@ class RecoveryPublicationDiscoveryItemTableMapperTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> mapper.toItem(entity));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidComparedItemProperties")
+  void shouldRejectInvalidComparedItemProperty(
+      String scenario,
+      String property,
+      Object value) {
+
+    var entity = comparedEntity();
+    entity.addProperty(property, value);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> mapper.toItem(entity));
+  }
+
+  private static Stream<Arguments> invalidComparedItemProperties() {
+    return Stream.of(
+        Arguments.of(
+            "Invalid session ID",
+            "SessionId",
+            "invalid"),
+        Arguments.of(
+            "Wrong partition key",
+            "PartitionKey",
+            "wrong-partition"),
+        Arguments.of(
+            "Wrong row key",
+            "RowKey",
+            "wrong-row"),
+        Arguments.of(
+            "Diagnostics on compared item",
+            "DiagnosticDetails",
+            "{}"),
+        Arguments.of(
+            "Int32 instead of Int64",
+            "FlowId",
+            Integer.valueOf(155333)));
   }
 
   private TableEntity comparedEntity() {

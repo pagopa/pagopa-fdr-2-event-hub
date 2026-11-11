@@ -31,7 +31,7 @@ public final class RecoveryPublicationDiscoveryCheckpointTableMapper {
 
     return new TableEntity(
             checkpoint.partitionKey(),
-            checkpoint.rowKey())
+            RecoveryPublicationDiscoveryCheckpoint.ROW_KEY)
         .addProperty(SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
         .addProperty(DISCOVERY_MODE, PUBLICATION_MODE)
         .addProperty(JOB_ID, checkpoint.jobId().toString())
@@ -76,7 +76,7 @@ public final class RecoveryPublicationDiscoveryCheckpointTableMapper {
                 requiredString(entity, STATUS)));
 
     if (!checkpoint.partitionKey().equals(entity.getPartitionKey())
-        || !checkpoint.rowKey().equals(entity.getRowKey())) {
+        || !RecoveryPublicationDiscoveryCheckpoint.ROW_KEY.equals(entity.getRowKey())) {
       throw new IllegalArgumentException(
           "Publication checkpoint storage keys do not match its content");
     }

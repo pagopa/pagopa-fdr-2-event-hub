@@ -195,9 +195,7 @@ class RecoveryPublicationPageServiceTest {
   }
 
   @Test
-  void shouldStopWhenOwnershipIsLostAfterReadingSavedItems()
-      throws Exception {
-
+  void shouldStopWhenOwnershipIsLostAfterReadingSavedItems() {
     var page = List.of(first);
     var failure = new IllegalStateException("Lease ownership lost");
 

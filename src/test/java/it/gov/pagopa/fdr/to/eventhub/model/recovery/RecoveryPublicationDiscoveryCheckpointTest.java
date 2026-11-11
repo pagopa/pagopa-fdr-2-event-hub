@@ -37,7 +37,7 @@ class RecoveryPublicationDiscoveryCheckpointTest {
         checkpoint.status());
 
     assertEquals(JOB_ID + "_2026-10-01", checkpoint.partitionKey());
-    assertEquals("DISCOVERY", checkpoint.rowKey());
+    assertEquals("DISCOVERY", RecoveryPublicationDiscoveryCheckpoint.ROW_KEY);
   }
 
   @Test

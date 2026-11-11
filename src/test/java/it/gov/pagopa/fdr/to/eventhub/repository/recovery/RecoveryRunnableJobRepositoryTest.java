@@ -140,11 +140,8 @@ class RecoveryRunnableJobRepositoryTest {
         eq(TIMEOUT),
         eq(Context.NONE));
 
-    assertEquals(
-        "RowKey eq 'JOB' and "
-            + "(Status eq 'PENDING' or Status eq 'RUNNING' "
-            + "or Status eq 'PAUSING')",
-        captor.getValue().getFilter());
+    assertEquals("RowKey eq 'JOB' and SchemaVersion eq '1' and " + "(Status eq 'PENDING' or Status eq 'RUNNING' "
+            + "or Status eq 'PAUSING')", captor.getValue().getFilter());
 
     assertEquals(Integer.valueOf(10), captor.getValue().getTop());
   }
@@ -304,5 +301,63 @@ class RecoveryRunnableJobRepositoryTest {
     assertThrows(
         IllegalStateException.class,
         () -> repository.findPage(null, 1));
+  }
+
+  @Test
+  void shouldFilterOnlyPublicationJobs() {
+    var publicationMapper =
+        RecoveryJobTableMapper.forPublicationDiscovery();
+
+    var publicationRepository =
+        new RecoveryRunnableJobRepository(client, publicationMapper);
+
+    var pending = job(RecoveryJobStatus.PENDING, true);
+
+    stubPage(
+        null,
+        2,
+        List.of(publicationMapper.toEntity(pending)),
+        null);
+
+    var result = publicationRepository.findPage(null, 2);
+
+    assertEquals(List.of(pending.jobId()), result.jobIds());
+
+    var captor = ArgumentCaptor.forClass(ListEntitiesOptions.class);
+
+    verify(client).listEntities(
+        captor.capture(),
+        eq(TIMEOUT),
+        eq(Context.NONE));
+
+    assertEquals(
+        "RowKey eq 'JOB' and SchemaVersion eq '2' and "
+            + "(Status eq 'PENDING' or Status eq 'RUNNING' "
+            + "or Status eq 'PAUSING')"
+            + " and DiscoveryMode eq 'PUBLICATION'",
+        captor.getValue().getFilter());
+
+    assertTrue(
+        captor.getValue().getSelect().contains("DiscoveryMode"));
+  }
+
+  @Test
+  void shouldRejectLegacyJobUnexpectedlyReturnedToPublicationWorker() {
+    var publicationRepository =
+        new RecoveryRunnableJobRepository(
+            client,
+            RecoveryJobTableMapper.forPublicationDiscovery());
+
+    var legacyJob = job(RecoveryJobStatus.PENDING, true);
+
+    stubPage(
+        null,
+        2,
+        List.of(mapper.toEntity(legacyJob)),
+        null);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> publicationRepository.findPage(null, 2));
   }
 }

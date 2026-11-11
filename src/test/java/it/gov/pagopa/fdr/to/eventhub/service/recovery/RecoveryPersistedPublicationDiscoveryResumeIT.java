@@ -208,16 +208,10 @@ class RecoveryPersistedPublicationDiscoveryResumeIT {
         resumedService.discover(
             jobId, DAY, () -> true, ownership);
 
-    assertEquals(
-        RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED,
-        completed.status());
+    var expectedCheckpoint = new RecoveryPublicationDiscoveryCheckpoint(jobId, DAY, 30L, 3L, 1L, 1L, 1L, 2L,
+            RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED);
 
-    assertEquals(30L, completed.lastFlowId());
-    assertEquals(3L, completed.candidateCount());
-    assertEquals(1L, completed.absentCandidateCount());
-    assertEquals(1L, completed.presentCandidateCount());
-    assertEquals(1L, completed.unresolvedCandidateCount());
-    assertEquals(2L, completed.pageCount());
+    assertEquals(expectedCheckpoint, completed);
 
     assertEquals(
         completed,

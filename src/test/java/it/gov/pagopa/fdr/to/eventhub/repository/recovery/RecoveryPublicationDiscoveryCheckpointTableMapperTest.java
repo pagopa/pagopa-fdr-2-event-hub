@@ -7,9 +7,13 @@ import com.azure.data.tables.models.TableEntity;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryPublicationDiscoveryCheckpointTableMapperTest {
@@ -74,74 +78,51 @@ class RecoveryPublicationDiscoveryCheckpointTableMapperTest {
         () -> mapper.toCheckpoint(entity));
   }
 
-  @Test
-  void shouldRejectInt32Counter() {
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidCheckpointProperties")
+  void shouldRejectInvalidCheckpointProperty(
+      String scenario,
+      String property,
+      Object value) {
+
     var entity = entity();
-    entity.addProperty("UnresolvedCandidateCount", Integer.valueOf(1));
+    entity.addProperty(property, value);
 
     assertThrows(
         IllegalArgumentException.class,
         () -> mapper.toCheckpoint(entity));
   }
 
-  @Test
-  void shouldRejectNullCounter() {
-    var entity = entity();
-    entity.addProperty("PresentCandidateCount", null);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
-  }
-
-  @Test
-  void shouldRejectUnknownStatus() {
-    var entity = entity();
-    entity.addProperty("Status", "UNKNOWN");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
-  }
-
-  @Test
-  void shouldRejectWrongPartitionKey() {
-    var entity = entity();
-    entity.addProperty("PartitionKey", "wrong-partition");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
-  }
-
-  @Test
-  void shouldRejectWrongRowKey() {
-    var entity = entity();
-    entity.addProperty("RowKey", "wrong-row");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
-  }
-
-  @Test
-  void shouldRejectUnbalancedCounters() {
-    var entity = entity();
-    entity.addProperty("UnresolvedCandidateCount", 2L);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
-  }
-
-  @Test
-  void shouldRejectAnotherDiscoveryMode() {
-    var entity = entity();
-    entity.addProperty("DiscoveryMode", "FLOW");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> mapper.toCheckpoint(entity));
+  private static Stream<Arguments> invalidCheckpointProperties() {
+    return Stream.of(
+        Arguments.of(
+            "Int32 counter",
+            "UnresolvedCandidateCount",
+            Integer.valueOf(1)),
+        Arguments.of(
+            "Null counter",
+            "PresentCandidateCount",
+            (Object) null),
+        Arguments.of(
+            "Unknown status",
+            "Status",
+            "UNKNOWN"),
+        Arguments.of(
+            "Wrong partition key",
+            "PartitionKey",
+            "wrong-partition"),
+        Arguments.of(
+            "Wrong row key",
+            "RowKey",
+            "wrong-row"),
+        Arguments.of(
+            "Unbalanced counters",
+            "UnresolvedCandidateCount",
+            2L),
+        Arguments.of(
+            "Another discovery mode",
+            "DiscoveryMode",
+            "FLOW"));
   }
 
   private TableEntity entity() {

@@ -3,9 +3,11 @@ package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryJob;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,10 +77,41 @@ public final class RecoveryJobWorkerStateService {
           "Discovery must be completed before advancing the job");
     }
 
+    return advanceDryRunDay(
+        checkpoint.jobId(),
+        checkpoint.day(),
+        requireOwnership);
+  }
+
+  public Optional<RecoveryJob> completeDryRunDay(
+      RecoveryPublicationDiscoveryCheckpoint checkpoint,
+      Runnable requireOwnership) {
+
+    Objects.requireNonNull(checkpoint, "checkpoint is required");
+    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+
+    if (checkpoint.status()
+        != RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED) {
+      throw new IllegalArgumentException(
+          "Discovery must be completed before advancing the job");
+    }
+
+    return advanceDryRunDay(
+        checkpoint.jobId(),
+        checkpoint.day(),
+        requireOwnership);
+  }
+
+  private Optional<RecoveryJob> advanceDryRunDay(
+      UUID jobId,
+      LocalDate completedDay,
+      Runnable requireOwnership) {
+
+    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+
     requireOwnership.run();
 
-    Optional<StoredRecoveryJob> result =
-        repository.find(checkpoint.jobId());
+    Optional<StoredRecoveryJob> result = repository.find(jobId);
 
     if (result.isEmpty()) {
       return Optional.empty();
@@ -96,12 +129,12 @@ public final class RecoveryJobWorkerStateService {
           "Discovery alone cannot complete a recovery day when dryRun is false");
     }
 
-    if (!current.nextDate().equals(checkpoint.day())) {
+    if (!current.nextDate().equals(completedDay)) {
       throw new IllegalArgumentException(
           "Completed discovery day must match the job nextDate");
     }
 
-    var nextDate = checkpoint.day().plusDays(1);
+    var nextDate = completedDay.plusDays(1);
 
     RecoveryJobStatus targetStatus =
         nextDate.isAfter(current.dateTo())

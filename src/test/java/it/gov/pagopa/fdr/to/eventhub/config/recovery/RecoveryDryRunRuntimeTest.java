@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDayWorker;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDispatcher;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -247,5 +249,56 @@ class RecoveryDryRunRuntimeTest {
     assertThrows(
         NullPointerException.class,
         () -> RecoveryDryRunRuntime.fromEnvironment(null));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "RECOVERY_MAX_COMPRESSED_BLOB_BYTES",
+      "RECOVERY_MAX_DECOMPRESSED_BLOB_BYTES",
+      "RECOVERY_MAX_INNER_XML_BYTES",
+      "RECOVERY_MAX_FDR1_CANDIDATES"
+  })
+  void shouldRejectMissingPublicationLimitBeforeCreatingClients(
+      String setting) {
+
+    var environment = publicationEnvironment();
+    environment.remove(setting);
+
+    var failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> RecoveryDryRunRuntime.fromEnvironment(environment));
+
+    assertTrue(failure.getMessage().startsWith(setting));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "RECOVERY_MAX_COMPRESSED_BLOB_BYTES",
+      "RECOVERY_MAX_DECOMPRESSED_BLOB_BYTES",
+      "RECOVERY_MAX_INNER_XML_BYTES",
+      "RECOVERY_MAX_FDR1_CANDIDATES"
+  })
+  void shouldRejectInvalidPublicationLimitBeforeCreatingClients(
+      String setting) {
+
+    var environment = publicationEnvironment();
+    environment.put(setting, "0");
+
+    var failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> RecoveryDryRunRuntime.fromEnvironment(environment));
+
+    assertTrue(failure.getMessage().startsWith(setting));
+  }
+
+  private static Map<String, String> publicationEnvironment() {
+    return new HashMap<>(
+        Map.of(
+            "RECOVERY_MAX_COMPRESSED_BLOB_BYTES", "1048576",
+            "RECOVERY_MAX_DECOMPRESSED_BLOB_BYTES", "8388608",
+            "RECOVERY_MAX_INNER_XML_BYTES", "8388608",
+            "RECOVERY_MAX_FDR1_CANDIDATES", "20"));
   }
 }

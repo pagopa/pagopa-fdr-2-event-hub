@@ -197,4 +197,46 @@ class RecoveryJobsFunctionTest {
     verify(service).create(captor.capture());
     assertEquals(true, captor.getValue().isDryRun());
   }
+
+  @Test
+  void shouldRejectReadingUnsupportedJobFormat() {
+    var jobId =
+        java.util.UUID.fromString(
+            "11111111-1111-4111-8111-111111111111");
+
+    when(service.find(jobId))
+        .thenThrow(
+            new it.gov.pagopa.fdr.to.eventhub.repository.recovery
+                .UnsupportedRecoveryJobFormatException("Old schema"));
+
+    var result =
+        function.get(request, jobId.toString(), context);
+
+    assertEquals(HttpStatus.CONFLICT, result.getStatus());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"pause", "resume"})
+  void shouldRejectControllingUnsupportedJobFormat(String action) {
+    var jobId =
+        java.util.UUID.fromString(
+            "11111111-1111-4111-8111-111111111111");
+
+    var failure =
+        new it.gov.pagopa.fdr.to.eventhub.repository.recovery
+            .UnsupportedRecoveryJobFormatException("Old schema");
+
+    if ("pause".equals(action)) {
+      when(service.pause(jobId)).thenThrow(failure);
+    } else {
+      when(service.resume(jobId)).thenThrow(failure);
+    }
+
+    var result =
+        "pause".equals(action)
+            ? function.pause(request, jobId.toString(), context)
+            : function.resume(request, jobId.toString(), context);
+
+    assertEquals(HttpStatus.CONFLICT, result.getStatus());
+  }
 }

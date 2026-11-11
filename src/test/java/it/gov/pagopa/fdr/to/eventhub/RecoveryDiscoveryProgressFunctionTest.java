@@ -229,4 +229,41 @@ class RecoveryDiscoveryProgressFunctionTest {
   private JsonNode payload(HttpResponseMessage result) throws Exception {
     return new ObjectMapper().readTree((String) result.getBody());
   }
+
+  @Test
+  void shouldSerializeUnresolvedCount() throws Exception {
+    var progress =
+        new DailyProgress(
+            JOB_ID,
+            DAY,
+            DiscoveryStatus.DISCOVERED,
+            3L, 1L, 1L, 1L, 30L, 1L);
+
+    when(service.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(progress));
+
+    var result =
+        function.get(
+            request, JOB_ID.toString(), DAY.toString(), context);
+
+    var json =
+        new ObjectMapper().readTree((String) result.getBody());
+
+    assertEquals(HttpStatus.OK, result.getStatus());
+    assertEquals(1L, json.get("unresolvedCandidateCount").asLong());
+  }
+
+  @Test
+  void shouldReturnConflictForUnsupportedJobFormat() {
+    when(service.find(JOB_ID, DAY))
+        .thenThrow(
+            new it.gov.pagopa.fdr.to.eventhub.repository.recovery
+                .UnsupportedRecoveryJobFormatException("Old schema"));
+
+    var result =
+        function.get(
+            request, JOB_ID.toString(), DAY.toString(), context);
+
+    assertEquals(HttpStatus.CONFLICT, result.getStatus());
+  }
 }

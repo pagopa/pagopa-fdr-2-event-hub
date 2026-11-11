@@ -16,6 +16,8 @@ public record RecoveryPublicationDiscoveryCheckpoint(
     long pageCount,
     Status status) {
 
+  public static final String ROW_KEY = "DISCOVERY";
+
   public enum Status {
     DISCOVERING,
     DISCOVERED
@@ -115,10 +117,6 @@ public record RecoveryPublicationDiscoveryCheckpoint(
 
   public String partitionKey() {
     return jobId + "_" + day;
-  }
-
-  public String rowKey() {
-    return "DISCOVERY";
   }
 
   private void validateSavedItem(

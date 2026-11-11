@@ -228,7 +228,7 @@ class RecoveryPublicationDiscoveryCheckpointRepositoryTest {
 
     when(client.getEntityWithResponse(
             eq(key.partitionKey()),
-            eq(key.rowKey()),
+            eq(RecoveryPublicationDiscoveryCheckpoint.ROW_KEY),
             isNull(),
             eq(TIMEOUT),
             eq(Context.NONE)))
@@ -242,7 +242,7 @@ class RecoveryPublicationDiscoveryCheckpointRepositoryTest {
 
     when(client.getEntityWithResponse(
             eq(key.partitionKey()),
-            eq(key.rowKey()),
+            eq(RecoveryPublicationDiscoveryCheckpoint.ROW_KEY),
             isNull(),
             eq(TIMEOUT),
             eq(Context.NONE)))

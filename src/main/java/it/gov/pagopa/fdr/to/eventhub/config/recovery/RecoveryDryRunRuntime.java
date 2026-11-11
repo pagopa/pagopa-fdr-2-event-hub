@@ -1,24 +1,21 @@
 package it.gov.pagopa.fdr.to.eventhub.config.recovery;
 
 import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.microsoft.azure.kusto.data.exceptions.DataClientException;
 import com.microsoft.azure.kusto.data.exceptions.DataServiceException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryAdxRepository;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryBatchRepository;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryCheckpointRepository;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryCheckpointTableMapper;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryItemTableMapper;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryRunnableJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryWorkerLeaseRepository;
-import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryJobService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDayWorker;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDispatcher;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobWorkerStateService;
-import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryPersistedDiscoveryService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryWorkerLeaseSession;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.util.Map;
@@ -63,7 +60,7 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
 
     Objects.requireNonNull(environment, "environment is required");
 
-    Settings settings =
+    var settings =
         new Settings(
             integerSetting(
                 environment, "RECOVERY_DISCOVERY_PAGE_SIZE", 100, 100),
@@ -73,39 +70,45 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
                 environment,
                 "RECOVERY_POSTGRES_QUERY_TIMEOUT_SECONDS",
                 60,
-                60));
+                60),
+            RecoveryPublicationConfiguration.fromEnvironment(environment));
 
     var postgresConfiguration =
         RecoveryPostgresConfiguration.fromEnvironment(environment);
 
-    RecoveryAdxConfiguration adxConfiguration =
+    var adxConfiguration =
         RecoveryAdxConfiguration.fromEnvironment(environment);
 
-    RecoveryTableClients tables =
-        RecoveryTableClients.fromEnvironment(environment);
+    var tables = RecoveryTableClients.fromEnvironment(environment);
 
-    BlobClient lockBlob =
+    // RecoveryTableClients has already validated this setting.
+    var storage =
+        new BlobServiceClientBuilder()
+            .connectionString(
+                environment.get("FDR_SA_CONNECTION_STRING"))
+            .buildClient();
+
+    var lockBlob =
         RecoveryWorkerLockClientFactory.fromEnvironment(environment);
 
-    RecoveryPostgresDataSource postgres =
+    var postgres =
         new RecoveryPostgresDataSource(postgresConfiguration);
 
-    ScheduledThreadPoolExecutor renewals = createRenewalScheduler();
+    var renewals = createRenewalScheduler();
 
     try {
-      RecoveryDryRunDispatcher dispatcher =
+      var dispatcher =
           createDispatcher(
               tables,
               adxConfiguration,
+              storage,
               lockBlob,
               postgres,
               renewals,
               settings);
 
       return new RecoveryDryRunRuntime(
-          dispatcher,
-          postgres,
-          renewals);
+          dispatcher, postgres, renewals);
 
     } catch (RuntimeException failure) {
       try {
@@ -119,7 +122,8 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
   }
 
   public Optional<RecoveryDryRunDispatcher.Attempt> runNext()
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException,
+          DataClientException, DataServiceException {
 
     lifecycle.readLock().lock();
 
@@ -130,7 +134,6 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
       }
 
       return dispatcher.runNext();
-
     } finally {
       lifecycle.readLock().unlock();
     }
@@ -147,7 +150,6 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
 
       closed = true;
       closeResources(postgres, renewals);
-
     } finally {
       lifecycle.writeLock().unlock();
     }
@@ -156,65 +158,55 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
   private static RecoveryDryRunDispatcher createDispatcher(
       RecoveryTableClients tables,
       RecoveryAdxConfiguration adxConfiguration,
+      BlobServiceClient storage,
       BlobClient lockBlob,
       RecoveryPostgresDataSource postgres,
       ScheduledExecutorService renewals,
       Settings settings) {
 
-    RecoveryJobTableMapper jobMapper =
-        new RecoveryJobTableMapper();
+    var jobMapper =
+        RecoveryJobTableMapper.forPublicationDiscovery();
 
-    RecoveryJobRepository jobs =
+    var jobs =
         new RecoveryJobRepository(tables.jobs(), jobMapper);
 
-    RecoveryRunnableJobRepository runnableJobs =
+    var runnableJobs =
         new RecoveryRunnableJobRepository(tables.jobs(), jobMapper);
 
-    RecoveryDiscoveryCheckpointRepository checkpoints =
-        new RecoveryDiscoveryCheckpointRepository(
-            tables.items(),
-            new RecoveryDiscoveryCheckpointTableMapper());
-
-    RecoveryDiscoveryBatchRepository batches =
-        new RecoveryDiscoveryBatchRepository(
-            tables.items(),
-            new RecoveryDiscoveryItemTableMapper());
-
-    RecoveryAdxClientFactory adxFactory =
+    var adxFactory =
         new RecoveryAdxClientFactory(adxConfiguration);
 
-    RecoveryAdxRepository adx =
+    var adx =
         new RecoveryAdxRepository(
             adxFactory.client(),
             adxConfiguration.database(),
             adxConfiguration.queryTimeoutSeconds());
 
-    RecoveryFlowRepository flows =
+    var flows =
         new RecoveryFlowRepository(
             postgres.dataSource(),
             settings.postgresQueryTimeoutSeconds());
 
-    RecoveryPersistedDiscoveryService persisted =
-        new RecoveryPersistedDiscoveryService(
-            adx,
+    var discovery =
+        RecoveryPublicationComponentsFactory.create(
+            tables,
+            storage,
             flows,
-            batches,
-            checkpoints,
+            adx,
+            settings.publication(),
             settings.discoveryPageSize());
 
-    RecoveryDiscoveryJobService discovery =
-        new RecoveryDiscoveryJobService(jobs, persisted);
+    var states =
+        new RecoveryJobWorkerStateService(
+            jobs, Clock.systemUTC());
 
-    RecoveryJobWorkerStateService states =
-        new RecoveryJobWorkerStateService(jobs, Clock.systemUTC());
-
-    RecoveryWorkerLockBlobInitializer initializer =
+    var initializer =
         new RecoveryWorkerLockBlobInitializer(lockBlob);
 
-    RecoveryWorkerLeaseRepository leases =
+    var leases =
         new RecoveryWorkerLeaseRepository(lockBlob);
 
-    RecoveryDryRunDayWorker worker =
+    var worker =
         new RecoveryDryRunDayWorker(
             jobs,
             states,
@@ -223,22 +215,19 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
               initializer.ensureExists();
 
               return RecoveryWorkerLeaseSession.tryAcquire(
-                  leases,
-                  renewals);
+                  leases, renewals);
             });
 
     return new RecoveryDryRunDispatcher(
-        runnableJobs,
-        worker,
-        settings.jobPageSize());
+        runnableJobs, worker, settings.jobPageSize());
   }
 
   private static ScheduledThreadPoolExecutor createRenewalScheduler() {
-    ScheduledThreadPoolExecutor scheduler =
+    var scheduler =
         new ScheduledThreadPoolExecutor(
             1,
             runnable -> {
-              Thread thread =
+              var thread =
                   new Thread(runnable, "fdr-recovery-lease-renewal");
 
               thread.setDaemon(true);
@@ -277,9 +266,7 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
       value =
           Integer.parseInt(
               environment.getOrDefault(
-                  setting,
-                  Integer.toString(defaultValue)));
-
+                  setting, Integer.toString(defaultValue)));
     } catch (NumberFormatException exception) {
       throw new IllegalArgumentException(message, exception);
     }
@@ -294,6 +281,7 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
   private record Settings(
       int discoveryPageSize,
       int jobPageSize,
-      int postgresQueryTimeoutSeconds) {
+      int postgresQueryTimeoutSeconds,
+      RecoveryPublicationConfiguration publication) {
   }
 }

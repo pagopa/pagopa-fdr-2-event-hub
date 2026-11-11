@@ -5,9 +5,12 @@ import com.microsoft.azure.kusto.data.exceptions.DataServiceException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryJob;
+import java.io.IOException;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,15 +27,58 @@ public final class RecoveryDryRunDayWorker {
     PAUSED
   }
 
+  @FunctionalInterface
+  private interface DayDiscovery {
+    DiscoveredDay discover(
+        UUID jobId,
+        LocalDate day,
+        RecoveryWorkerLeaseSession lease)
+        throws SQLException, IOException,
+            DataClientException, DataServiceException;
+  }
+
+  private record DiscoveredDay(
+      UUID jobId,
+      LocalDate day,
+      boolean completed,
+      Supplier<Optional<RecoveryJob>> advance) {
+  }
+
   private final RecoveryJobRepository jobs;
   private final RecoveryJobWorkerStateService states;
-  private final RecoveryDiscoveryJobService discovery;
+  private final DayDiscovery discovery;
   private final Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer;
 
   public RecoveryDryRunDayWorker(
       RecoveryJobRepository jobs,
       RecoveryJobWorkerStateService states,
       RecoveryDiscoveryJobService discovery,
+      Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
+
+    this(
+        jobs,
+        states,
+        legacyDiscovery(discovery, states),
+        leaseAcquirer);
+  }
+
+  public RecoveryDryRunDayWorker(
+      RecoveryJobRepository jobs,
+      RecoveryJobWorkerStateService states,
+      RecoveryPublicationDiscoveryJobService discovery,
+      Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
+
+    this(
+        jobs,
+        states,
+        publicationDiscovery(discovery, states),
+        leaseAcquirer);
+  }
+
+  private RecoveryDryRunDayWorker(
+      RecoveryJobRepository jobs,
+      RecoveryJobWorkerStateService states,
+      DayDiscovery discovery,
       Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
 
     this.jobs = Objects.requireNonNull(jobs, "jobs is required");
@@ -44,17 +90,18 @@ public final class RecoveryDryRunDayWorker {
   }
 
   public Outcome runOneDay(UUID jobId)
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException,
+          DataClientException, DataServiceException {
 
     Objects.requireNonNull(jobId, "jobId is required");
 
-    Optional<RecoveryWorkerLeaseSession> acquired = leaseAcquirer.get();
+    var acquired = leaseAcquirer.get();
 
     if (acquired.isEmpty()) {
       return Outcome.LEASE_BUSY;
     }
 
-    try (RecoveryWorkerLeaseSession lease = acquired.orElseThrow()) {
+    try (var lease = acquired.orElseThrow()) {
       return runWithLease(jobId, lease);
     }
   }
@@ -62,7 +109,8 @@ public final class RecoveryDryRunDayWorker {
   private Outcome runWithLease(
       UUID jobId,
       RecoveryWorkerLeaseSession lease)
-      throws SQLException, DataClientException, DataServiceException {
+      throws SQLException, IOException,
+          DataClientException, DataServiceException {
 
     lease.requireHeld();
 
@@ -84,44 +132,39 @@ public final class RecoveryDryRunDayWorker {
     }
 
     if (job.status() == RecoveryJobStatus.PENDING) {
-      Optional<RecoveryJob> started =
-          states.tryStart(jobId, lease::requireHeld);
+      var started = states.tryStart(jobId, lease::requireHeld);
 
       if (started.isEmpty()) {
         return Outcome.STATE_CHANGED;
       }
 
       job = started.orElseThrow();
-
     } else if (job.status() != RecoveryJobStatus.RUNNING) {
       return Outcome.NOT_RUN;
     }
 
     lease.requireHeld();
 
-    RecoveryDiscoveryCheckpoint checkpoint =
+    var result =
         discovery.discover(jobId, job.nextDate(), lease);
 
     lease.requireHeld();
 
-    if (!jobId.equals(checkpoint.jobId())
-        || !job.nextDate().equals(checkpoint.day())) {
+    if (!jobId.equals(result.jobId())
+        || !job.nextDate().equals(result.day())) {
       throw new IllegalStateException(
           "Discovery returned a checkpoint for a different job or day");
     }
 
-    if (checkpoint.status()
-        != RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
+    if (!result.completed()) {
       return acknowledgePause(jobId, lease);
     }
 
-    Optional<RecoveryJob> advanced =
-        states.completeDryRunDay(checkpoint, lease::requireHeld);
+    var advanced = result.advance().get();
 
     lease.requireHeld();
 
     if (advanced.isEmpty()) {
-      // A pause may have arrived after discovery completed.
       return acknowledgePause(jobId, lease);
     }
 
@@ -134,7 +177,7 @@ public final class RecoveryDryRunDayWorker {
       UUID jobId,
       RecoveryWorkerLeaseSession lease) {
 
-    Optional<RecoveryJob> paused =
+    var paused =
         states.acknowledgePause(jobId, lease::requireHeld);
 
     lease.requireHeld();
@@ -142,5 +185,42 @@ public final class RecoveryDryRunDayWorker {
     return paused.isPresent()
         ? Outcome.PAUSED
         : Outcome.STATE_CHANGED;
+  }
+
+  private static DayDiscovery legacyDiscovery(
+      RecoveryDiscoveryJobService discovery,
+      RecoveryJobWorkerStateService states) {
+
+    Objects.requireNonNull(discovery, "discovery is required");
+    Objects.requireNonNull(states, "states is required");
+
+    return (jobId, day, lease) -> {
+      var checkpoint = discovery.discover(jobId, day, lease);
+
+      return new DiscoveredDay(
+          checkpoint.jobId(),
+          checkpoint.day(),
+          checkpoint.status() == RecoveryDiscoveryCheckpoint.Status.DISCOVERED,
+          () -> states.completeDryRunDay(checkpoint, lease::requireHeld));
+    };
+  }
+
+  private static DayDiscovery publicationDiscovery(
+      RecoveryPublicationDiscoveryJobService discovery,
+      RecoveryJobWorkerStateService states) {
+
+    Objects.requireNonNull(discovery, "discovery is required");
+    Objects.requireNonNull(states, "states is required");
+
+    return (jobId, day, lease) -> {
+      var checkpoint = discovery.discover(jobId, day, lease);
+
+      return new DiscoveredDay(
+          checkpoint.jobId(),
+          checkpoint.day(),
+          checkpoint.status()
+              == RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED,
+          () -> states.completeDryRunDay(checkpoint, lease::requireHeld));
+    };
   }
 }

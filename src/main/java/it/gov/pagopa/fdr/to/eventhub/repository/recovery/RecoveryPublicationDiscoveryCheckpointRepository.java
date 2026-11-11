@@ -50,7 +50,7 @@ public final class RecoveryPublicationDiscoveryCheckpointRepository {
       var response =
           client.getEntityWithResponse(
               key.partitionKey(),
-              key.rowKey(),
+              RecoveryPublicationDiscoveryCheckpoint.ROW_KEY,
               null,
               TIMEOUT,
               Context.NONE);

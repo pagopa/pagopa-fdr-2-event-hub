@@ -22,6 +22,7 @@ import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobRequest;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobStateConflictException;
 
@@ -35,6 +36,9 @@ import java.util.logging.Level;
 public final class RecoveryJobsFunction {
 
     private static final String MESSAGE = "message";
+
+    private static final String INCOMPATIBLE_JOB_MESSAGE =
+            "Recovery job uses an incompatible discovery format; create a new job";
 
     private static final JsonMapper OBJECT_MAPPER = JsonMapper.builder().addModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -107,6 +111,12 @@ public final class RecoveryJobsFunction {
             }
 
             return response(request, HttpStatus.OK, job.orElseThrow());
+        } catch (UnsupportedRecoveryJobFormatException e) {
+            return response(
+                request,
+                HttpStatus.CONFLICT,
+                Map.of(MESSAGE, INCOMPATIBLE_JOB_MESSAGE));
+
         } catch (Exception e) {
             context.getLogger().log(Level.SEVERE, "Unable to read recovery job", e);
 
@@ -191,6 +201,12 @@ public final class RecoveryJobsFunction {
 
             return controlFailure(request, context, e);
 
+        } catch (UnsupportedRecoveryJobFormatException e) {
+            return response(
+                request,
+                HttpStatus.CONFLICT,
+                Map.of(MESSAGE, INCOMPATIBLE_JOB_MESSAGE));
+
         } catch (Exception e) {
             return controlFailure(request, context, e);
         }
@@ -208,7 +224,10 @@ public final class RecoveryJobsFunction {
         if (service == null) {
             RecoveryTableClients clients = RecoveryTableClients.fromEnvironment();
 
-            RecoveryJobRepository repository = new RecoveryJobRepository(clients.jobs(), new RecoveryJobTableMapper());
+            RecoveryJobRepository repository =
+                    new RecoveryJobRepository(
+                        clients.jobs(),
+                        RecoveryJobTableMapper.forPublicationDiscovery());
 
             service = new RecoveryJobService(repository, Clock.systemUTC());
         }
