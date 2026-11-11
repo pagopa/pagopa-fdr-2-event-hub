@@ -264,7 +264,7 @@ recovery-jobs:
     AzureFunctionsJobHost__functionTimeout: "01:00:00"
     LOG_LEVEL: "INFO"
     JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx512m"
-    RECOVERY_WORKER_ENABLED: "false"
+    RECOVERY_WORKER_ENABLED: "true"
     RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
     RECOVERY_JOBS_TABLE_NAME: "fdrrecoveryjobs"
     RECOVERY_ITEMS_TABLE_NAME: "fdrrecoveryitems"
