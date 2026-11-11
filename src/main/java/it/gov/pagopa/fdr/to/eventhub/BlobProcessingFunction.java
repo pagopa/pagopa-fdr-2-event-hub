@@ -104,19 +104,7 @@ public class BlobProcessingFunction {
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
-      logger.warn(
-          "[FDR3] Skipping blob: {}. "
-              + "metadataNull={}, "
-              + "sessionIdPresent={}, "
-              + "insertedTimestampPresent={}, "
-              + "elaborateFalse={}",
-          blobName,
-          blobMetadata == null,
-          blobMetadata != null && blobMetadata.containsKey("sessionId"),
-          blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
-          blobMetadata != null
-              && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
-      );
+      logBlobMetadata(blobName, blobMetadata, "FDR1");
       return; // Skip execution
     }
 
@@ -197,7 +185,6 @@ public class BlobProcessingFunction {
     }
   }
 
-
   @FunctionName("ProcessFDR3BlobFiles")
   public void processFDR3BlobFiles(
       @BlobTrigger(
@@ -213,19 +200,7 @@ public class BlobProcessingFunction {
 
     // checks for the presence of the necessary metadata
     if (!CommonUtil.validateBlobMetadata(blobMetadata)) {
-      logger.warn(
-          "[FDR3] Skipping blob: {}. "
-              + "metadataNull={}, "
-              + "sessionIdPresent={}, "
-              + "insertedTimestampPresent={}, "
-              + "elaborateFalse={}",
-          blobName,
-          blobMetadata == null,
-          blobMetadata != null && blobMetadata.containsKey("sessionId"),
-          blobMetadata != null && blobMetadata.containsKey("insertedTimestamp"),
-          blobMetadata != null
-              && "false".equalsIgnoreCase(blobMetadata.get("elaborate"))
-      );
+      logBlobMetadata(blobName, blobMetadata, "FDR3");
       return; // Skip execution
     }
 
@@ -301,5 +276,23 @@ public class BlobProcessingFunction {
         flow.releaseResources();
       }
     }
+  }
+
+  private void logBlobMetadata(
+      String blobName,
+      Map<String, String> blobMetadata, String type) {
+
+    logger.warn(
+        "[{}] Blob metadata check: blobName={}, metadataNull={}, "
+            + "hasSessionId={}, hasInsertedTimestamp={}, elaborateFalse={}",
+        type,
+        blobName,
+        blobMetadata == null,
+        blobMetadata != null
+            && blobMetadata.containsKey(SESSION_ID_METADATA_KEY),
+        blobMetadata != null
+            && blobMetadata.containsKey("insertedTimestamp"),
+        blobMetadata != null
+            && "false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
 }
