@@ -364,7 +364,8 @@ class RecoveryJobsFunctionTest {
                 }
                 """));
 
-    when(context.getLogger()).thenReturn(mock(Logger.class));
+    var logger = mock(Logger.class);
+    when(context.getLogger()).thenReturn(logger);
 
     var result = guardedFunction.create(request, context);
 

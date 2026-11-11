@@ -79,7 +79,7 @@ class RecoveryExecutionRoutingWorkerTest {
             states,
             discovery,
             execution,
-            () -> Optional.empty());
+            Optional::empty);
 
     assertEquals(
         RecoveryDryRunDayWorker.Outcome.LEASE_BUSY,

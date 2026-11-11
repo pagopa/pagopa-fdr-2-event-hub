@@ -260,7 +260,7 @@ class RecoveryPublicationExecutionDayServiceTest {
   }
 
   @Test
-  void shouldValidateEntirePageBeforeSending() throws Exception {
+  void shouldValidateEntirePageBeforeSending() {
     var first = absent(1L);
     var second = absent(2L);
 
@@ -321,7 +321,7 @@ class RecoveryPublicationExecutionDayServiceTest {
   }
 
   @Test
-  void shouldStopWhenOwnershipIsLostAfterPageRead() throws Exception {
+  void shouldStopWhenOwnershipIsLostAfterPageRead() {
     var first = absent(1L);
     var held = new AtomicBoolean(true);
     var failure = new IllegalStateException("Ownership lost");

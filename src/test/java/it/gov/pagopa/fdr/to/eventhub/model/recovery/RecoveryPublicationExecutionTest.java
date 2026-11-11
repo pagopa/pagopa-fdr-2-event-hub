@@ -173,6 +173,8 @@ class RecoveryPublicationExecutionTest {
   @Test
   void shouldRejectReceiptOnUncertainExecution() {
     var sending = sending();
+    var source = sending.source();
+
     var receipt =
         new RecoveryPublicationExecution.SendReceipt(1L, 1L);
 
@@ -184,7 +186,7 @@ class RecoveryPublicationExecutionTest {
             new RecoveryPublicationExecution(
                 JOB_ID,
                 DAY,
-                sending.source(),
+                source,
                 RecoveryPublicationExecution.Status.UNCERTAIN,
                 ATTEMPT_ID,
                 receipt,
