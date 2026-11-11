@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ class RecoveryJobsFunctionTest {
       mock(RecoveryJobService.class);
 
   private final RecoveryJobsFunction function =
-      new RecoveryJobsFunction(service);
+          new RecoveryJobsFunction(service, () -> true);
 
   @SuppressWarnings("unchecked")
   private final HttpRequestMessage<Optional<String>> request =
@@ -238,5 +239,146 @@ class RecoveryJobsFunctionTest {
             : function.resume(request, jobId.toString(), context);
 
     assertEquals(HttpStatus.CONFLICT, result.getStatus());
+  }
+
+  @Test
+  void shouldRejectRealExecutionWhenDisabledWithoutCallingService()
+      throws Exception {
+
+    var disabledFunction =
+        new RecoveryJobsFunction(service, () -> false);
+
+    when(request.getBody())
+        .thenReturn(
+            Optional.of("""
+                {
+                  "dateFrom":"2026-10-05",
+                  "dateTo":"2026-10-05",
+                  "dryRun":false
+                }
+                """));
+
+    var result = disabledFunction.create(request, context);
+
+    assertEquals(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        result.getStatus());
+
+    JsonNode payload =
+        new ObjectMapper().readTree((String) result.getBody());
+
+    assertEquals(
+        "Recovery execution is disabled; "
+            + "submit a dry-run job or contact support",
+        payload.get("message").asText());
+
+    verifyNoInteractions(service);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"true", "null", "omitted"})
+  void shouldAcceptDryRunWithoutConsultingExecutionEnablement(
+      String dryRunValue) {
+
+    BooleanSupplier enablement =
+        mock(BooleanSupplier.class);
+
+    var dryRunFunction =
+        new RecoveryJobsFunction(service, enablement);
+
+    String dryRunProperty =
+        "omitted".equals(dryRunValue)
+            ? ""
+            : ",\"dryRun\":" + dryRunValue;
+
+    String json =
+        """
+        {
+          "dateFrom":"2026-10-05",
+          "dateTo":"2026-10-05"%s
+        }
+        """.formatted(dryRunProperty);
+
+    var job =
+        RecoveryJob.create(
+            new RecoveryJobRequest(
+                "2026-10-05", "2026-10-05", true),
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+
+    when(request.getBody()).thenReturn(Optional.of(json));
+
+    when(service.create(any(RecoveryJobRequest.class)))
+        .thenReturn(job);
+
+    var result = dryRunFunction.create(request, context);
+
+    assertEquals(HttpStatus.ACCEPTED, result.getStatus());
+
+    var captured =
+        ArgumentCaptor.forClass(RecoveryJobRequest.class);
+
+    verify(service).create(captured.capture());
+
+    assertEquals(true, captured.getValue().isDryRun());
+
+    verifyNoInteractions(enablement);
+  }
+
+  @Test
+  void shouldValidateBodyBeforeConsultingExecutionEnablement() {
+    BooleanSupplier enablement =
+        mock(BooleanSupplier.class);
+
+    var guardedFunction =
+        new RecoveryJobsFunction(service, enablement);
+
+    when(request.getBody())
+        .thenReturn(Optional.of("invalid-json"));
+
+    var result = guardedFunction.create(request, context);
+
+    assertEquals(HttpStatus.BAD_REQUEST, result.getStatus());
+
+    verifyNoInteractions(service, enablement);
+  }
+
+  @Test
+  void shouldReturnServerErrorForInvalidExecutionConfiguration()
+      throws Exception {
+
+    var guardedFunction =
+        new RecoveryJobsFunction(
+            service,
+            () -> {
+              throw new IllegalArgumentException(
+                  "Invalid execution configuration");
+            });
+
+    when(request.getBody())
+        .thenReturn(
+            Optional.of("""
+                {
+                  "dateFrom":"2026-10-05",
+                  "dateTo":"2026-10-05",
+                  "dryRun":false
+                }
+                """));
+
+    when(context.getLogger()).thenReturn(mock(Logger.class));
+
+    var result = guardedFunction.create(request, context);
+
+    assertEquals(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        result.getStatus());
+
+    JsonNode payload =
+        new ObjectMapper().readTree((String) result.getBody());
+
+    assertEquals(
+        "Unable to create recovery job",
+        payload.get("message").asText());
+
+    verifyNoInteractions(service);
   }
 }

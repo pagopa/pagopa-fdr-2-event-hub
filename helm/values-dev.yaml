@@ -265,6 +265,7 @@ recovery-jobs:
     LOG_LEVEL: "INFO"
     JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx512m"
     RECOVERY_WORKER_ENABLED: "true"
+    RECOVERY_EXECUTION_ENABLED: "true"
     RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
     RECOVERY_JOBS_TABLE_NAME: "fdrrecoveryjobs"
     RECOVERY_ITEMS_TABLE_NAME: "fdrrecoveryitems"
@@ -289,5 +290,6 @@ recovery-jobs:
     FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
     AzureWebJobsStorage: "fdr-sa-connection-string"
     RECOVERY_POSTGRES_PASSWORD: "db-fdr3-password"
+    EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
   keyvault:
     !!merge <<: *keyvault

@@ -27,7 +27,8 @@ public final class RecoveryDryRunDayWorker {
     STATE_CHANGED,
     DAY_COMPLETED,
     JOB_COMPLETED,
-    PAUSED
+    PAUSED,
+    FAILED
   }
 
   @FunctionalInterface
@@ -50,6 +51,7 @@ public final class RecoveryDryRunDayWorker {
   private final RecoveryJobRepository jobs;
   private final RecoveryJobWorkerStateService states;
   private final DayDiscovery discovery;
+  private final RecoveryPublicationExecutionJobService execution;
   private final Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer;
 
   public RecoveryDryRunDayWorker(
@@ -62,6 +64,7 @@ public final class RecoveryDryRunDayWorker {
         jobs,
         states,
         legacyDiscovery(discovery, states),
+        null,
         leaseAcquirer);
   }
 
@@ -75,6 +78,22 @@ public final class RecoveryDryRunDayWorker {
         jobs,
         states,
         publicationDiscovery(discovery, states),
+        null,
+        leaseAcquirer);
+  }
+
+  public RecoveryDryRunDayWorker(
+      RecoveryJobRepository jobs,
+      RecoveryJobWorkerStateService states,
+      RecoveryPublicationDiscoveryJobService discovery,
+      RecoveryPublicationExecutionJobService execution,
+      Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
+
+    this(
+        jobs,
+        states,
+        publicationDiscovery(discovery, states),
+        Objects.requireNonNull(execution, "execution is required"),
         leaseAcquirer);
   }
 
@@ -82,14 +101,20 @@ public final class RecoveryDryRunDayWorker {
       RecoveryJobRepository jobs,
       RecoveryJobWorkerStateService states,
       DayDiscovery discovery,
+      RecoveryPublicationExecutionJobService execution,
       Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
 
     this.jobs = Objects.requireNonNull(jobs, "jobs is required");
     this.states = Objects.requireNonNull(states, STATES_REQUIRED);
+
     this.discovery =
         Objects.requireNonNull(discovery, DISCOVERY_REQUIRED);
+
+    this.execution = execution;
+
     this.leaseAcquirer =
-        Objects.requireNonNull(leaseAcquirer, "leaseAcquirer is required");
+        Objects.requireNonNull(
+            leaseAcquirer, "leaseAcquirer is required");
   }
 
   public Outcome runOneDay(UUID jobId)
@@ -126,8 +151,7 @@ public final class RecoveryDryRunDayWorker {
     RecoveryJob job = stored.orElseThrow().job();
 
     if (!job.dryRun()) {
-      throw new IllegalArgumentException(
-          "This worker supports only dryRun jobs");
+      return runExecution(jobId, lease);
     }
 
     if (job.status() == RecoveryJobStatus.PAUSING) {
@@ -142,6 +166,7 @@ public final class RecoveryDryRunDayWorker {
       }
 
       job = started.orElseThrow();
+
     } else if (job.status() != RecoveryJobStatus.RUNNING) {
       return Outcome.NOT_RUN;
     }
@@ -155,6 +180,7 @@ public final class RecoveryDryRunDayWorker {
 
     if (!jobId.equals(result.jobId())
         || !job.nextDate().equals(result.day())) {
+
       throw new IllegalStateException(
           "Discovery returned a checkpoint for a different job or day");
     }
@@ -174,6 +200,32 @@ public final class RecoveryDryRunDayWorker {
     return advanced.orElseThrow().status() == RecoveryJobStatus.COMPLETED
         ? Outcome.JOB_COMPLETED
         : Outcome.DAY_COMPLETED;
+  }
+
+  private Outcome runExecution(
+      UUID jobId,
+      RecoveryWorkerLeaseSession lease)
+      throws SQLException, IOException,
+          DataClientException, DataServiceException {
+
+    if (execution == null) {
+      throw new IllegalArgumentException(
+          "This worker supports only dryRun jobs");
+    }
+
+    lease.requireHeld();
+
+    var result = execution.runOneDay(jobId, lease);
+
+    lease.requireHeld();
+
+    return switch (result.outcome()) {
+      case DAY_COMPLETED -> Outcome.DAY_COMPLETED;
+      case JOB_COMPLETED -> Outcome.JOB_COMPLETED;
+      case PAUSED -> Outcome.PAUSED;
+      case FAILED -> Outcome.FAILED;
+      case NOT_RUN -> Outcome.NOT_RUN;
+    };
   }
 
   private Outcome acknowledgePause(
@@ -203,8 +255,10 @@ public final class RecoveryDryRunDayWorker {
       return new DiscoveredDay(
           checkpoint.jobId(),
           checkpoint.day(),
-          checkpoint.status() == RecoveryDiscoveryCheckpoint.Status.DISCOVERED,
-          () -> states.completeDryRunDay(checkpoint, lease::requireHeld));
+          checkpoint.status()
+              == RecoveryDiscoveryCheckpoint.Status.DISCOVERED,
+          () -> states.completeDryRunDay(
+              checkpoint, lease::requireHeld));
     };
   }
 
@@ -223,7 +277,8 @@ public final class RecoveryDryRunDayWorker {
           checkpoint.day(),
           checkpoint.status()
               == RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED,
-          () -> states.completeDryRunDay(checkpoint, lease::requireHeld));
+          () -> states.completeDryRunDay(
+              checkpoint, lease::requireHeld));
     };
   }
 }

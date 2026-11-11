@@ -10,13 +10,24 @@ public final class RecoveryPublicationComponentsFactory {
   private RecoveryPublicationComponentsFactory() {
   }
 
-  public static RecoveryPublicationDiscoveryJobService create(
-      RecoveryTableClients tables,
-      BlobServiceClient storage,
-      RecoveryFlowRepository flows,
-      RecoveryAdxRepository adx,
-      RecoveryPublicationConfiguration configuration,
-      int pageSize) {
+  public record Components(RecoveryJobRepository jobs, RecoveryPersistedPublicationDiscoveryService persisted,
+          RecoveryPublicationDiscoveryJobService discovery) {
+  }
+
+  public static RecoveryPublicationDiscoveryJobService create(RecoveryTableClients tables, BlobServiceClient storage,
+          RecoveryFlowRepository flows, RecoveryAdxRepository adx, RecoveryPublicationConfiguration configuration,
+          int pageSize) {
+
+      return createComponents(tables, storage, flows, adx, configuration, pageSize).discovery();
+  }
+
+  public static Components createComponents(
+          RecoveryTableClients tables,
+          BlobServiceClient storage,
+          RecoveryFlowRepository flows,
+          RecoveryAdxRepository adx,
+          RecoveryPublicationConfiguration configuration,
+          int pageSize) {
 
     Objects.requireNonNull(tables, "tables is required");
     Objects.requireNonNull(storage, "storage is required");
@@ -114,7 +125,9 @@ public final class RecoveryPublicationComponentsFactory {
 
     var jobs = new RecoveryJobRepository(tables.jobs(), RecoveryJobTableMapper.forPublicationDiscovery());
 
-    return new RecoveryPublicationDiscoveryJobService(
-        jobs, persisted);
+    return new Components(
+            jobs,
+            persisted,
+            new RecoveryPublicationDiscoveryJobService(jobs, persisted));
   }
 }

@@ -16,6 +16,8 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+
+import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryExecutionConfiguration;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryTableClients;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobRequest;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 
 public final class RecoveryJobsFunction {
@@ -46,13 +49,26 @@ public final class RecoveryJobsFunction {
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
     private RecoveryJobService service;
+    private final BooleanSupplier executionEnabled;
 
     public RecoveryJobsFunction() {
         // Initialize storage clients lazily on the first valid request.
+        this.executionEnabled = RecoveryJobsFunction::executionEnabledFromEnvironment;
     }
 
     public RecoveryJobsFunction(RecoveryJobService service) {
+        this(service, RecoveryJobsFunction::executionEnabledFromEnvironment);
+    }
+
+    public RecoveryJobsFunction(RecoveryJobService service, BooleanSupplier executionEnabled) {
+
         this.service = Objects.requireNonNull(service, "service is required");
+
+        this.executionEnabled = Objects.requireNonNull(executionEnabled, "executionEnabled is required");
+    }
+
+    private static boolean executionEnabledFromEnvironment() {
+        return RecoveryExecutionConfiguration.fromEnvironment(System.getenv()).enabled();
     }
 
     @FunctionName("RecoveryJobsCreate")
@@ -79,9 +95,14 @@ public final class RecoveryJobsFunction {
         }
 
         try {
-            RecoveryJob job = getService().create(jobRequest);
+            if (!jobRequest.isDryRun() && !executionEnabled.getAsBoolean()) {
+                return response(request, HttpStatus.SERVICE_UNAVAILABLE, Map.of(MESSAGE,
+                        "Recovery execution is disabled; " + "submit a dry-run job or contact support"));
+            }
 
+            RecoveryJob job = getService().create(jobRequest);
             return response(request, HttpStatus.ACCEPTED, job);
+
         } catch (Exception e) {
             context.getLogger().log(Level.SEVERE, "Unable to create recovery job", e);
 

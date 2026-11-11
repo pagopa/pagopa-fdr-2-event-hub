@@ -20,13 +20,21 @@ public final class RecoveryRunnableJobRepository {
 
   private final TableClient client;
   private final RecoveryJobTableMapper mapper;
+  private final boolean includeExecution;
 
-  public RecoveryRunnableJobRepository(
-      TableClient client,
-      RecoveryJobTableMapper mapper) {
+  public RecoveryRunnableJobRepository(TableClient client, RecoveryJobTableMapper mapper) {
+      this(client, mapper, false);
+  }
 
-    this.client = Objects.requireNonNull(client, "client is required");
-    this.mapper = Objects.requireNonNull(mapper, "mapper is required");
+  public RecoveryRunnableJobRepository(TableClient client, RecoveryJobTableMapper mapper, boolean includeExecution) {
+      this.client = Objects.requireNonNull(client, "client is required");
+      this.mapper = Objects.requireNonNull(mapper, "mapper is required");
+
+      if (includeExecution && !"PUBLICATION".equals(mapper.discoveryMode().orElse(null))) {
+          throw new IllegalArgumentException("Execution requires the publication discovery job format");
+      }
+
+      this.includeExecution = includeExecution;
   }
 
   public JobPage findPage(String continuationToken, int pageSize) {
@@ -68,7 +76,7 @@ public final class RecoveryRunnableJobRepository {
       List<UUID> jobIds =
           entities.stream()
               .map(mapper::toJob)
-              .filter(RecoveryRunnableJobRepository::isRunnable)
+              .filter(this::isRunnable)
               .map(RecoveryJob::jobId)
               .toList();
 
@@ -81,12 +89,11 @@ public final class RecoveryRunnableJobRepository {
     }
   }
 
-  private static boolean isRunnable(RecoveryJob job) {
-    return job.dryRun()
-        && switch (job.status()) {
-          case PENDING, RUNNING, PAUSING -> true;
-          case PAUSED, COMPLETED, FAILED -> false;
-        };
+  private boolean isRunnable(RecoveryJob job) {
+      return (job.dryRun() || includeExecution) && switch (job.status()) {
+      case PENDING, RUNNING, PAUSING -> true;
+      case PAUSED, COMPLETED, FAILED -> false;
+      };
   }
 
   public record JobPage(
