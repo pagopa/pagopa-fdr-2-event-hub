@@ -18,6 +18,9 @@ import java.util.function.Supplier;
 
 public final class RecoveryDryRunDayWorker {
 
+  private static final String STATES_REQUIRED = "states is required";
+  private static final String DISCOVERY_REQUIRED = "discovery is required";
+
   public enum Outcome {
     LEASE_BUSY,
     NOT_RUN,
@@ -82,9 +85,9 @@ public final class RecoveryDryRunDayWorker {
       Supplier<Optional<RecoveryWorkerLeaseSession>> leaseAcquirer) {
 
     this.jobs = Objects.requireNonNull(jobs, "jobs is required");
-    this.states = Objects.requireNonNull(states, "states is required");
+    this.states = Objects.requireNonNull(states, STATES_REQUIRED);
     this.discovery =
-        Objects.requireNonNull(discovery, "discovery is required");
+        Objects.requireNonNull(discovery, DISCOVERY_REQUIRED);
     this.leaseAcquirer =
         Objects.requireNonNull(leaseAcquirer, "leaseAcquirer is required");
   }
@@ -191,8 +194,8 @@ public final class RecoveryDryRunDayWorker {
       RecoveryDiscoveryJobService discovery,
       RecoveryJobWorkerStateService states) {
 
-    Objects.requireNonNull(discovery, "discovery is required");
-    Objects.requireNonNull(states, "states is required");
+    Objects.requireNonNull(discovery, DISCOVERY_REQUIRED);
+    Objects.requireNonNull(states, STATES_REQUIRED);
 
     return (jobId, day, lease) -> {
       var checkpoint = discovery.discover(jobId, day, lease);
@@ -209,8 +212,8 @@ public final class RecoveryDryRunDayWorker {
       RecoveryPublicationDiscoveryJobService discovery,
       RecoveryJobWorkerStateService states) {
 
-    Objects.requireNonNull(discovery, "discovery is required");
-    Objects.requireNonNull(states, "states is required");
+    Objects.requireNonNull(discovery, DISCOVERY_REQUIRED);
+    Objects.requireNonNull(states, STATES_REQUIRED);
 
     return (jobId, day, lease) -> {
       var checkpoint = discovery.discover(jobId, day, lease);

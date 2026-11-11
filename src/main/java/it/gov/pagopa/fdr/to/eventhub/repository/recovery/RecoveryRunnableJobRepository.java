@@ -18,11 +18,6 @@ public final class RecoveryRunnableJobRepository {
 
   private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
-  private static final String FILTER =
-      "RowKey eq 'JOB' and "
-          + "(Status eq 'PENDING' or Status eq 'RUNNING' "
-          + "or Status eq 'PAUSING')";
-
   private final TableClient client;
   private final RecoveryJobTableMapper mapper;
 

@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public final class RecoveryJobWorkerStateService {
 
+  private static final String REQUIRE_OWNERSHIP_REQUIRED = "requireOwnership is required";
+
   private final RecoveryJobRepository repository;
   private final Clock clock;
 
@@ -69,7 +71,7 @@ public final class RecoveryJobWorkerStateService {
       Runnable requireOwnership) {
 
     Objects.requireNonNull(checkpoint, "checkpoint is required");
-    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+    Objects.requireNonNull(requireOwnership, REQUIRE_OWNERSHIP_REQUIRED);
 
     if (checkpoint.status()
         != RecoveryDiscoveryCheckpoint.Status.DISCOVERED) {
@@ -88,7 +90,7 @@ public final class RecoveryJobWorkerStateService {
       Runnable requireOwnership) {
 
     Objects.requireNonNull(checkpoint, "checkpoint is required");
-    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+    Objects.requireNonNull(requireOwnership, REQUIRE_OWNERSHIP_REQUIRED);
 
     if (checkpoint.status()
         != RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED) {
@@ -107,7 +109,7 @@ public final class RecoveryJobWorkerStateService {
       LocalDate completedDay,
       Runnable requireOwnership) {
 
-    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+    Objects.requireNonNull(requireOwnership, REQUIRE_OWNERSHIP_REQUIRED);
 
     requireOwnership.run();
 
@@ -165,7 +167,7 @@ public final class RecoveryJobWorkerStateService {
       Runnable requireOwnership) {
 
     Objects.requireNonNull(jobId, "jobId is required");
-    Objects.requireNonNull(requireOwnership, "requireOwnership is required");
+    Objects.requireNonNull(requireOwnership, REQUIRE_OWNERSHIP_REQUIRED);
 
     requireOwnership.run();
 
