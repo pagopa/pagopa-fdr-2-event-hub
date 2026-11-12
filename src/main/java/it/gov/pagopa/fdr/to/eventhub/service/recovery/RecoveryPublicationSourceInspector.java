@@ -20,10 +20,19 @@ public final class RecoveryPublicationSourceInspector {
 
   private final RecoveryFdr3SourceVerifier fdr3Verifier;
   private final RecoveryFdr1SourceResolver fdr1Resolver;
+  private final RecoveryFdr1ContentResolver contentResolver;
 
   public RecoveryPublicationSourceInspector(
       RecoveryFdr3SourceVerifier fdr3Verifier,
       RecoveryFdr1SourceResolver fdr1Resolver) {
+
+    this(fdr3Verifier, fdr1Resolver, null);
+  }
+
+  public RecoveryPublicationSourceInspector(
+      RecoveryFdr3SourceVerifier fdr3Verifier,
+      RecoveryFdr1SourceResolver fdr1Resolver,
+      RecoveryFdr1ContentResolver contentResolver) {
 
     this.fdr3Verifier =
         Objects.requireNonNull(
@@ -32,6 +41,8 @@ public final class RecoveryPublicationSourceInspector {
     this.fdr1Resolver =
         Objects.requireNonNull(
             fdr1Resolver, "fdr1Resolver is required");
+
+    this.contentResolver = contentResolver;
   }
 
   public Inspection inspect(RecoveryFlowCandidate candidate)
@@ -41,6 +52,13 @@ public final class RecoveryPublicationSourceInspector {
 
     var fdr3 = fdr3Verifier.verify(candidate);
     var fdr1 = fdr1Resolver.resolve(candidate);
+
+    if (contentResolver != null
+        && fdr3 instanceof RecoveryFdr3SourceVerifier.Verified verified
+        && fdr1 instanceof RecoveryFdr1SourceResolver.Unresolved unresolved) {
+
+      fdr1 = contentResolver.resolve(verified, unresolved);
+    }
 
     return new Inspection(candidate, fdr3, fdr1);
   }

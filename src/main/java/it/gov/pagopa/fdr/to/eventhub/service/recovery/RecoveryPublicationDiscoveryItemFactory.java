@@ -127,6 +127,48 @@ public final class RecoveryPublicationDiscoveryItemFactory {
       details.put(
           "xmlInspectionCount",
           Integer.toString(unresolved.inspections().size()));
+      describeInconsistentReport(unresolved, details);
     }
+  }
+
+  private static void describeInconsistentReport(RecoveryFdr1SourceResolver.Unresolved unresolved,
+          Map<String, String> details) {
+
+      if (unresolved.reason() != RecoveryFdr1SourceResolver.UnresolvedReason.INCONSISTENT_REPORT) {
+          return;
+      }
+
+      for (var result : unresolved.inspections()) {
+          if (result instanceof RecoveryFdr1SourceVerifier.Inspected inspected) {
+              var source = inspected.source();
+              String issues = reportIssues(source);
+
+              if (!issues.isEmpty()) {
+                  details.put("xmlBlob", source.blob().blobName());
+                  details.put("xmlReportIssues", issues);
+                  details.put("xmlOuterFlowName", source.envelope().name());
+                  details.put("xmlInnerFlowName", source.report().name());
+                  details.put("xmlDeclaredPayments", Long.toString(source.report().declaredPaymentCount()));
+                  details.put("xmlObservedPayments", Long.toString(source.report().observedPaymentCount()));
+
+                  return;
+              }
+          }
+      }
+  }
+
+  private static String reportIssues(RecoveryFdr1SourceInspector.Inspection source) {
+
+      var issues = new java.util.ArrayList<String>();
+
+      if (!Objects.equals(source.envelope().name(), source.report().name())) {
+          issues.add("FLOW_NAME_MISMATCH");
+      }
+
+      if (source.report().declaredPaymentCount() != source.report().observedPaymentCount()) {
+          issues.add("PAYMENT_COUNT_MISMATCH");
+      }
+
+      return String.join(",", issues);
   }
 }

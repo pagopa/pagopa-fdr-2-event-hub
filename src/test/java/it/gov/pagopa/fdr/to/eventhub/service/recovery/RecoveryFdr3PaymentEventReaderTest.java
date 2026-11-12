@@ -253,6 +253,59 @@ class RecoveryFdr3PaymentEventReaderTest {
     verifyNoInteractions(content);
   }
 
+  @Test
+  void shouldReadAllPaymentDaysFromConvertedJson() throws Exception {
+    var metadata = new HashMap<>(metadata());
+    metadata.put("elaborate", "false");
+
+    var source = source(metadata);
+    stubJson(source, json());
+
+    try (var events = reader.readAll(source)) {
+      var result = events.toList();
+
+      assertEquals(
+          List.of("IUV-1", "IUV-2", "IUV-3"),
+          result.stream().map(event -> event.getIuv()).toList());
+
+      assertEquals(
+          List.of(DAY, DAY, DAY.plusDays(1)),
+          result.stream()
+              .map(event -> event.getSinglePaymentOutcomeDate().toLocalDate())
+              .toList());
+
+      assertEquals(SESSION_ID, result.get(2).getUniqueId());
+    }
+
+    verify(content).download(source.blob());
+  }
+
+  @Test
+  void shouldRejectAnotherRevisionWhenReadingAllPayments()
+      throws Exception {
+
+    var source = source(metadata());
+    stubJson(source, json().replace("\"revision\":1", "\"revision\":2"));
+
+    assertThrows(
+        IOException.class,
+        () -> reader.readAll(source));
+  }
+
+  @Test
+  void shouldValidateMetadataBeforeReadingAllPayments() {
+    var metadata = new HashMap<>(metadata());
+    metadata.remove(INSERTED_TIMESTAMP);
+
+    var source = source(metadata);
+
+    assertThrows(
+        IOException.class,
+        () -> reader.readAll(source));
+
+    verifyNoInteractions(content);
+  }
+
   private RecoveryFdr3PaymentEventReader reader(int limit) {
     return new RecoveryFdr3PaymentEventReader(
         content,

@@ -65,16 +65,26 @@ public final class RecoveryFdr3PaymentEventReader {
   }
 
   /**
-   * Downloads and parses the selected FDR3 snapshot.
-   *
+   * Prepares payment events for the requested business day.
    * The caller must consume and close the returned stream.
-   * Closing releases the parsed flow's collections.
    */
   public Stream<ReportedIUVEventModel> read(
       LocalDate paymentDay,
       RecoveryPublicationSource source) throws IOException {
 
     Objects.requireNonNull(paymentDay, "paymentDay is required");
+    Objects.requireNonNull(source, "source is required");
+
+    return selector.select(paymentDay, source, readAll(source));
+  }
+
+  /**
+   * Prepares all payments from the verified JSON snapshot, without day filtering.
+   * The caller must consume and close the returned stream.
+   */
+  public Stream<ReportedIUVEventModel> readAll(
+      RecoveryPublicationSource source) throws IOException {
+
     Objects.requireNonNull(source, "source is required");
 
     if (source.sourceType()
@@ -102,10 +112,7 @@ public final class RecoveryFdr3PaymentEventReader {
     // Blob metadata is authoritative. Ignore metadata embedded in JSON.
     flow.setMetadata(metadata);
 
-    return selector.select(
-            paymentDay,
-            source,
-            FlowMapper.toReportedIUVEventStream(flow))
+    return FlowMapper.toReportedIUVEventStream(flow)
         .onClose(flow::releaseResources);
   }
 

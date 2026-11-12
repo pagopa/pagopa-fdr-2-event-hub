@@ -173,6 +173,87 @@ class RecoveryPublicationDiscoveryItemFactoryTest {
         () -> factory.create(JOB_ID, DAY, null));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "flow-1,6,12,PAYMENT_COUNT_MISMATCH",
+      "different-flow,6,6,FLOW_NAME_MISMATCH",
+      "different-flow,6,12,'FLOW_NAME_MISMATCH,PAYMENT_COUNT_MISMATCH'"
+  })
+  void shouldDescribeInconsistentXmlReport(
+      String innerName,
+      long declaredPayments,
+      long observedPayments,
+      String expectedIssues) {
+
+    var blob = new RecoveryBlobSnapshot(
+        "fdr1-flows",
+        "flow-1_original.xml.zip",
+        "\"original-etag\"",
+        100L,
+        Map.of());
+
+    var envelope = new RecoveryFdr1EnvelopeReader.RequestIdentity(
+        candidate.name(),
+        candidate.pspDomainId(),
+        candidate.orgDomainId(),
+        "2026-10-05T10:31:35Z");
+
+    var report = new RecoveryFdr1ReportReader.ReportIdentity(
+        innerName,
+        "2026-10-05T10:31:35Z",
+        "A",
+        "sender",
+        "G",
+        "receiver",
+        declaredPayments,
+        observedPayments);
+
+    var inspection = new RecoveryFdr1SourceInspector.Inspection(
+        candidate,
+        blob,
+        envelope,
+        report,
+        new RecoveryFdr1IdentityMatcher.Comparison(
+            java.util.Set.of()));
+
+    var inspected = new RecoveryFdr1SourceVerifier.Inspected(
+        inspection,
+        new RecoveryFdr1BlobMetadataInspector.Valid(
+            "78cd4ab1-b279-4c7b-9bb8-c9c8bb9629c0",
+            true));
+
+    var evidence = new RecoveryPublicationSourceInspector.Inspection(
+        candidate,
+        new RecoveryFdr3SourceVerifier.BlobMissing(candidate),
+        new RecoveryFdr1SourceResolver.Unresolved(
+            RecoveryFdr1SourceResolver.UnresolvedReason.INCONSISTENT_REPORT,
+            List.of(inspected)));
+
+    var result = new RecoveryPublicationBatchService.Unresolved(
+        new RecoveryPublicationSourceSelector.Unresolved(
+            RecoveryPublicationSourceSelector.UnresolvedReason.XML_UNRESOLVED,
+            evidence));
+
+    var outcome = assertInstanceOf(
+        RecoveryPublicationDiscoveryItem.Unresolved.class,
+        factory.create(JOB_ID, DAY, result).outcome());
+
+    assertEquals("XML_UNRESOLVED", outcome.reason());
+    assertEquals(
+        "INCONSISTENT_REPORT",
+        outcome.details().get("xmlReason"));
+    assertEquals(expectedIssues, outcome.details().get("xmlReportIssues"));
+    assertEquals(blob.blobName(), outcome.details().get("xmlBlob"));
+    assertEquals(candidate.name(), outcome.details().get("xmlOuterFlowName"));
+    assertEquals(innerName, outcome.details().get("xmlInnerFlowName"));
+    assertEquals(
+        Long.toString(declaredPayments),
+        outcome.details().get("xmlDeclaredPayments"));
+    assertEquals(
+        Long.toString(observedPayments),
+        outcome.details().get("xmlObservedPayments"));
+  }
+
   private RecoveryPublicationBatchService.Compared compared(
       LocalDate day,
       RecoveryPublicationPresenceIndex.Presence presence,

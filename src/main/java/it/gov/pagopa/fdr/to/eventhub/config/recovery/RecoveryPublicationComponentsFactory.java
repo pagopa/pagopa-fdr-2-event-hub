@@ -86,9 +86,34 @@ public final class RecoveryPublicationComponentsFactory {
                 new RecoveryFdr1BlobMetadataInspector(),
                 fdr1Inspector));
 
+    var paymentSelector = new RecoveryPaymentEventSelector();
+
+    var contentResolver =
+        new RecoveryFdr1ContentResolver(
+            new RecoveryFdr3PaymentEventReader(
+                new RecoveryBlobContentRepository(
+                    jsonContainer,
+                    "fdr3-flows",
+                    configuration.maxCompressedBytes()),
+                decompressor,
+                paymentSelector),
+            new RecoveryFdr1PaymentEventReader(
+                new RecoveryBlobContentRepository(
+                    xmlContainer,
+                    "fdr1-flows",
+                    configuration.maxCompressedBytes()),
+                decompressor,
+                new RecoveryFdr1PayloadDecoder(
+                    configuration.maxInnerXmlBytes()),
+                paymentSelector),
+            new RecoveryPublicationSourceMapper(dateNormalizer),
+            new RecoveryPaymentContentMatcher());
+
     var sourceInspector =
         new RecoveryPublicationSourceInspector(
-            fdr3Verifier, fdr1Resolver);
+            fdr3Verifier,
+            fdr1Resolver,
+            contentResolver);
 
     var selector =
         new RecoveryPublicationSourceSelector(

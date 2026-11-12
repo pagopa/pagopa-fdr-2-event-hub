@@ -65,8 +65,7 @@ public final class RecoveryFdr1PaymentEventReader {
   }
 
   /**
-   * Downloads and prepares payment events from the selected XML snapshot.
-   *
+   * Prepares payment events for the requested business day.
    * The caller must consume and close the returned stream.
    */
   public Stream<ReportedIUVEventModel> read(
@@ -74,6 +73,18 @@ public final class RecoveryFdr1PaymentEventReader {
       RecoveryPublicationSource source) throws IOException {
 
     Objects.requireNonNull(paymentDay, "paymentDay is required");
+    Objects.requireNonNull(source, "source is required");
+
+    return selector.select(paymentDay, source, readAll(source));
+  }
+
+  /**
+   * Prepares all payments from the verified XML snapshot, without day filtering.
+   * The caller must consume and close the returned stream.
+   */
+  public Stream<ReportedIUVEventModel> readAll(
+      RecoveryPublicationSource source) throws IOException {
+
     Objects.requireNonNull(source, "source is required");
 
     if (source.sourceType()
@@ -103,10 +114,7 @@ public final class RecoveryFdr1PaymentEventReader {
 
     flow.setMetadata(metadata);
 
-    return selector.select(
-            paymentDay,
-            source,
-            FlussoRendicontazioneMapper.toReportedIUVEventStream(flow))
+    return FlussoRendicontazioneMapper.toReportedIUVEventStream(flow)
         .onClose(flow::releaseResources);
   }
 

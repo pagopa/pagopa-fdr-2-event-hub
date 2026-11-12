@@ -224,6 +224,69 @@ class RecoveryFdr1PaymentEventReaderTest {
     verifyNoInteractions(content);
   }
 
+  @Test
+  void shouldReadAllPaymentDaysWithOriginalXmlIdentity()
+      throws Exception {
+
+    var source = source(metadata());
+    stubXml(source, outer(inner()));
+
+    try (var events = reader.readAll(source)) {
+      var result = events.toList();
+
+      assertEquals(
+          List.of("IUV-1", "IUV-2", "IUV-3"),
+          result.stream().map(event -> event.getIuv()).toList());
+
+      assertEquals(
+          List.of(DAY, DAY, DAY.plusDays(1)),
+          result.stream()
+              .map(event -> event.getSinglePaymentOutcomeDate().toLocalDate())
+              .toList());
+
+      var last = result.get(2);
+
+      assertEquals(SESSION_ID, last.getUniqueId());
+      assertEquals(
+          LocalDateTime.ofInstant(EVENT_DATE, ZoneOffset.UTC),
+          last.getFlowDateTime());
+    }
+
+    verify(content).download(source.blob());
+  }
+
+  @Test
+  void shouldRejectInconsistentReportWhenReadingAllPayments()
+      throws Exception {
+
+    var source = source(metadata());
+
+    String report = inner().replace(
+        "<numeroTotalePagamenti>3",
+        "<numeroTotalePagamenti>4");
+
+    stubXml(source, outer(report));
+
+    assertThrows(
+        IOException.class,
+        () -> reader.readAll(source));
+  }
+
+  @Test
+  void shouldValidateMetadataBeforeReadingAllXmlPayments() {
+    var source = source(
+        Map.of(
+            "sessionId", SESSION_ID,
+            "serviceIdentifier", "FDR001",
+            "elaborate", "true"));
+
+    assertThrows(
+        IOException.class,
+        () -> reader.readAll(source));
+
+    verifyNoInteractions(content);
+  }
+
   private RecoveryFdr1PaymentEventReader reader(
       int decompressedLimit,
       int innerLimit) {
