@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryFdr1ContentResolverTest {
@@ -85,9 +86,16 @@ class RecoveryFdr1ContentResolverTest {
         new RecoveryFdr1SourceResolver.Resolved(matching)));
   }
 
-  @Test
-  void shouldPreserveAmbiguityWhenBothContentsMatch()
-      throws IOException {
+  @ParameterizedTest(name = "{0}")
+  @CsvSource({
+      "both contents match,expected-iuv,expected-iuv",
+      "neither content matches,different-1,different-2",
+      "only non-original XML matches,expected-iuv,different-iuv"
+  })
+  void shouldPreserveAmbiguityWithoutUniqueOriginalContent(
+      String scenario,
+      String firstIuv,
+      String secondIuv) throws IOException {
 
     var json = json(false);
     var first = xml("first.xml.zip", false);
@@ -95,42 +103,13 @@ class RecoveryFdr1ContentResolverTest {
     var unresolved = ambiguous(first, second);
 
     stubJson(json);
-    stubXml(first, "expected-iuv");
-    stubXml(second, "expected-iuv");
+    stubXml(first, firstIuv);
+    stubXml(second, secondIuv);
 
-    assertSame(unresolved, resolver.resolve(json, unresolved));
-  }
-
-  @Test
-  void shouldPreserveAmbiguityWhenNeitherContentMatches()
-      throws IOException {
-
-    var json = json(false);
-    var first = xml("first.xml.zip", false);
-    var second = xml("second.xml.zip", true);
-    var unresolved = ambiguous(first, second);
-
-    stubJson(json);
-    stubXml(first, "different-1");
-    stubXml(second, "different-2");
-
-    assertSame(unresolved, resolver.resolve(json, unresolved));
-  }
-
-  @Test
-  void shouldNotSelectMatchingXmlWithoutOriginalFlag()
-      throws IOException {
-
-    var json = json(false);
-    var first = xml("first.xml.zip", false);
-    var second = xml("second.xml.zip", true);
-    var unresolved = ambiguous(first, second);
-
-    stubJson(json);
-    stubXml(first, "expected-iuv");
-    stubXml(second, "different-iuv");
-
-    assertSame(unresolved, resolver.resolve(json, unresolved));
+    assertSame(
+        unresolved,
+        resolver.resolve(json, unresolved),
+        scenario);
   }
 
   @Test

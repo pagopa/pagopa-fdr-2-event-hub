@@ -7,6 +7,9 @@ import java.util.Objects;
 
 public final class RecoveryPublicationComponentsFactory {
 
+  private static final String FDR1_CONTAINER_NAME = "fdr1-flows";
+  private static final String FDR3_CONTAINER_NAME = "fdr3-flows";
+
   private RecoveryPublicationComponentsFactory() {
   }
 
@@ -41,10 +44,10 @@ public final class RecoveryPublicationComponentsFactory {
     }
 
     var jsonContainer =
-        storage.getBlobContainerClient("fdr3-flows");
+        storage.getBlobContainerClient(FDR3_CONTAINER_NAME);
 
     var xmlContainer =
-        storage.getBlobContainerClient("fdr1-flows");
+        storage.getBlobContainerClient(FDR1_CONTAINER_NAME);
 
     var decompressor =
         new RecoveryBlobDecompressor(
@@ -68,7 +71,7 @@ public final class RecoveryPublicationComponentsFactory {
         new RecoveryFdr1SourceInspector(
             new RecoveryBlobContentRepository(
                 xmlContainer,
-                "fdr1-flows",
+                FDR1_CONTAINER_NAME,
                 configuration.maxCompressedBytes()),
             decompressor,
             new RecoveryFdr1EnvelopeReader(),
@@ -93,14 +96,14 @@ public final class RecoveryPublicationComponentsFactory {
             new RecoveryFdr3PaymentEventReader(
                 new RecoveryBlobContentRepository(
                     jsonContainer,
-                    "fdr3-flows",
+                    FDR3_CONTAINER_NAME,
                     configuration.maxCompressedBytes()),
                 decompressor,
                 paymentSelector),
             new RecoveryFdr1PaymentEventReader(
                 new RecoveryBlobContentRepository(
                     xmlContainer,
-                    "fdr1-flows",
+                    FDR1_CONTAINER_NAME,
                     configuration.maxCompressedBytes()),
                 decompressor,
                 new RecoveryFdr1PayloadDecoder(
