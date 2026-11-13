@@ -369,16 +369,35 @@ public class BlobProcessingFunction {
     try {
       Map<String, String> tags = getBlobTags(blobClient);
 
+      String previousStatus = tags.get(BlobTagName.PROCESSING_STATUS.getValue());
+      String previousAttempt = tags.get(BlobTagName.PROCESSING_ATTEMPT.getValue());
+      String previousUpdatedAt = tags.get(BlobTagName.PROCESSING_UPDATED_AT.getValue());
+
       boolean changed = tags.remove(BlobTagName.PROCESSING_STATUS.getValue()) != null;
       changed |= tags.remove(BlobTagName.PROCESSING_UPDATED_AT.getValue()) != null;
       changed |= tags.remove(BlobTagName.PROCESSING_ATTEMPT.getValue()) != null;
 
       if (changed) {
         blobClient.setTags(tags);
-        logger.info("[{}] Processing tags removed from blob {}", fdrType, blobClient.getBlobName());
+
+        logger.info(
+            "[{}] Processing tags removed from blob {}. Previous status: {}, attempt: {}, updatedAt: {}",
+            fdrType,
+            blobClient.getBlobName(),
+            previousStatus,
+            previousAttempt,
+            previousUpdatedAt
+        );
       }
+
     } catch (Exception e) {
-      logger.error("[{}] Failed to remove processing tags from blob {}", fdrType, blobClient.getBlobName(), e);
+      logger.error(
+          "[{}] Failed to remove processing tags from blob {}",
+          fdrType,
+          blobClient.getBlobName(),
+          e
+      );
+
       sendTaggingAlert(ErrorCodes.FDR_TAG_E3, blobClient, fdrType, e);
     }
   }
