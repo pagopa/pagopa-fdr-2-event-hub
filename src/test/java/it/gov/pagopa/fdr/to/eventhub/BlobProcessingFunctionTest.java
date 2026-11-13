@@ -2,6 +2,8 @@ package it.gov.pagopa.fdr.to.eventhub;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,6 +23,7 @@ import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
+import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
@@ -909,5 +912,445 @@ class BlobProcessingFunctionTest {
             "elaborate", "false"
         ))
     );
+  }
+
+  @Test
+  void testFDR3InvalidGzipShouldUpdateTagsAndSendAlert() throws Exception {
+
+    byte[] invalidData =
+        "NOT_A_GZIP_FILE".getBytes(StandardCharsets.UTF_8);
+
+    Map<String, String> metadata = Map.of(
+        "sessionId", "test-session-123",
+        "insertedTimestamp", "2026-11-13T10:00:00",
+        "elaborate", "true"
+    );
+
+    BlobClient blobClient = mockBlob(invalidData);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+
+    Map<String, String> storedTags = new HashMap<>();
+    storedTags.put("processingStatus", "DA_ELABORARE");
+    storedTags.put("processingAttempt", "0");
+
+    when(blobClient.getTags())
+        .thenAnswer(invocation -> new HashMap<>(storedTags));
+
+    doAnswer(invocation -> {
+      Map<String, String> newTags = invocation.getArgument(0);
+
+      storedTags.clear();
+      storedTags.putAll(newTags);
+
+      return null;
+    }).when(blobClient).setTags(anyMap());
+
+    assertDoesNotThrow(() ->
+        function.processFDR3BlobFiles(
+            blobClient,
+            "sampleBlob",
+            metadata,
+            executionContext
+        )
+    );
+
+    assertEquals("ERRORE", storedTags.get("processingStatus"));
+    assertEquals("1", storedTags.get("processingAttempt"));
+    assertNotNull(storedTags.get("processingUpdatedAt"));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> tagsCaptor =
+        ArgumentCaptor.forClass(Map.class);
+
+    verify(blobClient, times(2)).setTags(tagsCaptor.capture());
+
+    Map<String, String> firstUpdate = tagsCaptor.getAllValues().get(0);
+    Map<String, String> secondUpdate = tagsCaptor.getAllValues().get(1);
+
+    assertEquals("IN_ELABORAZIONE", firstUpdate.get("processingStatus"));
+    assertEquals("1", firstUpdate.get("processingAttempt"));
+
+    assertEquals("ERRORE", secondUpdate.get("processingStatus"));
+    assertEquals("1", secondUpdate.get("processingAttempt"));
+
+    verify(aiTelemetryClientMock, times(1))
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR3_E1_1),
+            contains("sampleBlob"),
+            isNull()
+        );
+
+    verify(blobClient, times(1)).openInputStream();
+    verify(aiTelemetryClientMock, never())
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR_TAG_E1),
+            anyString(),
+            any()
+        );
+
+    verify(aiTelemetryClientMock, never())
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR_TAG_E2),
+            anyString(),
+            any()
+        );
+  }
+
+  @Test
+  void testFDR3EventHubNotConfirmedShouldUpdateTagsAndThrowException()
+      throws Exception {
+
+    String sampleJson = SampleContentFileUtil.getFileContent("sample.json");
+    byte[] compressedData = SampleContentFileUtil.gzipCompress(sampleJson);
+
+    Map<String, String> metadata = Map.of(
+        "sessionId", "test-session-123",
+        "insertedTimestamp", "2026-11-13T10:00:00",
+        "elaborate", "true"
+    );
+
+    BlobClient blobClient = mockBlob(compressedData);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+
+    Map<String, String> storedTags = new HashMap<>();
+    storedTags.put("processingStatus", "DA_ELABORARE");
+    storedTags.put("processingAttempt", "0");
+
+    when(blobClient.getTags())
+        .thenAnswer(invocation -> new HashMap<>(storedTags));
+
+    doAnswer(invocation -> {
+      Map<String, String> newTags = invocation.getArgument(0);
+
+      storedTags.clear();
+      storedTags.putAll(newTags);
+
+      return null;
+    }).when(blobClient).setTags(anyMap());
+
+    Flow mockFlow = mock(Flow.class);
+    when(mockFlow.getFdr()).thenReturn("FLOW-123");
+
+    try (MockedStatic<CommonUtil> mockedUtil =
+      mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
+
+      mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
+          .thenAnswer(invocation -> {
+            InputStream input = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(input, true);
+          });
+
+      mockedUtil.when(() -> CommonUtil.parseJSON(any(InputStream.class)))
+          .thenReturn(mockFlow);
+
+      mockedUtil.when(() ->
+          CommonUtil.processJsonBlobAndSendToEventHub(
+              any(),
+              any(),
+              eq(mockFlow),
+              any(),
+              eq(true),
+              eq(true)
+          )
+      ).thenReturn(false);
+
+      AlertAppException thrown = assertThrows(
+          AlertAppException.class,
+          () -> function.processFDR3BlobFiles(
+              blobClient,
+              "sampleBlob",
+              metadata,
+              executionContext
+          )
+      );
+
+      assertNotNull(thrown.getCause());
+      assertInstanceOf(EventHubException.class, thrown.getCause());
+
+      assertTrue(
+          thrown.getCause().getMessage().contains("FLOW-123")
+      );
+
+      mockedUtil.verify(() ->
+              CommonUtil.processJsonBlobAndSendToEventHub(
+                  any(),
+                  any(),
+                  eq(mockFlow),
+                  any(),
+                  eq(true),
+                  eq(true)
+              ),
+          times(1)
+      );
+    }
+
+    assertEquals("ERRORE", storedTags.get("processingStatus"));
+    assertEquals("1", storedTags.get("processingAttempt"));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> tagsCaptor =
+        ArgumentCaptor.forClass(Map.class);
+
+    verify(blobClient, times(2)).setTags(tagsCaptor.capture());
+
+    Map<String, String> firstUpdate = tagsCaptor.getAllValues().get(0);
+    Map<String, String> secondUpdate = tagsCaptor.getAllValues().get(1);
+
+    assertEquals(
+        "IN_ELABORAZIONE",
+        firstUpdate.get("processingStatus")
+    );
+
+    assertEquals(
+        "1",
+        firstUpdate.get("processingAttempt")
+    );
+
+    assertEquals(
+        "ERRORE",
+        secondUpdate.get("processingStatus")
+    );
+
+    assertEquals(
+        "1",
+        secondUpdate.get("processingAttempt")
+    );
+
+    verify(aiTelemetryClientMock, times(1))
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR3_E1),
+            anyString(),
+            any(EventHubException.class)
+        );
+
+    verify(mockFlow, times(1)).releaseResources();
+    verify(blobClient, times(2)).setTags(anyMap());
+  }
+
+  @Test
+  void testUpdateTagsFailureShouldSendAlertAndContinueProcessing() {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+
+    RuntimeException taggingException =
+        new RuntimeException("Azure Storage tagging unavailable");
+
+    when(blobClient.getTags())
+        .thenThrow(taggingException)
+        .thenReturn(Collections.emptyMap());
+
+    assertDoesNotThrow(() -> processSuccessfulFDR1(blobClient));
+
+    verify(aiTelemetryClientMock).createCustomEventForAlert(
+        eq(ErrorCodes.FDR_TAG_E1),
+        contains("sampleBlob"),
+        same(taggingException));
+
+     verify(blobClient).openInputStream();
+  }
+
+  @Test
+  void testUpdateErrorTagsFailureShouldSendFdrTagE2() {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+    when(blobClient.getTags()).thenReturn(Collections.emptyMap());
+
+    RuntimeException processingException =
+        new RuntimeException("Blob read failed");
+
+    RuntimeException taggingException =
+        new RuntimeException("Azure setTags failed");
+
+    when(blobClient.openInputStream())
+        .thenThrow(processingException);
+
+    doNothing()
+        .doThrow(taggingException)
+        .when(blobClient)
+        .setTags(anyMap());
+
+    Map<String, String> metadata = Map.of(
+        "sessionId", "1234",
+        "insertedTimestamp", "2026-11-13T10:00:00",
+        "elaborate", "true");
+
+    AlertAppException thrown = assertThrows(
+        AlertAppException.class,
+        () -> function.processFDR1BlobFiles(
+            blobClient, "sampleBlob", metadata, executionContext));
+
+    assertSame(processingException, thrown.getCause());
+
+    verify(aiTelemetryClientMock).createCustomEventForAlert(
+        eq(ErrorCodes.FDR_TAG_E2),
+        contains("sampleBlob"),
+        same(taggingException));
+  }
+
+
+  @Test
+  void testRemoveBlobProcessingTagsShouldPreserveOtherTags() {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("processingStatus", "IN_ELABORAZIONE");
+    tags.put("processingAttempt", "1");
+    tags.put("processingUpdatedAt", "2026-11-13T10:00:00Z");
+    tags.put("customTag", "customValue");
+
+    when(blobClient.getTags()).thenReturn(tags);
+
+    assertDoesNotThrow(() -> processSuccessfulFDR1(blobClient));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+
+    verify(blobClient, times(2)).setTags(captor.capture());
+
+    Map<String, String> finalTags = captor.getAllValues().get(1);
+
+    assertEquals(1, finalTags.size());
+    assertEquals("customValue", finalTags.get("customTag"));
+
+    assertFalse(finalTags.containsKey("processingStatus"));
+    assertFalse(finalTags.containsKey("processingAttempt"));
+    assertFalse(finalTags.containsKey("processingUpdatedAt"));
+  }
+
+  @Test
+  void testRemoveBlobProcessingTagsWhenNoTagsExist()
+      throws Exception {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobClient.getTags())
+        .thenReturn(Collections.emptyMap());
+
+    assertDoesNotThrow(() -> processSuccessfulFDR1(blobClient));
+
+    verify(blobClient, times(1)).setTags(anyMap());
+  }
+
+  @Test
+  void testRemoveBlobProcessingTagsFailureShouldSendAlert()
+      throws Exception {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("processingStatus", "IN_ELABORAZIONE");
+    tags.put("processingAttempt", "1");
+    tags.put("processingUpdatedAt", "2026-11-13T10:00:00Z");
+
+    when(blobClient.getTags()).thenReturn(tags);
+
+    RuntimeException taggingException =
+        new RuntimeException("Failed to remove tags");
+
+    doNothing()
+        .doThrow(taggingException)
+        .when(blobClient)
+        .setTags(anyMap());
+
+    assertDoesNotThrow(() -> processSuccessfulFDR1(blobClient));
+
+    verify(aiTelemetryClientMock).createCustomEventForAlert(
+        eq(ErrorCodes.FDR_TAG_E3),
+        contains("sampleBlob"),
+        same(taggingException));
+
+    verify(blobClient, times(2)).setTags(anyMap());
+  }
+
+  @Test
+  void testSendTaggingAlertFailureShouldNotInterruptProcessing()
+      throws Exception {
+
+    BlobClient blobClient = mock(BlobClient.class);
+
+    when(blobClient.getBlobName()).thenReturn("sampleBlob");
+
+    RuntimeException taggingException =
+        new RuntimeException("Azure tagging error");
+
+    RuntimeException telemetryException =
+        new RuntimeException("Application Insights unavailable");
+
+    when(blobClient.getTags())
+        .thenThrow(taggingException)
+        .thenReturn(Collections.emptyMap());
+
+    doThrow(telemetryException)
+        .when(aiTelemetryClientMock)
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR_TAG_E1),
+            anyString(),
+            any(Exception.class));
+
+    assertDoesNotThrow(() -> processSuccessfulFDR1(blobClient));
+
+    verify(aiTelemetryClientMock).createCustomEventForAlert(
+        eq(ErrorCodes.FDR_TAG_E1),
+        contains("sampleBlob"),
+        same(taggingException));
+
+    verify(blobClient).openInputStream();
+  }
+
+  private void processSuccessfulFDR1(BlobClient blobClient) throws Exception {
+    String sampleXml = SampleContentFileUtil.getFileContent("sample.xml");
+    byte[] compressedData = SampleContentFileUtil.gzipCompress(sampleXml);
+
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("sessionId", "1234");
+    metadata.put("insertedTimestamp", "2026-11-13T10:00:00");
+    metadata.put("elaborate", "true");
+
+    FlussoRendicontazione flusso = mock(FlussoRendicontazione.class);
+    when(flusso.getIdentificativoFlusso()).thenReturn("FLOW-123");
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class)))
+        .thenReturn(flusso);
+
+    BlobInputStream blobStream = mock(BlobInputStream.class);
+    ByteArrayInputStream delegate = new ByteArrayInputStream(compressedData);
+
+    when(blobClient.openInputStream()).thenReturn(blobStream);
+
+    lenient().doAnswer(invocation -> {
+      byte[] buffer = invocation.getArgument(0);
+      int offset = invocation.getArgument(1);
+      int length = invocation.getArgument(2);
+      return delegate.read(buffer, offset, length);
+    }).when(blobStream).read(any(byte[].class), anyInt(), anyInt());
+
+    lenient().doAnswer(invocation -> delegate.read())
+        .when(blobStream).read();
+
+    try (MockedStatic<CommonUtil> mockedUtil =
+        mockStatic(CommonUtil.class, Mockito.CALLS_REAL_METHODS)) {
+
+      mockedUtil.when(() -> CommonUtil.isGzipStream(any()))
+          .thenAnswer(invocation -> {
+            InputStream input = invocation.getArgument(0);
+            return new CommonUtil.Pair<>(input, true);
+          });
+
+      mockedUtil.when(() ->
+              CommonUtil.processXmlBlobAndSendToEventHub(
+                  any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+          .thenReturn(true);
+
+      function.processFDR1BlobFiles(
+          blobClient, "sampleBlob", metadata, executionContext);
+    }
   }
 }
