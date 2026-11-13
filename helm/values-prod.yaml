@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "1.1.1"
+    tag: "1.1.1-6-PIDM-2543-recovery-lost-events-API"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   # livenessProbe:
@@ -108,7 +108,9 @@ microservice-chart: &microservice-chart
     FUNCTIONS_SECRETS_PATH: "/tmp/secrets"
     # WARNING: in order to avoid the re-schedulation of blob conversion, we are using an existing queue with a casual name on PROD
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhub56ccffd76f42jg"
-    BLOB_FUNCTION_LOG_LEVEL: "INFO"
+    BLOB_FUNCTION_LOG_LEVEL: "ERROR"
+    RECOVERY_WORKER_ENABLED: "false"
+    RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
   envFieldRef: &envFieldRef
     APP_NAME: "metadata.labels['app.kubernetes.io/instance']"
     APP_VERSION: "metadata.labels['app.kubernetes.io/version']"
@@ -233,5 +235,80 @@ recovery:
     !!merge <<: *envFieldRef
   envSecret:
     !!merge <<: *envSecret
+  keyvault:
+    !!merge <<: *keyvault
+# Dedicated deployment for recovery job APIs and dry-run worker.
+recovery-jobs:
+  !!merge <<: *microservice-chart
+  enabled: true
+  deployment:
+    create: true
+    replicas: 1
+  terminationGracePeriodSeconds: 120
+  autoscaling:
+    enable: false
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "3Gi"
+      cpu: "1000m"
+  serviceMonitor:
+    create: false
+  ports:
+    - 8080
+  service:
+    type: ClusterIP
+    ports:
+      - 8080
+  ingress:
+    !!merge <<: *ingress
+    path: /pagopa-fdr-to-event-hub-recovery-jobs-service/(.*)
+  envConfig:
+    !!merge <<: *envConfig
+    WEBSITE_SITE_NAME: "pagopafdrtoeventhubrecoveryjobs"
+    AzureFunctionsWebHost__hostid: "pagopafdr2eventhubrecoveryjobs"
+    AzureFunctionsJobHost__functions__0: "Info"
+    AzureFunctionsJobHost__functions__1: "RecoveryJobsCreate"
+    AzureFunctionsJobHost__functions__2: "RecoveryJobsGet"
+    AzureFunctionsJobHost__functions__3: "RecoveryJobsPause"
+    AzureFunctionsJobHost__functions__4: "RecoveryJobsResume"
+    AzureFunctionsJobHost__functions__5: "RecoveryDryRunWorker"
+    AzureFunctionsJobHost__functions__6: "RecoveryJobsDiscoveryGet"
+    AzureFunctionsJobHost__logging__logLevel__default: "Information"
+    # Suppress SDK HTTP noise.
+    # Function execution logs and Java application logs remain unchanged.
+    AzureFunctionsJobHost__logging__logLevel__Azure.Core: "Error"
+    AzureFunctionsJobHost__functionTimeout: "01:00:00"
+    LOG_LEVEL: "INFO"
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx1536m"
+    RECOVERY_WORKER_ENABLED: "true"
+    RECOVERY_EXECUTION_ENABLED: "true"
+    RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
+    RECOVERY_JOBS_TABLE_NAME: "fdrrecoveryjobs"
+    RECOVERY_ITEMS_TABLE_NAME: "fdrrecoveryitems"
+    RECOVERY_DISCOVERY_PAGE_SIZE: "10"
+    RECOVERY_JOB_PAGE_SIZE: "10"
+    RECOVERY_POSTGRES_JDBC_URL: "jdbc:postgresql://fdr-db.p.internal.postgresql.pagopa.it:5432/fdr3"
+    RECOVERY_POSTGRES_USERNAME: "fdr3"
+    RECOVERY_POSTGRES_MAX_POOL_SIZE: "2"
+    RECOVERY_POSTGRES_QUERY_TIMEOUT_SECONDS: "60"
+    RECOVERY_ADX_CLUSTER_URL: "https://pagopapdataexplorer.westeurope.kusto.windows.net"
+    RECOVERY_ADX_DATABASE: "re"
+    RECOVERY_ADX_AUTH_MODE: "WORKLOAD_IDENTITY"
+    RECOVERY_ADX_QUERY_TIMEOUT_SECONDS: "60"
+    RECOVERY_MAX_COMPRESSED_BLOB_BYTES: "33554432"
+    RECOVERY_MAX_DECOMPRESSED_BLOB_BYTES: "134217728"
+    RECOVERY_MAX_INNER_XML_BYTES: "67108864"
+    RECOVERY_MAX_FDR1_CANDIDATES: "20"
+  envFieldRef:
+    !!merge <<: *envFieldRef
+  envSecret:
+    APPLICATIONINSIGHTS_CONNECTION_STRING: "ai-connection-string"
+    FDR_SA_CONNECTION_STRING: "fdr-sa-connection-string"
+    AzureWebJobsStorage: "fdr-sa-connection-string"
+    RECOVERY_POSTGRES_PASSWORD: "db-fdr3-password"
+    EVENT_HUB_REPORTEDIUV_CONNECTION_STRING: "fdr-qi-reported-iuv-tx-connection-string"
   keyvault:
     !!merge <<: *keyvault
