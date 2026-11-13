@@ -326,16 +326,38 @@ public class BlobProcessingFunction {
         ? ErrorCodes.FDR_TAG_E1 : ErrorCodes.FDR_TAG_E2;
     try {
       Map<String, String> tags = getBlobTags(blobClient);
+
+      String previousStatus = tags.get(
+          BlobTagName.PROCESSING_STATUS.getValue());
+
+      String previousAttempt = tags.get(
+          BlobTagName.PROCESSING_ATTEMPT.getValue());
+
+
       int attempt = calculateAttempt(tags, status);
+
+      logger.info(
+          "[{}] Blob {} previous status: {}, previous attempt: {}",
+          fdrType,
+          blobClient.getBlobName(),
+          previousStatus == null ? "NOT_SET" : previousStatus,
+          previousAttempt == null ? "NOT_SET" : previousAttempt
+      );
 
       tags.put(BlobTagName.PROCESSING_STATUS.getValue(), status.name());
       tags.put(BlobTagName.PROCESSING_ATTEMPT.getValue(), String.valueOf(attempt));
       tags.put(BlobTagName.PROCESSING_UPDATED_AT.getValue(),
           Instant.now().truncatedTo(ChronoUnit.SECONDS).toString());
 
-      blobClient.setTags(tags);
-      logger.info("[{}] Blob {} status updated to {}, attempt {}",
-          fdrType, blobClient.getBlobName(), status, attempt);
+      logger.info(
+          "[{}] Blob {} status transition: {} -> {}, attempt: {} -> {}",
+          fdrType,
+          blobClient.getBlobName(),
+          previousStatus == null ? "NOT_SET" : previousStatus,
+          status.name(),
+          previousAttempt == null ? "NOT_SET" : previousAttempt,
+          attempt
+      );
     } catch (Exception e) {
       logger.error("[{}] Tagging failed for blob {}", fdrType, blobClient.getBlobName(), e);
       sendTaggingAlert(errorCode, blobClient, fdrType, e);
