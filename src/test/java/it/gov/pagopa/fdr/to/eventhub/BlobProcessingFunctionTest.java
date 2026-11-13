@@ -12,31 +12,39 @@ import static org.mockito.Mockito.*;
 import com.azure.messaging.eventhubs.EventDataBatch;
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.RetryContext;
 import it.gov.pagopa.fdr.to.eventhub.client.AppInsightTelemetryClient;
 import it.gov.pagopa.fdr.to.eventhub.exception.AlertAppException;
+import it.gov.pagopa.fdr.to.eventhub.exception.EventHubException;
 import it.gov.pagopa.fdr.to.eventhub.mapper.FlussoRendicontazioneMapper;
 import it.gov.pagopa.fdr.to.eventhub.model.eventhub.FlowTxEventModel;
 import it.gov.pagopa.fdr.to.eventhub.model.fdr1.FlussoRendicontazione;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
+import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
 import it.gov.pagopa.fdr.to.eventhub.util.SampleContentFileUtil;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+import java.util.stream.Stream;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -167,7 +175,7 @@ class BlobProcessingFunctionTest {
 //  }
 
   @Test
-  void testFDR1ProcessBlobWithInvalidGzipData() throws IOException {
+  void testFDR1ProcessBlobWithInvalidGzipData() throws IOException{
     doReturn(retryContext).when(executionContext).getRetryContext();
     doReturn(1).when(retryContext).getMaxretrycount();
     byte[] invalidData = "invalidData".getBytes(StandardCharsets.UTF_8);
@@ -186,12 +194,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blob = mockBlob(invalidData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(invalidData), "sampleBlob", metadata, executionContext));
+                      blob, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -222,12 +231,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient , "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -259,12 +269,13 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
 
@@ -350,13 +361,13 @@ class BlobProcessingFunctionTest {
           });
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
-
+      BlobClient blobClient = mockBlob(compressedData);
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient , "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -386,12 +397,14 @@ class BlobProcessingFunctionTest {
       mockedUtil.when(() -> CommonUtil.processXmlBlobAndSendToEventHub(
           any(), any(), any(), any(), anyBoolean(), anyBoolean())).thenReturn(true);
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -481,12 +494,14 @@ class BlobProcessingFunctionTest {
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(1).when(retryContext).getMaxretrycount();
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR3BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                      blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock).createCustomEventForAlert(any(), anyString(), any());
@@ -513,12 +528,14 @@ class BlobProcessingFunctionTest {
       doReturn(retryContext).when(executionContext).getRetryContext();
       doReturn(5).when(retryContext).getMaxretrycount();
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       AlertAppException thrown =
           assertThrows(
               AlertAppException.class,
               () ->
                   function.processFDR3BlobFiles(
-                      mockBlob(compressedData), "sampleBlob", metadata, executionContext));
+                     blobClient, "sampleBlob", metadata, executionContext));
 
       assertTrue(thrown.toString().contains("[ALERT][Fdr2EventHub]"));
       verify(aiTelemetryClientMock, never()).createCustomEventForAlert(any(), anyString(), any());
@@ -555,9 +572,6 @@ class BlobProcessingFunctionTest {
 
       EventHubProducerClient reportedIuvClient =
           mock(EventHubProducerClient.class);
-
-      BlobServiceClient blobServiceClient =
-          mock(BlobServiceClient.class);
 
       mockedCommonUtil
           .when(() ->
@@ -656,12 +670,14 @@ class BlobProcessingFunctionTest {
                 return new CommonUtil.Pair<>(in, true);
               });
 
+      BlobClient blobClient = mockBlob(compressedData);
+
       OutOfMemoryError thrown =
           assertThrows(
               OutOfMemoryError.class,
               () ->
                   function.processFDR1BlobFiles(
-                      mockBlob(compressedData),
+                      blobClient,
                       "sampleBlob",
                       metadata,
                       executionContext));
@@ -679,5 +695,219 @@ class BlobProcessingFunctionTest {
       verify(eventHubClientFlowTx, atLeastOnce())
           .createBatch();
     }
+  }
+  private byte[] gzip(String content) throws IOException {
+    ByteArrayOutputStream byteArrayOutputStream =
+        new ByteArrayOutputStream();
+
+    try (GZIPOutputStream gzipOutputStream =
+        new GZIPOutputStream(byteArrayOutputStream)) {
+
+      gzipOutputStream.write(
+          content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    return byteArrayOutputStream.toByteArray();
+  }
+
+
+  @Test
+  void testFDR1EventHubNotConfirmed() throws Exception {
+
+    ExecutionContext context = mock(ExecutionContext.class);
+
+    Map<String, String> validMetadata = new HashMap<>();
+    validMetadata.put("sessionId", "test-session-123");
+    validMetadata.put("insertedTimestamp", "2026-11-10T10:00:00");
+    validMetadata.put("elaborate", "true");
+
+    byte[] validGzip = gzip("<xml/>");
+
+    BlobClient blobClient = mock(BlobClient.class);
+    BlobInputStream blobInputStream = mock(BlobInputStream.class);
+
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(validGzip);
+
+    when(blobClient.openInputStream())
+        .thenReturn(blobInputStream);
+
+    doAnswer(invocation -> inputStream.read())
+        .when(blobInputStream)
+        .read();
+
+    doAnswer(invocation -> {
+      byte[] buffer = invocation.getArgument(0);
+      int offset = invocation.getArgument(1);
+      int length = invocation.getArgument(2);
+
+      return inputStream.read(buffer, offset, length);
+    }).when(blobInputStream).read(
+        any(byte[].class),
+        anyInt(),
+        anyInt());
+
+    FlussoRendicontazione flusso =
+        mock(FlussoRendicontazione.class);
+
+    when(flusso.getIdentificativoFlusso())
+        .thenReturn("FLOW-123");
+
+    when(mockFDR1XmlParser.parseXmlStream(any(InputStream.class)))
+        .thenReturn(flusso);
+
+    try (MockedStatic<CommonUtil> mocked =
+        mockStatic(CommonUtil.class, CALLS_REAL_METHODS)) {
+
+      mocked.when(() ->
+              CommonUtil.processXmlBlobAndSendToEventHub(
+                  any(),
+                  any(),
+                  eq(flusso),
+                  any(),
+                  eq(true),
+                  eq(true)))
+          .thenReturn(false);
+
+      AlertAppException thrown = assertThrows(
+          AlertAppException.class,
+          () -> function.processFDR1BlobFiles(
+              blobClient,
+              "sampleBlob",
+              validMetadata,
+              context));
+
+      Throwable cause = thrown.getCause();
+
+      assertNotNull(cause);
+      assertTrue(
+          cause instanceof EventHubException,
+          "Expected EventHubException but got: "
+              + cause.getClass().getName()
+              + " - " + cause.getMessage());
+      assertTrue(
+          cause.getMessage().contains("FLOW-123"));
+
+      mocked.verify(() ->
+              CommonUtil.processXmlBlobAndSendToEventHub(
+                  any(),
+                  any(),
+                  eq(flusso),
+                  any(),
+                  eq(true),
+                  eq(true)),
+          times(1));
+
+      verify(flusso, times(1)).releaseResources();
+    }
+  }
+
+  @Test
+  void testFDR1InvalidGzipCreatesAlert()  throws IOException{
+
+    ExecutionContext context = mock(ExecutionContext.class);
+
+    Map<String, String> validMetadata = new HashMap<>();
+    validMetadata.put("sessionId", "test-session-123");
+    validMetadata.put("insertedTimestamp", "2026-11-10T10:00:00");
+    validMetadata.put("elaborate", "true");
+
+    byte[] invalidData = "NOT_A_GZIP_FILE".getBytes(StandardCharsets.UTF_8);
+
+    BlobClient blobClient = mock(BlobClient.class);
+    BlobInputStream blobInputStream = mock(BlobInputStream.class);
+
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(invalidData);
+
+    when(blobClient.openInputStream())
+        .thenReturn(blobInputStream);
+
+
+    when(blobInputStream.read(
+        any(byte[].class), anyInt(), anyInt()))
+        .thenAnswer(invocation -> {
+          byte[] buffer = invocation.getArgument(0);
+          int offset = invocation.getArgument(1);
+          int length = invocation.getArgument(2);
+
+          return inputStream.read(buffer, offset, length);
+        });
+
+    assertDoesNotThrow(() ->
+        function.processFDR1BlobFiles(
+            blobClient,
+            "sampleBlob",
+            validMetadata,
+            context));
+
+      verify(aiTelemetryClientMock, times(1))
+        .createCustomEventForAlert(
+            eq(ErrorCodes.FDR1_E1_1),
+            anyString(),
+            isNull());
+
+     verifyNoInteractions(mockFDR1XmlParser);
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidMetadataProvider")
+  void testFDR1InvalidMetadataSkipsProcessing(
+      Map<String, String> metadata) {
+
+    ExecutionContext context = mock(ExecutionContext.class);
+    BlobClient blobClient = mock(BlobClient.class);
+
+    assertDoesNotThrow(() ->
+        function.processFDR1BlobFiles(
+            blobClient,
+            "sampleBlob",
+            metadata,
+            context));
+
+    verify(blobClient, never()).openInputStream();
+    verifyNoInteractions(mockFDR1XmlParser);
+    verifyNoInteractions(aiTelemetryClientMock);
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidMetadataProvider")
+  void testFDR3InvalidMetadataSkipsProcessing(
+      Map<String, String> metadata) {
+
+    ExecutionContext context = mock(ExecutionContext.class);
+    BlobClient blobClient = mock(BlobClient.class);
+
+    assertDoesNotThrow(() ->
+        function.processFDR3BlobFiles(
+            blobClient,
+            "sampleBlob",
+            metadata,
+            context
+        )
+    );
+
+    verify(blobClient, never()).openInputStream();
+    verifyNoInteractions(aiTelemetryClientMock);
+  }
+
+  private static Stream<Arguments> invalidMetadataProvider() {
+    return Stream.of(
+        Arguments.of((Map<String, String>) null),
+        Arguments.of(Collections.<String, String>emptyMap()),
+        Arguments.of(Map.of(
+            "insertedTimestamp", "2026-11-10T10:00:00",
+            "elaborate", "true"
+        )),
+        Arguments.of(Map.of(
+            "sessionId", "test-session-123",
+            "elaborate", "true"
+        )),
+        Arguments.of(Map.of(
+            "sessionId", "test-session-123",
+            "insertedTimestamp", "2026-11-10T10:00:00",
+            "elaborate", "false"
+        ))
+    );
   }
 }
