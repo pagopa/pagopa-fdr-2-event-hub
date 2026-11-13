@@ -5,9 +5,6 @@ import static it.gov.pagopa.fdr.to.eventhub.util.CommonUtil.*;
 
 import com.azure.messaging.eventhubs.EventHubProducerClient;
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
@@ -20,8 +17,8 @@ import it.gov.pagopa.fdr.to.eventhub.model.fdr3.Flow;
 import it.gov.pagopa.fdr.to.eventhub.parser.FDR1XmlStAXParser;
 import it.gov.pagopa.fdr.to.eventhub.util.CommonUtil;
 import it.gov.pagopa.fdr.to.eventhub.util.ErrorCodes;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -29,6 +26,7 @@ import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
 
 public class BlobProcessingFunction {
@@ -72,8 +70,18 @@ public class BlobProcessingFunction {
 
   private enum BlobProcessingStatus {
     IN_ELABORAZIONE,
-    ERRORE,
-    ELABORATO
+    ERRORE
+  }
+
+  @Getter
+  @RequiredArgsConstructor
+  public enum BlobTagName {
+
+    PROCESSING_STATUS("processingStatus"),
+    PROCESSING_UPDATED_AT("processingUpdatedAt"),
+    PROCESSING_ATTEMPT("processingAttempt");
+
+    private final String value;
   }
 
   public BlobProcessingFunction() {
@@ -110,7 +118,6 @@ public class BlobProcessingFunction {
           @BindingName("Metadata") Map<String, String> blobMetadata,
           final ExecutionContext context) {
 
-    updateBlobStatus(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR1");
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
@@ -118,7 +125,7 @@ public class BlobProcessingFunction {
       logBlobMetadata(blobName, blobMetadata, "FDR1");
       return; // Skip execution
     }
-
+    updateTags(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR1");
     logger.info(
             "[FDR1] Triggered at: {} for Blob container: {}, name: {}",
             LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
@@ -161,11 +168,11 @@ public class BlobProcessingFunction {
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr1Container,
                   blobName);
-          updateBlobStatus(blobClient, BlobProcessingStatus.ELABORATO, "FDR1");
+          removeBlobProcessingTags(blobClient,  "FDR1");
         }
       }
       else {
-        updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
+        updateTags(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR1_E1_1.getCode(),
@@ -177,7 +184,7 @@ public class BlobProcessingFunction {
       }
 
     } catch (Exception e) {
-      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
+      updateTags(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
       String exceptionDetails =
               getExceptionDetails(
                       ErrorCodes.FDR1_E1.getCode(),
@@ -199,6 +206,7 @@ public class BlobProcessingFunction {
     }
   }
 
+
   @FunctionName("ProcessFDR3BlobFiles")
   public void processFDR3BlobFiles(
       @BlobTrigger(
@@ -210,8 +218,6 @@ public class BlobProcessingFunction {
       @BindingName("Metadata") Map<String, String> blobMetadata,
       final ExecutionContext context) {
 
-    updateBlobStatus(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR3");
-
     int retryIndex = context.getRetryContext() == null ? -1 : context.getRetryContext().getRetrycount();
 
     // checks for the presence of the necessary metadata
@@ -219,6 +225,8 @@ public class BlobProcessingFunction {
       logBlobMetadata(blobName, blobMetadata, "FDR3");
       return; // Skip execution
     }
+
+    updateTags(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR3");
 
     logger.info(
         "[FDR3] Triggered at: {} for Blob container: {}, name: {}",
@@ -261,11 +269,11 @@ public class BlobProcessingFunction {
                   LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
                   fdr3Container,
                   blobName);
-          updateBlobStatus(blobClient, BlobProcessingStatus.ELABORATO, "FDR3");
+          removeBlobProcessingTags(blobClient, "FDR3");
         }
       }
       else {
-        updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE,"FDR3");
+        updateTags(blobClient, BlobProcessingStatus.ERRORE,  "FDR3");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR3_E1_1.getCode(),
@@ -276,7 +284,7 @@ public class BlobProcessingFunction {
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1_1, exceptionDetails, null);
       }
     } catch (Exception  e) {
-      updateBlobStatus(blobClient, BlobProcessingStatus.ERRORE, "FDR3");
+      updateTags(blobClient, BlobProcessingStatus.ERRORE,  "FDR3");
       String exceptionDetails =
           getExceptionDetails(
               ErrorCodes.FDR3_E1.getCode(),
@@ -297,23 +305,98 @@ public class BlobProcessingFunction {
     }
   }
 
-  private void updateBlobStatus(
+  private int calculateAttempt(
+      Map<String, String> tags,
+      BlobProcessingStatus status) {
+
+    int currentAttempt = Integer.parseInt(
+        tags.getOrDefault(
+            BlobTagName.PROCESSING_ATTEMPT.getValue(),
+            "0"
+        )
+    );
+
+    return status == BlobProcessingStatus.IN_ELABORAZIONE
+        ? currentAttempt + 1
+        : currentAttempt;
+  }
+
+  private void updateTags(BlobClient blobClient, BlobProcessingStatus status, String fdrType) {
+    ErrorCodes errorCode = status == BlobProcessingStatus.IN_ELABORAZIONE
+        ? ErrorCodes.FDR_TAG_E1 : ErrorCodes.FDR_TAG_E2;
+    try {
+      Map<String, String> tags = getBlobTags(blobClient);
+      int attempt = calculateAttempt(tags, status);
+
+      tags.put(BlobTagName.PROCESSING_STATUS.getValue(), status.name());
+      tags.put(BlobTagName.PROCESSING_ATTEMPT.getValue(), String.valueOf(attempt));
+      tags.put(BlobTagName.PROCESSING_UPDATED_AT.getValue(),
+          Instant.now().truncatedTo(ChronoUnit.SECONDS).toString());
+
+      blobClient.setTags(tags);
+      logger.info("[{}] Blob {} status updated to {}, attempt {}",
+          fdrType, blobClient.getBlobName(), status, attempt);
+    } catch (Exception e) {
+      logger.error("[{}] Tagging failed for blob {}", fdrType, blobClient.getBlobName(), e);
+      sendTaggingAlert(errorCode, blobClient, fdrType, e);
+      // processing continues
+    }
+  }
+
+  private void removeBlobProcessingTags(BlobClient blobClient, String fdrType) {
+    try {
+      Map<String, String> tags = getBlobTags(blobClient);
+
+      boolean changed = tags.remove(BlobTagName.PROCESSING_STATUS.getValue()) != null;
+      changed |= tags.remove(BlobTagName.PROCESSING_UPDATED_AT.getValue()) != null;
+      changed |= tags.remove(BlobTagName.PROCESSING_ATTEMPT.getValue()) != null;
+
+      if (changed) {
+        blobClient.setTags(tags);
+        logger.info("[{}] Processing tags removed from blob {}", fdrType, blobClient.getBlobName());
+      }
+    } catch (Exception e) {
+      logger.error("[{}] Failed to remove processing tags from blob {}", fdrType, blobClient.getBlobName(), e);
+      sendTaggingAlert(ErrorCodes.FDR_TAG_E3, blobClient, fdrType, e);
+    }
+  }
+
+  private void sendTaggingAlert(
+      ErrorCodes errorCode,
       BlobClient blobClient,
-      BlobProcessingStatus status,
-      String fdrType) {
+      String fdrType,
+      Exception exception) {
+
+    String exceptionDetails = String.format(
+        "[%s] Tagging error [%s] - Blob: %s, Message: %s",
+        fdrType,
+        errorCode.getCode(),
+        blobClient.getBlobName(),
+        exception.getMessage()
+    );
 
     try {
-      Map<String, String> tags = new HashMap<>(blobClient.getTags());
-      tags.put("processingStatus", status.name());
-      blobClient.setTags(tags);
+      aiTelemetryClient.createCustomEventForAlert(
+          errorCode,
+          exceptionDetails,
+          exception
+      );
 
-      logger.info("[{}] Blob {} status updated to {}",
-          fdrType, blobClient.getBlobName(), status);
-
-    } catch (Exception e) {
-      logger.error("[{}] Failed to update blob {} status to {}",
-          fdrType, blobClient.getBlobName(), status, e);
+    } catch (Exception telemetryException) {
+      logger.error(
+          "[{}] Failed to send tagging alert {} for blob {}",
+          fdrType,
+          errorCode.getCode(),
+          blobClient.getBlobName(),
+          telemetryException
+      );
     }
+  }
+
+  private Map<String, String> getBlobTags(BlobClient blobClient) {
+    return new HashMap<>(blobClient.getTags());
+  }
+
   private void logBlobMetadata(
       String blobName,
       Map<String, String> blobMetadata, String type) {
@@ -331,4 +414,5 @@ public class BlobProcessingFunction {
         blobMetadata != null
             && "false".equalsIgnoreCase(blobMetadata.get("elaborate")));
   }
+
 }
