@@ -1,5 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.DayOutsideJobRangeException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryDiscoveryCheckpointRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
@@ -48,16 +49,6 @@ public final class RecoveryDiscoveryProgressService {
           pageCount,
           lastFlowId,
           0L);
-    }
-  }
-
-  public static final class DayOutsideJobRangeException
-      extends IllegalArgumentException {
-
-    private static final long serialVersionUID = 2704319422762995466L;
-
-    public DayOutsideJobRangeException() {
-      super("day must belong to the recovery job date range");
     }
   }
 

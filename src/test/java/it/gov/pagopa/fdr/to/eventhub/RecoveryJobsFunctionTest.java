@@ -207,8 +207,7 @@ class RecoveryJobsFunctionTest {
 
     when(service.find(jobId))
         .thenThrow(
-            new it.gov.pagopa.fdr.to.eventhub.repository.recovery
-                .UnsupportedRecoveryJobFormatException("Old schema"));
+            new it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException("Old schema"));
 
     var result =
         function.get(request, jobId.toString(), context);
@@ -224,8 +223,7 @@ class RecoveryJobsFunctionTest {
             "11111111-1111-4111-8111-111111111111");
 
     var failure =
-        new it.gov.pagopa.fdr.to.eventhub.repository.recovery
-            .UnsupportedRecoveryJobFormatException("Old schema");
+        new it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException("Old schema");
 
     if ("pause".equals(action)) {
       when(service.pause(jobId)).thenThrow(failure);

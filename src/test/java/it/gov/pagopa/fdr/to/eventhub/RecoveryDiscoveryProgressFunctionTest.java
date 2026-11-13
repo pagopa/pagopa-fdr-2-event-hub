@@ -15,6 +15,8 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.DayOutsideJobRangeException;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryProgressService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryProgressService.DailyProgress;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryProgressService.DiscoveryStatus;
@@ -166,7 +168,7 @@ class RecoveryDiscoveryProgressFunctionTest {
   void shouldRejectDayOutsideJobRange() {
     when(service.find(JOB_ID, DAY))
         .thenThrow(
-            new RecoveryDiscoveryProgressService.DayOutsideJobRangeException());
+            new DayOutsideJobRangeException());
 
     HttpResponseMessage result =
         function.get(request, JOB_ID.toString(), DAY.toString(), context);
@@ -257,8 +259,7 @@ class RecoveryDiscoveryProgressFunctionTest {
   void shouldReturnConflictForUnsupportedJobFormat() {
     when(service.find(JOB_ID, DAY))
         .thenThrow(
-            new it.gov.pagopa.fdr.to.eventhub.repository.recovery
-                .UnsupportedRecoveryJobFormatException("Old schema"));
+            new it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException("Old schema"));
 
     var result =
         function.get(

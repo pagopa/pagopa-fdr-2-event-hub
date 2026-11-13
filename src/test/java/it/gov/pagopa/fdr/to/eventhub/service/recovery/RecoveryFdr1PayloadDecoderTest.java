@@ -2,6 +2,7 @@ package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +10,8 @@ import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 
 class RecoveryFdr1PayloadDecoderTest {
 
@@ -85,9 +88,17 @@ class RecoveryFdr1PayloadDecoderTest {
     byte[] xml =
         soap("AQID").getBytes(StandardCharsets.UTF_8);
 
-    assertThrows(
-        IOException.class,
-        () -> limited.decode(xml));
+    var failure =
+        assertThrows(
+            RecoveryContentSizeException.class,
+            () -> limited.decode(xml));
+
+    assertEquals(
+        RecoveryContentSizeException.Stage.INNER_XML,
+        failure.stage());
+
+    assertEquals(2, failure.limitBytes());
+    assertEquals(3, failure.observedBytesAtLeast());
   }
 
   @ParameterizedTest

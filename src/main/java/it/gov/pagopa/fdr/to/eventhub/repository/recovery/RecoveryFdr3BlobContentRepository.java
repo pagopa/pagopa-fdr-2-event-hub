@@ -1,6 +1,8 @@
 package it.gov.pagopa.fdr.to.eventhub.repository.recovery;
 
 import com.azure.storage.blob.BlobContainerClient;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 
 public final class RecoveryFdr3BlobContentRepository {
@@ -18,7 +20,7 @@ public final class RecoveryFdr3BlobContentRepository {
             maxCompressedBytes);
   }
 
-  public byte[] download(RecoveryBlobSnapshot snapshot) {
+  public byte[] download(RecoveryBlobSnapshot snapshot) throws RecoveryContentSizeException {
     return delegate.download(snapshot);
   }
 }

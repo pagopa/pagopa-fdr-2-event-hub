@@ -21,6 +21,8 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobRequestConditions;
 import com.azure.storage.blob.models.BlobStorageException;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -81,7 +83,7 @@ class RecoveryFdr3BlobContentRepositoryTest {
   }
 
   @Test
-  void shouldDownloadExactContentWithSnapshotETag() {
+  void shouldDownloadExactContentWithSnapshotETag() throws RecoveryContentSizeException {
     doAnswer(invocation -> {
       OutputStream output = invocation.getArgument(0);
       output.write(new byte[] {10, 20});
@@ -118,7 +120,7 @@ class RecoveryFdr3BlobContentRepositoryTest {
   }
 
   @Test
-  void shouldReadEmptyBlobWithoutInventingContent() {
+  void shouldReadEmptyBlobWithoutInventingContent() throws RecoveryContentSizeException {
     givenContent(new byte[0]);
 
     assertArrayEquals(
@@ -130,9 +132,17 @@ class RecoveryFdr3BlobContentRepositoryTest {
   void shouldRejectOversizedSnapshotBeforeDownload() {
     RecoveryBlobSnapshot oversized = snapshot(9);
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> repository.download(oversized));
+    var failure =
+        assertThrows(
+            RecoveryContentSizeException.class,
+            () -> repository.download(oversized));
+
+    assertEquals(
+        RecoveryContentSizeException.Stage.COMPRESSED_BLOB,
+        failure.stage());
+
+    assertEquals(8, failure.limitBytes());
+    assertEquals(9, failure.observedBytesAtLeast());
 
     verify(container, never()).getBlobClient(anyString());
     verifyNoInteractions(blob);

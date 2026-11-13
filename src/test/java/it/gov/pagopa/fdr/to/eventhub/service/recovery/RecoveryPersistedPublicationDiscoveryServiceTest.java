@@ -12,13 +12,18 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryItem;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationSource;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryItemRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryPublicationDiscoveryCheckpoint;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryPersistedPublicationDiscoveryServiceTest {
@@ -318,6 +324,140 @@ class RecoveryPersistedPublicationDiscoveryServiceTest {
         () ->
             new RecoveryPersistedPublicationDiscoveryService(
                 flows, pages, checkpoints, pageSize));
+  }
+
+  @ParameterizedTest
+  @EnumSource(RecoveryContentSizeException.Stage.class)
+  void shouldPersistSizeFailureAndContinueToNextPage(
+      RecoveryContentSizeException.Stage stage) throws Exception {
+
+    var first = page.get(0);
+    var second = page.get(1);
+
+    var firstPage = List.of(first);
+    var secondPage = List.of(second);
+
+    var oversizedBlob = new RecoveryBlobSnapshot(
+        "fdr1-flows",
+        "flow-1_original.xml.zip",
+        "\"xml-etag\"",
+        100L,
+        Map.of());
+
+    var failure = new RecoveryContentSizeException(
+        stage, 1024L, 1025L);
+
+    var evidence = new RecoveryPublicationSourceInspector.Inspection(
+        first,
+        new RecoveryFdr3SourceVerifier.BlobMissing(first),
+        new RecoveryFdr1SourceResolver.Unresolved(
+            RecoveryFdr1SourceResolver.UnresolvedReason.SIZE_LIMIT_EXCEEDED,
+            List.of(
+                new RecoveryFdr1SourceVerifier.SizeLimitExceeded(
+                    first, oversizedBlob, failure))));
+
+    var firstResult = new RecoveryPublicationBatchService.Unresolved(
+        new RecoveryPublicationSourceSelector.Unresolved(
+            RecoveryPublicationSourceSelector.UnresolvedReason.XML_UNRESOLVED,
+            evidence));
+
+    var secondSource = new RecoveryPublicationSource(
+        second,
+        new RecoveryBlobSnapshot(
+            "fdr3-flows",
+            second.blobName(),
+            "\"json-etag\"",
+            100L,
+            Map.of()),
+        RecoveryPublicationSource.SourceType.FDR3_JSON,
+        "6ecc100f-cd56-422d-815b-8243edc81a84",
+        Instant.parse("2026-10-05T10:31:35Z"));
+
+    var secondResult = new RecoveryPublicationBatchService.Compared(
+        new RecoveryPublicationPresenceIndex.Comparison(
+            DAY,
+            secondSource,
+            RecoveryPublicationPresenceIndex.Presence.ABSENT,
+            0L));
+
+    var factory = new RecoveryPublicationDiscoveryItemFactory();
+    var firstItem = factory.create(JOB_ID, DAY, firstResult);
+    var secondItem = factory.create(JOB_ID, DAY, secondResult);
+
+    var items =
+        mock(RecoveryPublicationDiscoveryItemRepository.class);
+
+    var batch =
+        mock(RecoveryPublicationBatchService.class);
+
+    when(items.findForPage(JOB_ID, DAY, firstPage))
+        .thenReturn(Map.of());
+
+    when(items.findForPage(JOB_ID, DAY, secondPage))
+        .thenReturn(Map.of());
+
+    when(batch.compare(DAY, firstPage))
+        .thenReturn(List.of(firstResult));
+
+    when(batch.compare(DAY, secondPage))
+        .thenReturn(List.of(secondResult));
+
+    when(items.createOrRead(firstItem))
+        .thenReturn(
+            new RecoveryPublicationDiscoveryItemRepository.SaveResult(
+                RecoveryPublicationDiscoveryItemRepository.SaveStatus.CREATED,
+                firstItem));
+
+    when(items.createOrRead(secondItem))
+        .thenReturn(
+            new RecoveryPublicationDiscoveryItemRepository.SaveResult(
+                RecoveryPublicationDiscoveryItemRepository.SaveStatus.CREATED,
+                secondItem));
+
+    var afterFirst = initial.afterSavedPage(List.of(firstItem));
+    var afterSecond = afterFirst.afterSavedPage(List.of(secondItem));
+    var completed = afterSecond.completeDiscovery();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(initial, "etag-0")))
+        .thenReturn(Optional.of(stored(afterFirst, "etag-1")))
+        .thenReturn(Optional.of(stored(afterSecond, "etag-2")))
+        .thenReturn(Optional.of(stored(completed, "etag-3")));
+
+    when(flows.findPage(DAY, 0L, 2)).thenReturn(firstPage);
+    when(flows.findPage(DAY, first.flowId(), 2)).thenReturn(secondPage);
+    when(flows.findPage(DAY, second.flowId(), 2)).thenReturn(List.of());
+
+    var discovery = new RecoveryPersistedPublicationDiscoveryService(
+        flows,
+        new RecoveryPublicationPageService(items, batch, factory),
+        checkpoints,
+        2);
+
+    var result =
+        discovery.discover(JOB_ID, DAY, () -> true, ownership);
+
+    assertEquals(
+        RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED,
+        result.status());
+
+    assertEquals(2L, result.candidateCount());
+    assertEquals(1L, result.unresolvedCandidateCount());
+    assertEquals(1L, result.absentCandidateCount());
+    assertEquals(second.flowId(), result.lastFlowId());
+
+    var order = inOrder(items, checkpoints, flows);
+
+    order.verify(items).createOrRead(firstItem);
+    order.verify(checkpoints).update(afterFirst, "etag-0");
+    order.verify(flows).findPage(DAY, first.flowId(), 2);
+    order.verify(items).createOrRead(secondItem);
+    order.verify(checkpoints).update(afterSecond, "etag-1");
+    order.verify(flows).findPage(DAY, second.flowId(), 2);
+    order.verify(checkpoints).update(completed, "etag-2");
+
+    verify(batch, times(1)).compare(DAY, firstPage);
+    verify(batch, times(1)).compare(DAY, secondPage);
   }
 
   private static StoredRecoveryPublicationDiscoveryCheckpoint stored(

@@ -14,10 +14,11 @@ import com.microsoft.azure.functions.annotation.BindingName;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryTableClients;
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.DayOutsideJobRangeException;
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointTableMapper;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDiscoveryProgressService;
 import java.time.LocalDate;
@@ -92,7 +93,7 @@ public final class RecoveryDiscoveryProgressFunction {
 
       return response(request, HttpStatus.OK, result.orElseThrow());
 
-    } catch (RecoveryDiscoveryProgressService.DayOutsideJobRangeException e) {
+    } catch (DayOutsideJobRangeException e) {
       return response(
           request,
           HttpStatus.BAD_REQUEST,

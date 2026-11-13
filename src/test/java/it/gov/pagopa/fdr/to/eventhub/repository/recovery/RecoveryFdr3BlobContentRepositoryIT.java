@@ -12,6 +12,8 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobStorageException;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryBlobDecompressor;
@@ -89,7 +91,7 @@ class RecoveryFdr3BlobContentRepositoryIT {
   }
 
   @Test
-  void shouldDownloadContentMatchingSnapshotFromDev() {
+  void shouldDownloadContentMatchingSnapshotFromDev() throws RecoveryContentSizeException {
     BlobContainerClient container = devContainer();
     RecoveryBlobSnapshot snapshot = readSnapshot(container);
 

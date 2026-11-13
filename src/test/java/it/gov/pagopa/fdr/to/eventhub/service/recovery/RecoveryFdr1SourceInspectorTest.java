@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryBlobContentRepository;
@@ -140,7 +141,7 @@ class RecoveryFdr1SourceInspectorTest {
   }
 
   @Test
-  void shouldStopWhenDownloadFails() {
+  void shouldStopWhenDownloadFails() throws RecoveryContentSizeException {
     var failure = new IllegalStateException("Download failed");
 
     when(contentRepository.download(blob)).thenThrow(failure);

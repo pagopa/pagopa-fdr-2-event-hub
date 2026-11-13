@@ -19,6 +19,8 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobRequestConditions;
 import com.azure.storage.blob.models.BlobStorageException;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -65,7 +67,7 @@ class RecoveryBlobContentRepositoryTest {
   }
 
   @Test
-  void shouldDownloadFdr1ContentWithSnapshotETag() {
+  void shouldDownloadFdr1ContentWithSnapshotETag() throws RecoveryContentSizeException {
     doAnswer(invocation -> {
       OutputStream output = invocation.getArgument(0);
       output.write(new byte[] {1, 2, 3});

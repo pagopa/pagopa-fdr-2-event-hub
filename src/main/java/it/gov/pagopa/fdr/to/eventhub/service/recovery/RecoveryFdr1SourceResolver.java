@@ -14,7 +14,8 @@ public final class RecoveryFdr1SourceResolver {
     NO_MATCH,
     AMBIGUOUS_MATCH,
     METADATA_UNRESOLVED,
-    INCONSISTENT_REPORT
+    INCONSISTENT_REPORT,
+    SIZE_LIMIT_EXCEEDED
   }
 
   public sealed interface Resolution permits Resolved, Unresolved {
@@ -85,6 +86,10 @@ public final class RecoveryFdr1SourceResolver {
 
         return new Unresolved(
             UnresolvedReason.METADATA_UNRESOLVED, inspections);
+      }
+
+      if (result instanceof RecoveryFdr1SourceVerifier.SizeLimitExceeded) {
+          return new Unresolved(UnresolvedReason.SIZE_LIMIT_EXCEEDED, inspections);
       }
 
       var inspected = (RecoveryFdr1SourceVerifier.Inspected) result;

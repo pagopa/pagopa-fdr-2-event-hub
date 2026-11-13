@@ -14,6 +14,8 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
+
 public final class RecoveryFdr1PayloadDecoder {
 
   private static final String REQUEST =
@@ -189,7 +191,10 @@ public final class RecoveryFdr1PayloadDecoder {
                   }
 
                   if (read > remaining) {
-                      throw new IOException("Decoded XML exceeds maxDecodedBytes");
+                      throw new RecoveryContentSizeException(
+                          RecoveryContentSizeException.Stage.INNER_XML,
+                          maxDecodedBytes,
+                          (long) output.size() + read);
                   }
 
                   output.write(buffer, 0, read);

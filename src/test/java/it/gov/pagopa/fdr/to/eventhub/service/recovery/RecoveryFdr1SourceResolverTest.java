@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFdr1BlobRepository;
@@ -215,6 +216,39 @@ class RecoveryFdr1SourceResolverTest {
             () -> resolver.resolve(candidate));
 
     assertSame(failure, actual);
+  }
+
+  @Test
+  void shouldNotResolveWhenAnotherCandidateExceedsSizeLimit()
+      throws IOException {
+
+    var failure =
+        new RecoveryContentSizeException(
+            RecoveryContentSizeException.Stage.DECOMPRESSED_BLOB,
+            64L,
+            65L);
+
+    var exceeded =
+        new RecoveryFdr1SourceVerifier.SizeLimitExceeded(
+            candidate, second, failure);
+
+    when(blobRepository.listCandidates(candidate))
+        .thenReturn(List.of(first, second));
+
+    when(sourceVerifier.verify(candidate, first))
+        .thenReturn(inspected(first, true, "flow-1", 1L));
+
+    when(sourceVerifier.verify(candidate, second))
+        .thenReturn(exceeded);
+
+    var unresolved =
+        assertUnresolved(
+            resolver.resolve(candidate),
+            RecoveryFdr1SourceResolver.UnresolvedReason
+                .SIZE_LIMIT_EXCEEDED);
+
+    assertEquals(2, unresolved.inspections().size());
+    assertSame(exceeded, unresolved.inspections().get(1));
   }
 
   private RecoveryFdr1SourceVerifier.Inspected inspected(

@@ -1,8 +1,10 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFdr3BlobContentRepository;
+
 import java.io.IOException;
 import java.util.Objects;
 
@@ -43,10 +45,13 @@ public final class RecoveryFdr3SourceVerifier {
   }
 
   public sealed interface Result
-      permits BlobMissing, MetadataUnresolved,
-          IdentityMismatch, Verified {
+          permits BlobMissing, MetadataUnresolved, IdentityMismatch, SizeLimitExceeded, Verified {
 
-    RecoveryFlowCandidate candidate();
+      RecoveryFlowCandidate candidate();
+  }
+
+  public record SizeLimitExceeded(RecoveryFlowCandidate candidate, RecoveryBlobSnapshot blob,
+          RecoveryContentSizeException failure) implements Result {
   }
 
   public record BlobMissing(
@@ -104,10 +109,17 @@ public final class RecoveryFdr3SourceVerifier {
     RecoveryFdr3SourceInspector.Inspected inspected =
         (RecoveryFdr3SourceInspector.Inspected) inspection;
 
-    byte[] compressed =
-        contentRepository.download(inspected.blob());
+    byte[] json;
 
-    byte[] json = decompressor.decompress(compressed);
+    try {
+      byte[] compressed = contentRepository.download(inspected.blob());
+      json = decompressor.decompress(compressed);
+    } catch (RecoveryContentSizeException failure) {
+      return new SizeLimitExceeded(
+          candidate,
+          inspected.blob(),
+          failure);
+    }
 
     RecoveryFdr3IdentityReader.Identity identity =
         identityReader.read(json);

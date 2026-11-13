@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryFdr1SourceVerifierTest {
@@ -159,6 +161,33 @@ class RecoveryFdr1SourceVerifierTest {
         () -> verifier.verify(candidate, unexpectedBlob));
 
     verifyNoInteractions(metadataInspector, sourceInspector);
+  }
+
+  @ParameterizedTest
+  @EnumSource(RecoveryContentSizeException.Stage.class)
+  void shouldReturnSizeLimitFailure(
+      RecoveryContentSizeException.Stage stage) throws IOException {
+
+    var metadata =
+        new RecoveryFdr1BlobMetadataInspector.Valid(
+            SESSION_ID, false);
+
+    var failure =
+        new RecoveryContentSizeException(stage, 64L, 65L);
+
+    when(metadataInspector.inspect(blob)).thenReturn(metadata);
+
+    when(sourceInspector.inspect(candidate, blob))
+        .thenThrow(failure);
+
+    var result =
+        assertInstanceOf(
+            RecoveryFdr1SourceVerifier.SizeLimitExceeded.class,
+            verifier.verify(candidate, blob));
+
+    assertEquals(candidate, result.candidate());
+    assertEquals(blob, result.blob());
+    assertSame(failure, result.failure());
   }
 
   private RecoveryFdr1SourceInspector.Inspection inspection(

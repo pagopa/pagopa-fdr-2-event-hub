@@ -9,6 +9,8 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
+
 public final class RecoveryBlobDecompressor {
 
   private final int maxDecompressedBytes;
@@ -91,8 +93,8 @@ public final class RecoveryBlobDecompressor {
       }
 
       if (read > remaining) {
-        throw new IOException(
-            "Decompressed content exceeds maxDecompressedBytes");
+          throw new RecoveryContentSizeException(RecoveryContentSizeException.Stage.DECOMPRESSED_BLOB,
+                  maxDecompressedBytes, (long) output.size() + read);
       }
 
       output.write(buffer, 0, read);

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationSource;
@@ -202,7 +203,7 @@ class RecoveryFdr3PaymentEventReaderTest {
   }
 
   @Test
-  void shouldPropagateDownloadFailureWithoutRefreshingSnapshot() {
+  void shouldPropagateDownloadFailureWithoutRefreshingSnapshot() throws RecoveryContentSizeException {
     var source = source(metadata());
     var failure = new IllegalStateException("Download rejected");
 

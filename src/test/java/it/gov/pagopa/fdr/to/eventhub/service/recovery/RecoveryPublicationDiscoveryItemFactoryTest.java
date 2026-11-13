@@ -5,10 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryItem;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationSource;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryItemTableMapper;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,6 +21,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class RecoveryPublicationDiscoveryItemFactoryTest {
 
@@ -252,6 +256,128 @@ class RecoveryPublicationDiscoveryItemFactoryTest {
     assertEquals(
         Long.toString(observedPayments),
         outcome.details().get("xmlObservedPayments"));
+  }
+
+  @ParameterizedTest
+  @EnumSource(RecoveryContentSizeException.Stage.class)
+  void shouldPreserveXmlSizeDiagnosticsInTableRepresentation(
+      RecoveryContentSizeException.Stage stage) {
+
+    var blob = new RecoveryBlobSnapshot(
+        "fdr1-flows",
+        "flow-1_original.xml.zip",
+        "\"original-etag\"",
+        100L,
+        Map.of());
+
+    var failure = new RecoveryContentSizeException(
+        stage,
+        1024L,
+        1025L);
+
+    var exceeded = new RecoveryFdr1SourceVerifier.SizeLimitExceeded(
+        candidate,
+        blob,
+        failure);
+
+    var evidence = new RecoveryPublicationSourceInspector.Inspection(
+        candidate,
+        new RecoveryFdr3SourceVerifier.BlobMissing(candidate),
+        new RecoveryFdr1SourceResolver.Unresolved(
+            RecoveryFdr1SourceResolver.UnresolvedReason.SIZE_LIMIT_EXCEEDED,
+            List.of(exceeded)));
+
+    var result = new RecoveryPublicationBatchService.Unresolved(
+        new RecoveryPublicationSourceSelector.Unresolved(
+            RecoveryPublicationSourceSelector.UnresolvedReason.XML_UNRESOLVED,
+            evidence));
+
+    var item = factory.create(JOB_ID, DAY, result);
+
+    var outcome = assertInstanceOf(
+        RecoveryPublicationDiscoveryItem.Unresolved.class,
+        item.outcome());
+
+    assertEquals(
+        RecoveryPublicationDiscoveryItem.Status.UNRESOLVED,
+        outcome.status());
+
+    assertEquals("XML_UNRESOLVED", outcome.reason());
+    assertEquals("SIZE_LIMIT_EXCEEDED", outcome.details().get("xmlReason"));
+    assertEquals(stage.name(), outcome.details().get("xmlStage"));
+    assertEquals(blob.blobName(), outcome.details().get("xmlBlob"));
+    assertEquals("fdr1-flows", outcome.details().get("xmlContainer"));
+    assertEquals("1024", outcome.details().get("xmlLimitBytes"));
+    assertEquals("1025", outcome.details().get("xmlObservedBytesAtLeast"));
+    assertEquals("100", outcome.details().get("xmlCompressedBytes"));
+
+    var mapper = new RecoveryPublicationDiscoveryItemTableMapper();
+    var entity = mapper.toEntity(item);
+    var restored = mapper.toItem(entity);
+
+    assertEquals(item, restored);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = RecoveryContentSizeException.Stage.class,
+      names = {"COMPRESSED_BLOB", "DECOMPRESSED_BLOB"})
+  void shouldPreserveJsonSizeDiagnosticsInTableRepresentation(
+      RecoveryContentSizeException.Stage stage) {
+
+    var blob = new RecoveryBlobSnapshot(
+        "fdr3-flows",
+        candidate.blobName(),
+        "\"original-etag\"",
+        100L,
+        Map.of());
+
+    var failure = new RecoveryContentSizeException(
+        stage,
+        1024L,
+        1025L);
+
+    var exceeded = new RecoveryFdr3SourceVerifier.SizeLimitExceeded(
+        candidate,
+        blob,
+        failure);
+
+    var evidence = new RecoveryPublicationSourceInspector.Inspection(
+        candidate,
+        exceeded,
+        new RecoveryFdr1SourceResolver.Unresolved(
+            RecoveryFdr1SourceResolver.UnresolvedReason.NO_CANDIDATES,
+            List.of()));
+
+    var result = new RecoveryPublicationBatchService.Unresolved(
+        new RecoveryPublicationSourceSelector.Unresolved(
+            RecoveryPublicationSourceSelector.UnresolvedReason.JSON_UNRESOLVED,
+            evidence));
+
+    var item = factory.create(JOB_ID, DAY, result);
+
+    var outcome = assertInstanceOf(
+        RecoveryPublicationDiscoveryItem.Unresolved.class,
+        item.outcome());
+
+    assertEquals(
+        RecoveryPublicationDiscoveryItem.Status.UNRESOLVED,
+        outcome.status());
+
+    assertEquals("JSON_UNRESOLVED", outcome.reason());
+    assertEquals("SIZE_LIMIT_EXCEEDED", outcome.details().get("jsonReason"));
+    assertEquals(stage.name(), outcome.details().get("jsonStage"));
+    assertEquals(blob.blobName(), outcome.details().get("jsonBlob"));
+    assertEquals("fdr3-flows", outcome.details().get("jsonContainer"));
+    assertEquals("1024", outcome.details().get("jsonLimitBytes"));
+    assertEquals("1025", outcome.details().get("jsonObservedBytesAtLeast"));
+    assertEquals("100", outcome.details().get("jsonCompressedBytes"));
+
+    var mapper = new RecoveryPublicationDiscoveryItemTableMapper();
+    var entity = mapper.toEntity(item);
+    var restored = mapper.toItem(entity);
+
+    assertEquals(item, restored);
   }
 
   private RecoveryPublicationBatchService.Compared compared(

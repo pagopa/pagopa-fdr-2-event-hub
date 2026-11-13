@@ -1,5 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import java.io.IOException;
@@ -7,8 +8,11 @@ import java.util.Objects;
 
 public final class RecoveryFdr1SourceVerifier {
 
-  public sealed interface Result
-      permits MetadataUnresolved, Inspected {
+  public sealed interface Result permits MetadataUnresolved, SizeLimitExceeded, Inspected {
+  }
+
+  public record SizeLimitExceeded(RecoveryFlowCandidate candidate, RecoveryBlobSnapshot blob,
+            RecoveryContentSizeException failure) implements Result {
   }
 
   public record MetadataUnresolved(
@@ -63,8 +67,11 @@ public final class RecoveryFdr1SourceVerifier {
     var validMetadata =
         (RecoveryFdr1BlobMetadataInspector.Valid) metadata;
 
-    var source = sourceInspector.inspect(candidate, blob);
-
-    return new Inspected(source, validMetadata);
+    try {
+        var source = sourceInspector.inspect(candidate, blob);
+        return new Inspected(source, validMetadata);
+    } catch (RecoveryContentSizeException failure) {
+        return new SizeLimitExceeded(candidate, blob, failure);
+    }
   }
 }

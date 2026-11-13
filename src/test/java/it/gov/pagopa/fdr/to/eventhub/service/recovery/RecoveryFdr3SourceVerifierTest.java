@@ -11,6 +11,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.azure.storage.blob.models.BlobStorageException;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFdr3BlobContentRepository;
@@ -79,7 +81,7 @@ class RecoveryFdr3SourceVerifierTest {
 
   private RecoveryBlobSnapshot givenBlob(
       byte[] compressed,
-      Map<String, String> metadata) {
+      Map<String, String> metadata) throws RecoveryContentSizeException {
 
     RecoveryBlobSnapshot snapshot =
         new RecoveryBlobSnapshot(
@@ -208,7 +210,7 @@ class RecoveryFdr3SourceVerifierTest {
   }
 
   @Test
-  void shouldPropagateDecompressionFailure() {
+  void shouldPropagateDecompressionFailure() throws RecoveryContentSizeException {
     byte[] invalid = {1, 2, 3};
     givenBlob(invalid, metadata(true));
 
@@ -234,5 +236,54 @@ class RecoveryFdr3SourceVerifierTest {
 
     verifyNoInteractions(
         propertiesRepository, contentRepository);
+  }
+
+  @Test
+  void shouldReturnDiagnosticWhenJsonExceedsDecompressedLimit()
+      throws IOException {
+
+    var snapshot =
+        givenBlob(gzip(" ".repeat(1025)), metadata(true));
+
+    var result =
+        assertInstanceOf(
+            RecoveryFdr3SourceVerifier.SizeLimitExceeded.class,
+            verifier.verify(CANDIDATE));
+
+    assertEquals(CANDIDATE, result.candidate());
+    assertEquals(snapshot, result.blob());
+
+    assertEquals(
+        RecoveryContentSizeException.Stage.DECOMPRESSED_BLOB,
+        result.failure().stage());
+
+    assertEquals(1024, result.failure().limitBytes());
+    assertEquals(1025, result.failure().observedBytesAtLeast());
+  }
+
+  @Test
+  void shouldReturnDiagnosticWhenJsonBlobExceedsCompressedLimit()
+      throws IOException {
+
+    var snapshot =
+        givenBlob(gzip(JSON), metadata(true));
+
+    var failure =
+        new RecoveryContentSizeException(
+            RecoveryContentSizeException.Stage.COMPRESSED_BLOB,
+            1L,
+            snapshot.contentLength());
+
+    when(contentRepository.download(snapshot))
+        .thenThrow(failure);
+
+    var result =
+        assertInstanceOf(
+            RecoveryFdr3SourceVerifier.SizeLimitExceeded.class,
+            verifier.verify(CANDIDATE));
+
+    assertEquals(CANDIDATE, result.candidate());
+    assertEquals(snapshot, result.blob());
+    assertSame(failure, result.failure());
   }
 }

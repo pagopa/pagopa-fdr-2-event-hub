@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
@@ -15,7 +16,7 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.StoredRecoveryPublicationDiscoveryCheckpoint;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.UnsupportedRecoveryJobFormatException;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;

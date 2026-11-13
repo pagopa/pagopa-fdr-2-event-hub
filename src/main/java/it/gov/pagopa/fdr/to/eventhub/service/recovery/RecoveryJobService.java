@@ -1,5 +1,6 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryJobStateConflictException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobRequest;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;

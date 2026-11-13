@@ -4,6 +4,8 @@ import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobRequestConditions;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -53,7 +55,7 @@ public final class RecoveryBlobContentRepository {
     this.maxCompressedBytes = maxCompressedBytes;
   }
 
-  public byte[] download(RecoveryBlobSnapshot snapshot) {
+  public byte[] download(RecoveryBlobSnapshot snapshot) throws RecoveryContentSizeException {
     Objects.requireNonNull(snapshot, "snapshot is required");
 
     if (!containerName.equals(snapshot.containerName())) {
@@ -67,8 +69,8 @@ public final class RecoveryBlobContentRepository {
     }
 
     if (snapshot.contentLength() > maxCompressedBytes) {
-      throw new IllegalArgumentException(
-          "Compressed blob exceeds maxCompressedBytes");
+        throw new RecoveryContentSizeException(RecoveryContentSizeException.Stage.COMPRESSED_BLOB, maxCompressedBytes,
+                snapshot.contentLength());
     }
 
     FixedLengthOutputStream output =

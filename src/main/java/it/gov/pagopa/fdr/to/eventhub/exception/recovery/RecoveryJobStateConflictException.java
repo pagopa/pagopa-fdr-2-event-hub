@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdr.to.eventhub.service.recovery;
+package it.gov.pagopa.fdr.to.eventhub.exception.recovery;
 
 public final class RecoveryJobStateConflictException
     extends IllegalStateException {

@@ -18,10 +18,12 @@ import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpRequestMessage;
 import com.microsoft.azure.functions.HttpResponseMessage;
 import com.microsoft.azure.functions.HttpStatus;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryJobStateConflictException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobService;
-import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobStateConflictException;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;

@@ -2,6 +2,7 @@ package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,6 +14,8 @@ import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 
 class RecoveryBlobDecompressorTest {
 
@@ -59,9 +62,22 @@ class RecoveryBlobDecompressorTest {
     RecoveryBlobDecompressor decompressor =
         new RecoveryBlobDecompressor(PAYLOAD.length - 1);
 
-    assertThrows(
-        IOException.class,
-        () -> decompressor.decompress(compressed));
+    var failure =
+        assertThrows(
+            RecoveryContentSizeException.class,
+            () -> decompressor.decompress(compressed));
+
+    assertEquals(
+        RecoveryContentSizeException.Stage.DECOMPRESSED_BLOB,
+        failure.stage());
+
+    assertEquals(
+        PAYLOAD.length - 1,
+        failure.limitBytes());
+
+    assertEquals(
+        PAYLOAD.length,
+        failure.observedBytesAtLeast());
   }
 
   @Test

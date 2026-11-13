@@ -19,14 +19,14 @@ import com.microsoft.azure.functions.annotation.HttpTrigger;
 
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryExecutionConfiguration;
 import it.gov.pagopa.fdr.to.eventhub.config.recovery.RecoveryTableClients;
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryJobStateConflictException;
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJob;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobRequest;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryJobStatus;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
-import it.gov.pagopa.fdr.to.eventhub.repository.recovery.UnsupportedRecoveryJobFormatException;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobService;
-import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobStateConflictException;
 
 import java.time.Clock;
 import java.util.Map;

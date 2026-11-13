@@ -1,4 +1,4 @@
-package it.gov.pagopa.fdr.to.eventhub.repository.recovery;
+package it.gov.pagopa.fdr.to.eventhub.exception.recovery;
 
 public final class UnsupportedRecoveryJobFormatException
     extends IllegalArgumentException {
