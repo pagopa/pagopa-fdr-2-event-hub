@@ -237,10 +237,10 @@ recovery-jobs:
   resources:
     requests:
       memory: "512Mi"
-      cpu: "500m"
+      cpu: "250m"
     limits:
-      memory: "2Gi"
-      cpu: "1000m"
+      memory: "1536Mi"
+      cpu: "500m"
   serviceMonitor:
     create: false
   ports:
@@ -269,7 +269,7 @@ recovery-jobs:
     AzureFunctionsJobHost__logging__logLevel__Azure.Core: "Error"
     AzureFunctionsJobHost__functionTimeout: "01:00:00"
     LOG_LEVEL: "INFO"
-    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx1024m"
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx768m"
     RECOVERY_WORKER_ENABLED: "true"
     RECOVERY_EXECUTION_ENABLED: "true"
     RECOVERY_WORKER_SCHEDULE: "0 * * * * *"

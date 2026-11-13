@@ -203,10 +203,12 @@ public final class RecoveryPublicationDiscoveryItemFactory {
           return;
       }
 
-      LOGGER.warn("Recovery content size limit exceeded: " + "jobId={}, day={}, flowId={}, source={}, "
-              + "container={}, blob={}, stage={}, " + "limitBytes={}, observedBytesAtLeast={}, compressedBytes={}",
-              jobId, day, flowId, prefix, details.get(prefix + "Container"), details.get(prefix + "Blob"),
-              details.get(prefix + "Stage"), details.get(prefix + "LimitBytes"),
-              details.get(prefix + "ObservedBytesAtLeast"), details.get(prefix + "CompressedBytes"));
+      if (LOGGER.isWarnEnabled()) {
+          LOGGER.warn("Recovery content size limit exceeded: " + "jobId={}, day={}, flowId={}, source={}, "
+                  + "container={}, blob={}, stage={}, " + "limitBytes={}, observedBytesAtLeast={}, compressedBytes={}",
+                  jobId, day, flowId, prefix, details.get(prefix + "Container"), details.get(prefix + "Blob"),
+                  details.get(prefix + "Stage"), details.get(prefix + "LimitBytes"),
+                  details.get(prefix + "ObservedBytesAtLeast"), details.get(prefix + "CompressedBytes"));
+      }
   }
 }
