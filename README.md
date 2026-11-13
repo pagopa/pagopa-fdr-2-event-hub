@@ -35,3 +35,19 @@ See the [OpenApi 3 here.](https://editor.swagger.io/?url=https://raw.githubuserc
 `curl http://localhost:7071/info` 
 
 ---
+
+## Recovery Jobs
+
+Il servizio permette di individuare e recuperare gli eventi di pagamento
+mancanti in ADX per un intervallo di date, attraverso job asincroni.
+
+- **Verifica:** con `dryRun: true`, individua i dati mancanti senza inviare eventi.
+- **Recupero:** con `dryRun: false`, ripubblica gli eventi mancanti su Event Hub.
+- **Monitoraggio:** le API permettono di consultare avanzamento e discovery,
+  sospendere e riprendere un job.
+
+L’intervallo si riferisce alla data dei pagamenti e include entrambe le date.
+Il recupero riguarda gli eventi di pagamento destinati a `IUV_RENDICONTATI`.
+
+Per esempi API, significato degli stati e gestione degli errori, consultare
+il [Runbook operativo in italiano](docs/RUNBOOK_RECOVERY_JOBS.it.md).
