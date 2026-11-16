@@ -69,8 +69,8 @@ public class BlobProcessingFunction {
   }
 
   private enum BlobProcessingStatus {
-    IN_ELABORAZIONE,
-    ERRORE
+    PROCESSING,
+    ERROR
   }
 
   @Getter
@@ -125,7 +125,7 @@ public class BlobProcessingFunction {
       logBlobMetadata(blobName, blobMetadata, "FDR1");
       return; // Skip execution
     }
-    updateTags(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR1");
+    updateTags(blobClient, BlobProcessingStatus.PROCESSING, "FDR1");
     logger.info(
             "[FDR1] Triggered at: {} for Blob container: {}, name: {}",
             LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS),
@@ -172,7 +172,7 @@ public class BlobProcessingFunction {
         }
       }
       else {
-        updateTags(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
+        updateTags(blobClient, BlobProcessingStatus.ERROR, "FDR1");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR1_E1_1.getCode(),
@@ -184,7 +184,7 @@ public class BlobProcessingFunction {
       }
 
     } catch (Exception e) {
-      updateTags(blobClient, BlobProcessingStatus.ERRORE, "FDR1");
+      updateTags(blobClient, BlobProcessingStatus.ERROR, "FDR1");
       String exceptionDetails =
               getExceptionDetails(
                       ErrorCodes.FDR1_E1.getCode(),
@@ -226,7 +226,7 @@ public class BlobProcessingFunction {
       return; // Skip execution
     }
 
-    updateTags(blobClient, BlobProcessingStatus.IN_ELABORAZIONE, "FDR3");
+    updateTags(blobClient, BlobProcessingStatus.PROCESSING, "FDR3");
 
     logger.info(
         "[FDR3] Triggered at: {} for Blob container: {}, name: {}",
@@ -273,7 +273,7 @@ public class BlobProcessingFunction {
         }
       }
       else {
-        updateTags(blobClient, BlobProcessingStatus.ERRORE,  "FDR3");
+        updateTags(blobClient, BlobProcessingStatus.ERROR,  "FDR3");
         String exceptionDetails =
                 getExceptionDetails(
                         ErrorCodes.FDR3_E1_1.getCode(),
@@ -284,7 +284,7 @@ public class BlobProcessingFunction {
         this.aiTelemetryClient.createCustomEventForAlert(ErrorCodes.FDR3_E1_1, exceptionDetails, null);
       }
     } catch (Exception  e) {
-      updateTags(blobClient, BlobProcessingStatus.ERRORE,  "FDR3");
+      updateTags(blobClient, BlobProcessingStatus.ERROR,  "FDR3");
       String exceptionDetails =
           getExceptionDetails(
               ErrorCodes.FDR3_E1.getCode(),
@@ -316,13 +316,13 @@ public class BlobProcessingFunction {
         )
     );
 
-    return status == BlobProcessingStatus.IN_ELABORAZIONE
+    return status == BlobProcessingStatus.PROCESSING
         ? currentAttempt + 1
         : currentAttempt;
   }
 
   private void updateTags(BlobClient blobClient, BlobProcessingStatus status, String fdrType) {
-    ErrorCodes errorCode = status == BlobProcessingStatus.IN_ELABORAZIONE
+    ErrorCodes errorCode = status == BlobProcessingStatus.PROCESSING
         ? ErrorCodes.FDR_TAG_E1 : ErrorCodes.FDR_TAG_E2;
     try {
       Map<String, String> tags = getBlobTags(blobClient);

@@ -955,7 +955,7 @@ class BlobProcessingFunctionTest {
         )
     );
 
-    assertEquals("ERRORE", storedTags.get("processingStatus"));
+    assertEquals("ERROR", storedTags.get("processingStatus"));
     assertEquals("1", storedTags.get("processingAttempt"));
     assertNotNull(storedTags.get("processingUpdatedAt"));
 
@@ -968,10 +968,10 @@ class BlobProcessingFunctionTest {
     Map<String, String> firstUpdate = tagsCaptor.getAllValues().get(0);
     Map<String, String> secondUpdate = tagsCaptor.getAllValues().get(1);
 
-    assertEquals("IN_ELABORAZIONE", firstUpdate.get("processingStatus"));
+    assertEquals("PROCESSING", firstUpdate.get("processingStatus"));
     assertEquals("1", firstUpdate.get("processingAttempt"));
 
-    assertEquals("ERRORE", secondUpdate.get("processingStatus"));
+    assertEquals("ERROR", secondUpdate.get("processingStatus"));
     assertEquals("1", secondUpdate.get("processingAttempt"));
 
     verify(aiTelemetryClientMock, times(1))
@@ -1086,7 +1086,7 @@ class BlobProcessingFunctionTest {
       );
     }
 
-    assertEquals("ERRORE", storedTags.get("processingStatus"));
+    assertEquals("ERROR", storedTags.get("processingStatus"));
     assertEquals("1", storedTags.get("processingAttempt"));
 
     @SuppressWarnings("unchecked")
@@ -1099,7 +1099,7 @@ class BlobProcessingFunctionTest {
     Map<String, String> secondUpdate = tagsCaptor.getAllValues().get(1);
 
     assertEquals(
-        "IN_ELABORAZIONE",
+        "PROCESSING",
         firstUpdate.get("processingStatus")
     );
 
@@ -1109,7 +1109,7 @@ class BlobProcessingFunctionTest {
     );
 
     assertEquals(
-        "ERRORE",
+        "ERROR",
         secondUpdate.get("processingStatus")
     );
 
@@ -1200,7 +1200,7 @@ class BlobProcessingFunctionTest {
     BlobClient blobClient = mock(BlobClient.class);
 
     Map<String, String> tags = new HashMap<>();
-    tags.put("processingStatus", "IN_ELABORAZIONE");
+    tags.put("processingStatus", "PROCESSING");
     tags.put("processingAttempt", "1");
     tags.put("processingUpdatedAt", "2026-11-13T10:00:00Z");
     tags.put("customTag", "customValue");
@@ -1247,7 +1247,7 @@ class BlobProcessingFunctionTest {
     when(blobClient.getBlobName()).thenReturn("sampleBlob");
 
     Map<String, String> tags = new HashMap<>();
-    tags.put("processingStatus", "IN_ELABORAZIONE");
+    tags.put("processingStatus", "PROCESSING");
     tags.put("processingAttempt", "1");
     tags.put("processingUpdatedAt", "2026-11-13T10:00:00Z");
 
