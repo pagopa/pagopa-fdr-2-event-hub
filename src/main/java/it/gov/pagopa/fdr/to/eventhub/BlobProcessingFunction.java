@@ -349,6 +349,8 @@ public class BlobProcessingFunction {
       tags.put(BlobTagName.PROCESSING_UPDATED_AT.getValue(),
           Instant.now().truncatedTo(ChronoUnit.SECONDS).toString());
 
+      blobClient.setTags(tags);
+
       logger.info(
           "[{}] Blob {} status transition: {} -> {}, attempt: {} -> {}",
           fdrType,
