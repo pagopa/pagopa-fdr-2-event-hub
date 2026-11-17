@@ -88,6 +88,7 @@ Gli item si consultano in `fdrrecoveryitems`, cercando il `jobId` e la giornata 
 | Caso | Verifiche e azioni |
 |---|---|
 | `SIZE_LIMIT_EXCEEDED` | Nei dettagli verificare sorgente/blob, `Stage`, `LimitBytes` e `ObservedBytesAtLeast`. Valutare dimensione reale e memoria disponibile prima di alzare il limite. |
+| `CANDIDATE_LIMIT_EXCEEDED` | Il numero di blob FDR1 con lo stesso prefisso supera il limite configurato. Controllare `xmlContainer`, `xmlPrefix`, `xmlCandidateLimit` e `xmlObservedCandidatesAtLeast` nei dettagli dell’item. Nessuna sorgente viene selezionata dall’elenco incompleto. Se i candidati sono legittimi, valutare un aumento mirato di `RECOVERY_MAX_FDR1_CANDIDATES` e creare un nuovo dry-run sulla giornata interessata. |
 | Sorgente assente o identità incoerente (`NO_CANDIDATES`, `NO_MATCH`, differenze JSON) | Verificare disponibilità del blob, revisione, identificativo flusso, PSP e dominio rispetto a PostgreSQL. |
 | `AMBIGUOUS_MATCH`, `CONFLICTING_ORIGINS`, `ORIGIN_UNDETERMINED` | Controllare le sorgenti candidate, i metadati `elaborate`, `serviceIdentifier`, `sessionId` e la corrispondenza dei pagamenti. |
 | `METADATA_UNRESOLVED` / `INCONSISTENT_REPORT` | Leggere il dettaglio: metadati mancanti/non validi, identità discordante o numero di pagamenti incoerente. Correggere la causa sulla sorgente. |

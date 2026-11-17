@@ -380,6 +380,77 @@ class RecoveryPublicationDiscoveryItemFactoryTest {
     assertEquals(item, restored);
   }
 
+  @Test
+  void shouldPreserveCandidateLimitDiagnosticsInTableRepresentation() {
+    var evidence =
+        new RecoveryPublicationSourceInspector.Inspection(
+            candidate,
+            new RecoveryFdr3SourceVerifier.BlobMissing(candidate),
+            new RecoveryFdr1SourceResolver.Unresolved(
+                RecoveryFdr1SourceResolver.UnresolvedReason
+                    .CANDIDATE_LIMIT_EXCEEDED,
+                List.of(),
+                Map.of(
+                    "candidateLimit", "20",
+                    "observedCandidatesAtLeast", "21")));
+
+    var selector =
+        new RecoveryPublicationSourceSelector(
+            new RecoveryPublicationSourceMapper(
+                new RecoveryFdr1DateNormalizer()));
+
+    var selection =
+        assertInstanceOf(
+            RecoveryPublicationSourceSelector.Unresolved.class,
+            selector.select(evidence));
+
+    var result =
+        new RecoveryPublicationBatchService.Unresolved(selection);
+
+    var item = factory.create(JOB_ID, DAY, result);
+
+    var outcome =
+        assertInstanceOf(
+            RecoveryPublicationDiscoveryItem.Unresolved.class,
+            item.outcome());
+
+    assertEquals(
+        RecoveryPublicationDiscoveryItem.Status.UNRESOLVED,
+        outcome.status());
+
+    assertEquals("XML_UNRESOLVED", outcome.reason());
+
+    assertEquals(
+        "CANDIDATE_LIMIT_EXCEEDED",
+        outcome.details().get("xmlReason"));
+
+    assertEquals(
+        "fdr1-flows",
+        outcome.details().get("xmlContainer"));
+
+    assertEquals(
+        candidate.name() + "_",
+        outcome.details().get("xmlPrefix"));
+
+    assertEquals(
+        "20",
+        outcome.details().get("xmlCandidateLimit"));
+
+    assertEquals(
+        "21",
+        outcome.details().get("xmlObservedCandidatesAtLeast"));
+
+    assertEquals(
+        "0",
+        outcome.details().get("xmlInspectionCount"));
+
+    var mapper = new RecoveryPublicationDiscoveryItemTableMapper();
+    var entity = mapper.toEntity(item);
+    var restored = mapper.toItem(entity);
+
+    assertEquals(item, restored);
+  }
+
   private RecoveryPublicationBatchService.Compared compared(
       LocalDate day,
       RecoveryPublicationPresenceIndex.Presence presence,

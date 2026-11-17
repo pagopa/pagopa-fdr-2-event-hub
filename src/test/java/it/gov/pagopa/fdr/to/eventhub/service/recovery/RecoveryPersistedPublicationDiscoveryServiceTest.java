@@ -12,12 +12,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryCandidateLimitException;
 import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryCheckpoint;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationDiscoveryItem;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryPublicationSource;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFdr1BlobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryCheckpointRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryItemRepository;
@@ -458,6 +460,207 @@ class RecoveryPersistedPublicationDiscoveryServiceTest {
 
     verify(batch, times(1)).compare(DAY, firstPage);
     verify(batch, times(1)).compare(DAY, secondPage);
+  }
+
+  @Test
+  void shouldPersistCandidateLimitFailureAndContinueToNextPage()
+      throws Exception {
+
+    var first = page.get(0);
+    var second = page.get(1);
+
+    var firstPage = List.of(first);
+    var secondPage = List.of(second);
+
+    var xmlBlobs = mock(RecoveryFdr1BlobRepository.class);
+    var xmlVerifier = mock(RecoveryFdr1SourceVerifier.class);
+    var jsonVerifier = mock(RecoveryFdr3SourceVerifier.class);
+    var presence = mock(RecoveryPublicationPresenceService.class);
+    var items = mock(RecoveryPublicationDiscoveryItemRepository.class);
+
+    var xmlResolver =
+        new RecoveryFdr1SourceResolver(xmlBlobs, xmlVerifier);
+
+    var sourceMapper =
+        new RecoveryPublicationSourceMapper(
+            new RecoveryFdr1DateNormalizer());
+
+    var sourceInspector =
+        new RecoveryPublicationSourceInspector(
+            jsonVerifier, xmlResolver);
+
+    var sourceSelector =
+        new RecoveryPublicationSourceSelector(sourceMapper);
+
+    var batch =
+        new RecoveryPublicationBatchService(
+            sourceInspector, sourceSelector, presence);
+
+    var factory = new RecoveryPublicationDiscoveryItemFactory();
+
+    // First flow: the FDR1 listing exceeds the limit.
+    when(jsonVerifier.verify(first))
+        .thenReturn(
+            new RecoveryFdr3SourceVerifier.BlobMissing(first));
+
+    when(xmlBlobs.listCandidates(first))
+        .thenThrow(
+            new RecoveryCandidateLimitException(
+                first.flowId(), 20, 21));
+
+    // Second flow: Original JSON verified, no XML candidate.
+    var secondBlob =
+        new RecoveryBlobSnapshot(
+            "fdr3-flows",
+            second.blobName(),
+            "\"json-etag\"",
+            100L,
+            Map.of());
+
+    var secondJson =
+        new RecoveryFdr3SourceVerifier.Verified(
+            second,
+            secondBlob,
+            new RecoveryFdr3BlobMetadataInspector.Valid(
+                "6ecc100f-cd56-422d-815b-8243edc81a84",
+                true),
+            new RecoveryFdr3IdentityReader.Identity(
+                second.name(),
+                second.revision(),
+                second.pspDomainId(),
+                second.orgDomainId(),
+                Instant.parse("2026-10-05T10:31:35Z")));
+
+    when(jsonVerifier.verify(second)).thenReturn(secondJson);
+    when(xmlBlobs.listCandidates(second)).thenReturn(List.of());
+
+    var secondSource = sourceMapper.map(secondJson);
+
+    var secondComparison =
+        new RecoveryPublicationPresenceIndex.Comparison(
+            DAY,
+            secondSource,
+            RecoveryPublicationPresenceIndex.Presence.ABSENT,
+            0L);
+
+    when(presence.compare(DAY, List.of(secondSource)))
+        .thenReturn(List.of(secondComparison));
+
+    // Expected results to be saved.
+    var firstEvidence =
+        new RecoveryPublicationSourceInspector.Inspection(
+            first,
+            new RecoveryFdr3SourceVerifier.BlobMissing(first),
+            new RecoveryFdr1SourceResolver.Unresolved(
+                RecoveryFdr1SourceResolver.UnresolvedReason
+                    .CANDIDATE_LIMIT_EXCEEDED,
+                List.of(),
+                Map.of(
+                    "candidateLimit", "20",
+                    "observedCandidatesAtLeast", "21")));
+
+    var firstItem =
+        factory.create(
+            JOB_ID,
+            DAY,
+            new RecoveryPublicationBatchService.Unresolved(
+                new RecoveryPublicationSourceSelector.Unresolved(
+                    RecoveryPublicationSourceSelector.UnresolvedReason
+                        .XML_UNRESOLVED,
+                    firstEvidence)));
+
+    var secondItem =
+        factory.create(
+            JOB_ID,
+            DAY,
+            new RecoveryPublicationBatchService.Compared(
+                secondComparison));
+
+    when(items.findForPage(JOB_ID, DAY, firstPage))
+        .thenReturn(Map.of());
+
+    when(items.findForPage(JOB_ID, DAY, secondPage))
+        .thenReturn(Map.of());
+
+    when(items.createOrRead(firstItem))
+        .thenReturn(
+            new RecoveryPublicationDiscoveryItemRepository.SaveResult(
+                RecoveryPublicationDiscoveryItemRepository.SaveStatus.CREATED,
+                firstItem));
+
+    when(items.createOrRead(secondItem))
+        .thenReturn(
+            new RecoveryPublicationDiscoveryItemRepository.SaveResult(
+                RecoveryPublicationDiscoveryItemRepository.SaveStatus.CREATED,
+                secondItem));
+
+    var afterFirst =
+        initial.afterSavedPage(List.of(firstItem));
+
+    var afterSecond =
+        afterFirst.afterSavedPage(List.of(secondItem));
+
+    var completed = afterSecond.completeDiscovery();
+
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(initial, "etag-0")))
+        .thenReturn(Optional.of(stored(afterFirst, "etag-1")))
+        .thenReturn(Optional.of(stored(afterSecond, "etag-2")))
+        .thenReturn(Optional.of(stored(completed, "etag-3")));
+
+    when(flows.findPage(DAY, 0L, 2))
+        .thenReturn(firstPage);
+
+    when(flows.findPage(DAY, first.flowId(), 2))
+        .thenReturn(secondPage);
+
+    when(flows.findPage(DAY, second.flowId(), 2))
+        .thenReturn(List.of());
+
+    var discovery =
+        new RecoveryPersistedPublicationDiscoveryService(
+            flows,
+            new RecoveryPublicationPageService(items, batch, factory),
+            checkpoints,
+            2);
+
+    var result =
+        discovery.discover(JOB_ID, DAY, () -> true, ownership);
+
+    assertEquals(completed, result);
+
+    assertEquals(
+        RecoveryPublicationDiscoveryCheckpoint.Status.DISCOVERED,
+        result.status());
+
+    assertEquals(2L, result.candidateCount());
+    assertEquals(1L, result.unresolvedCandidateCount());
+    assertEquals(1L, result.absentCandidateCount());
+    assertEquals(0L, result.presentCandidateCount());
+    assertEquals(2L, result.pageCount());
+    assertEquals(second.flowId(), result.lastFlowId());
+
+    // First the item is saved, then the checkpoint, then the next page is read.
+    var order = inOrder(items, checkpoints, flows);
+
+    order.verify(items).createOrRead(firstItem);
+    order.verify(checkpoints).update(afterFirst, "etag-0");
+    order.verify(flows).findPage(DAY, first.flowId(), 2);
+
+    order.verify(items).createOrRead(secondItem);
+    order.verify(checkpoints).update(afterSecond, "etag-1");
+    order.verify(flows).findPage(DAY, second.flowId(), 2);
+
+    order.verify(checkpoints).update(completed, "etag-2");
+
+    verify(xmlBlobs, times(1)).listCandidates(first);
+    verify(xmlBlobs, times(1)).listCandidates(second);
+
+    verify(presence, times(1))
+        .compare(DAY, List.of(secondSource));
+
+    verifyNoMoreInteractions(presence);
+    verifyNoInteractions(xmlVerifier);
   }
 
   private static StoredRecoveryPublicationDiscoveryCheckpoint stored(

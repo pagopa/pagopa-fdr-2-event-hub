@@ -1,10 +1,13 @@
 package it.gov.pagopa.fdr.to.eventhub.service.recovery;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryCandidateLimitException;
+import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFdr1BlobRepository;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class RecoveryFdr1SourceResolver {
@@ -15,7 +18,8 @@ public final class RecoveryFdr1SourceResolver {
     AMBIGUOUS_MATCH,
     METADATA_UNRESOLVED,
     INCONSISTENT_REPORT,
-    SIZE_LIMIT_EXCEEDED
+    SIZE_LIMIT_EXCEEDED,
+    CANDIDATE_LIMIT_EXCEEDED
   }
 
   public sealed interface Resolution permits Resolved, Unresolved {
@@ -26,14 +30,17 @@ public final class RecoveryFdr1SourceResolver {
       implements Resolution {
   }
 
-  public record Unresolved(
-      UnresolvedReason reason,
-      List<RecoveryFdr1SourceVerifier.Result> inspections)
-      implements Resolution {
+  public record Unresolved(UnresolvedReason reason, List<RecoveryFdr1SourceVerifier.Result> inspections,
+          Map<String, String> diagnostics) implements Resolution {
 
-    public Unresolved {
-      inspections = List.copyOf(inspections);
-    }
+      public Unresolved {
+          inspections = List.copyOf(inspections);
+          diagnostics = Map.copyOf(diagnostics);
+      }
+
+      public Unresolved(UnresolvedReason reason, List<RecoveryFdr1SourceVerifier.Result> inspections) {
+          this(reason, inspections, Map.of());
+      }
   }
 
   private final RecoveryFdr1BlobRepository blobRepository;
@@ -57,7 +64,20 @@ public final class RecoveryFdr1SourceResolver {
 
     Objects.requireNonNull(candidate, "candidate is required");
 
-    var blobs = blobRepository.listCandidates(candidate);
+    final List<RecoveryBlobSnapshot> blobs;
+
+    try {
+      blobs = blobRepository.listCandidates(candidate);
+    } catch (RecoveryCandidateLimitException failure) {
+      return new Unresolved(
+          UnresolvedReason.CANDIDATE_LIMIT_EXCEEDED,
+          List.of(),
+          Map.of(
+              "candidateLimit",
+              Integer.toString(failure.limitCandidates()),
+              "observedCandidatesAtLeast",
+              Integer.toString(failure.observedCandidatesAtLeast())));
+    }
 
     if (blobs.isEmpty()) {
       return new Unresolved(

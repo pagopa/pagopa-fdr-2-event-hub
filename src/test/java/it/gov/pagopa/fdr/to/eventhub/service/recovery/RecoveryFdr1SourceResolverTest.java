@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryCandidateLimitException;
 import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryContentSizeException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
@@ -249,6 +250,47 @@ class RecoveryFdr1SourceResolverTest {
 
     assertEquals(2, unresolved.inspections().size());
     assertSame(exceeded, unresolved.inspections().get(1));
+  }
+
+  @Test
+  void shouldReportCandidateLimitExceeded() throws IOException {
+    when(blobRepository.listCandidates(candidate))
+        .thenThrow(
+            new RecoveryCandidateLimitException(
+                candidate.flowId(), 20, 21));
+
+    var unresolved =
+        assertUnresolved(
+            resolver.resolve(candidate),
+            RecoveryFdr1SourceResolver.UnresolvedReason
+                .CANDIDATE_LIMIT_EXCEEDED);
+
+    assertEquals(List.of(), unresolved.inspections());
+
+    assertEquals(
+        Map.of(
+            "candidateLimit", "20",
+            "observedCandidatesAtLeast", "21"),
+        unresolved.diagnostics());
+
+    verifyNoInteractions(sourceVerifier);
+  }
+
+  @Test
+  void shouldPropagateListingFailure() {
+    var failure =
+        new IllegalStateException("Simulated listing failure");
+
+    when(blobRepository.listCandidates(candidate))
+        .thenThrow(failure);
+
+    var actual =
+        assertThrows(
+            IllegalStateException.class,
+            () -> resolver.resolve(candidate));
+
+    assertSame(failure, actual);
+    verifyNoInteractions(sourceVerifier);
   }
 
   private RecoveryFdr1SourceVerifier.Inspected inspected(

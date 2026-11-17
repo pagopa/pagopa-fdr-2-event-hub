@@ -15,6 +15,8 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryCandidateLimitException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import java.time.Duration;
@@ -119,9 +121,12 @@ class RecoveryFdr1BlobRepositoryTest {
         item("flow-1_b.xml.zip", Map.of()),
         item("flow-1_c.xml.zip", Map.of())));
 
-    assertThrows(
-        IllegalStateException.class,
+    var failure = assertThrows(
+        RecoveryCandidateLimitException.class,
         () -> repository.listCandidates(CANDIDATE));
+
+    assertEquals(2, failure.limitCandidates());
+    assertEquals(3, failure.observedCandidatesAtLeast());
   }
 
   @Test

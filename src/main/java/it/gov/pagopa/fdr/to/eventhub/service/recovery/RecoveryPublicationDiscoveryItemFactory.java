@@ -42,6 +42,9 @@ public final class RecoveryPublicationDiscoveryItemFactory {
     logSizeLimit(
         jobId, day, unresolved.candidate().flowId(), "xml", details);
 
+    logCandidateLimit(
+            jobId, day, unresolved.candidate().flowId(), details);
+
     return new RecoveryPublicationDiscoveryItem(
         jobId,
         day,
@@ -91,6 +94,7 @@ public final class RecoveryPublicationDiscoveryItemFactory {
 
     describeJson(evidence.fdr3(), details);
     describeXml(evidence.fdr1(), details);
+    describeCandidateLimit(evidence, details);
 
     return details;
   }
@@ -197,6 +201,20 @@ public final class RecoveryPublicationDiscoveryItemFactory {
       details.put(prefix + "CompressedBytes", Long.toString(blob.contentLength()));
   }
 
+  private static void describeCandidateLimit(RecoveryPublicationSourceInspector.Inspection evidence,
+          Map<String, String> details) {
+
+      if (!(evidence.fdr1() instanceof RecoveryFdr1SourceResolver.Unresolved unresolved)
+              || unresolved.reason() != RecoveryFdr1SourceResolver.UnresolvedReason.CANDIDATE_LIMIT_EXCEEDED) {
+          return;
+      }
+
+      details.put("xmlContainer", "fdr1-flows");
+      details.put("xmlPrefix", evidence.candidate().name() + "_");
+      details.put("xmlCandidateLimit", unresolved.diagnostics().get("candidateLimit"));
+      details.put("xmlObservedCandidatesAtLeast", unresolved.diagnostics().get("observedCandidatesAtLeast"));
+  }
+
   private static void logSizeLimit(UUID jobId, LocalDate day, long flowId, String prefix, Map<String, String> details) {
 
       if (!"SIZE_LIMIT_EXCEEDED".equals(details.get(prefix + "Reason"))) {
@@ -210,5 +228,18 @@ public final class RecoveryPublicationDiscoveryItemFactory {
                   details.get(prefix + "Stage"), details.get(prefix + "LimitBytes"),
                   details.get(prefix + "ObservedBytesAtLeast"), details.get(prefix + "CompressedBytes"));
       }
+  }
+
+  private static void logCandidateLimit(UUID jobId, LocalDate day, long flowId, Map<String, String> details) {
+
+      if (!LOGGER.isWarnEnabled() || !"CANDIDATE_LIMIT_EXCEEDED".equals(details.get("xmlReason"))) {
+          return;
+      }
+
+      LOGGER.warn(
+              "Recovery FDR1 candidate limit exceeded: " + "jobId={}, day={}, flowId={}, container={}, prefix={}, "
+                      + "limitCandidates={}, observedCandidatesAtLeast={}",
+              jobId, day, flowId, details.get("xmlContainer"), details.get("xmlPrefix"),
+              details.get("xmlCandidateLimit"), details.get("xmlObservedCandidatesAtLeast"));
   }
 }

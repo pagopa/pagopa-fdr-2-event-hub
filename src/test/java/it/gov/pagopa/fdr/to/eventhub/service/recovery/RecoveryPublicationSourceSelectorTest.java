@@ -182,6 +182,33 @@ class RecoveryPublicationSourceSelectorTest {
         () -> selector.select(null));
   }
 
+  @Test
+  void shouldBlockCandidateLimitExceededEvenWhenJsonIsEligible() {
+    var xml =
+        new RecoveryFdr1SourceResolver.Unresolved(
+            RecoveryFdr1SourceResolver.UnresolvedReason
+                .CANDIDATE_LIMIT_EXCEEDED,
+            List.of(),
+            Map.of(
+                "candidateLimit", "20",
+                "observedCandidatesAtLeast", "21"));
+
+    var inspection = evidence(json(true), xml);
+
+    var unresolved =
+        assertInstanceOf(
+            RecoveryPublicationSourceSelector.Unresolved.class,
+            selector.select(inspection));
+
+    assertEquals(
+        RecoveryPublicationSourceSelector.UnresolvedReason
+            .XML_UNRESOLVED,
+        unresolved.reason());
+
+    assertSame(inspection, unresolved.evidence());
+    assertSame(xml, unresolved.evidence().fdr1());
+  }
+
   private RecoveryPublicationSourceInspector.Inspection evidence(
       RecoveryFdr3SourceVerifier.Result json,
       RecoveryFdr1SourceResolver.Resolution xml) {

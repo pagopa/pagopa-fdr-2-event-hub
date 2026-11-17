@@ -5,6 +5,8 @@ import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.BlobListDetails;
 import com.azure.storage.blob.models.ListBlobsOptions;
+
+import it.gov.pagopa.fdr.to.eventhub.exception.recovery.RecoveryCandidateLimitException;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryBlobSnapshot;
 import it.gov.pagopa.fdr.to.eventhub.model.recovery.RecoveryFlowCandidate;
 import java.time.Duration;
@@ -57,13 +59,11 @@ public final class RecoveryFdr1BlobRepository {
     List<RecoveryBlobSnapshot> candidates = new ArrayList<>();
 
     for (BlobItem item : container.listBlobs(options, PAGE_TIMEOUT)) {
-      if (candidates.size() >= maxCandidates) {
-        throw new IllegalStateException(
-            "FDR1 source candidate limit exceeded for flowId="
-                + candidate.flowId());
-      }
+        if (candidates.size() >= maxCandidates) {
+            throw new RecoveryCandidateLimitException(candidate.flowId(), maxCandidates, candidates.size() + 1);
+        }
 
-      candidates.add(toSnapshot(item));
+        candidates.add(toSnapshot(item));
     }
 
     return List.copyOf(candidates);
