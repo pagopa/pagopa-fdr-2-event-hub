@@ -148,6 +148,7 @@ fdr1-blobtrigger:
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m -XX:MaxGCPauseMillis=200 -XX:-UseBASE64Intrinsics"
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr1blobtrigger'
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhub5fd474c6bdssfp"
@@ -174,6 +175,7 @@ fdr3-blobtrigger:
   autoscaling:
     !!merge <<: *autoscaling
   envConfig:
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:MaxHeapSize=2304m -XX:MinHeapSize=256m -XX:MaxGCPauseMillis=200 -XX:-UseBASE64Intrinsics"
     !!merge <<: *envConfig
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubfdr3blobtrigger'
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhubfdr3"
@@ -207,7 +209,7 @@ recovery:
     !!merge <<: *autoscaling
   envConfig:
     !!merge <<: *envConfig
-    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30"
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:MinHeapFreeRatio=30 -XX:MaxHeapFreeRatio=30 -XX:-UseBASE64Intrinsics"
     WEBSITE_SITE_NAME: 'pagopafdrtoeventhubrecovery'
     AzureFunctionsWebHost__hostid: "pagopafdr2eventhubrecovery"
     AzureFunctionsJobHost__functions__0: "Info"
@@ -269,7 +271,7 @@ recovery-jobs:
     AzureFunctionsJobHost__logging__logLevel__Azure.Core: "Error"
     AzureFunctionsJobHost__functionTimeout: "01:00:00"
     LOG_LEVEL: "INFO"
-    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx768m"
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx768m -XX:-UseBASE64Intrinsics"
     RECOVERY_WORKER_ENABLED: "true"
     RECOVERY_EXECUTION_ENABLED: "true"
     RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
