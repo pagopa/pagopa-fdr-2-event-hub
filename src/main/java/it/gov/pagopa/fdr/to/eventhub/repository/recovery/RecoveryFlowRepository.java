@@ -24,8 +24,10 @@ public final class RecoveryFlowRepository {
               f.psp_domain_id,
               f.org_domain_id,
               f.date AS flow_date
-          FROM fdr3.payment_full_view p
-          INNER JOIN fdr3.flow f ON p.flow_id = f.id
+          FROM fdr3.payment p
+          INNER JOIN fdr3.flow f
+              ON f.id = p.flow_id
+             AND f.date = p.flow_date
           WHERE p.pay_date >= ?
             AND p.pay_date < ?
             AND f.status = 'PUBLISHED'
