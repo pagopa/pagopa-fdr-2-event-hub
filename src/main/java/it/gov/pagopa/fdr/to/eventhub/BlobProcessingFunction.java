@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 public class BlobProcessingFunction {
 
+  public static final String NOT_SET = "NOT_SET";
   private final org.slf4j.Logger logger = LoggerFactory.getLogger(BlobProcessingFunction.class);
 
   private final String fdr1Container = System.getenv().getOrDefault("BLOB_STORAGE_FDR1_CONTAINER", "fdr1-flows");
@@ -340,8 +341,8 @@ public class BlobProcessingFunction {
           "[{}] Blob {} previous status: {}, previous attempt: {}",
           fdrType,
           blobClient.getBlobName(),
-          previousStatus == null ? "NOT_SET" : previousStatus,
-          previousAttempt == null ? "NOT_SET" : previousAttempt
+          previousStatus == null ? NOT_SET : previousStatus,
+          previousAttempt == null ? NOT_SET : previousAttempt
       );
 
       tags.put(BlobTagName.PROCESSING_STATUS.getValue(), status.name());
@@ -355,9 +356,9 @@ public class BlobProcessingFunction {
           "[{}] Blob {} status transition: {} -> {}, attempt: {} -> {}",
           fdrType,
           blobClient.getBlobName(),
-          previousStatus == null ? "NOT_SET" : previousStatus,
+          previousStatus == null ? NOT_SET : previousStatus,
           status.name(),
-          previousAttempt == null ? "NOT_SET" : previousAttempt,
+          previousAttempt == null ? NOT_SET : previousAttempt,
           attempt
       );
     } catch (Exception e) {
