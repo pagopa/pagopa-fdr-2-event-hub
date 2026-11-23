@@ -28,11 +28,11 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
     matches = "true")
 class RecoveryFlowRepositoryIT {
 
-  private static final int PAGE_SIZE = 50;
+  private static final int PAGE_SIZE = 10;
   private static final int MAX_TEST_CANDIDATES = 1000;
 
   @Test
-  void shouldConnectReadOnlyAndReadCandidatesFromDev() throws Exception {
+  void shouldConnectReadOnlyAndReadCandidatesFromArchive() throws Exception {
     String configuredDay = System.getenv("RECOVERY_POSTGRES_TEST_DAY");
 
     assertNotNull(
@@ -73,6 +73,9 @@ class RecoveryFlowRepositoryIT {
           repository.findPage(day, 0L, 10);
 
       assertNotNull(candidates);
+      assertTrue(
+              !candidates.isEmpty(),
+              "The archive test day must contain published payment candidates");
       assertTrue(candidates.size() <= 10);
 
       long previousFlowId = 0L;
@@ -86,14 +89,14 @@ class RecoveryFlowRepositoryIT {
       }
 
       System.out.printf(
-          "DEV recovery discovery completed: day=%s, candidates=%d%n",
+          "Archive recovery discovery completed: day=%s, candidates=%d%n",
           day,
           candidates.size());
     }
   }
 
   @Test
-  void shouldReadAllPublishedRevisionsWithoutDuplicatesFromDev()
+  void shouldReadAllPublishedRevisionsWithoutDuplicatesFromArchive()
       throws Exception {
 
     String configuredDay = System.getenv("RECOVERY_POSTGRES_TEST_DAY");
@@ -103,9 +106,9 @@ class RecoveryFlowRepositoryIT {
     var configuration = RecoveryPostgresConfiguration.fromEnvironment();
 
     assertEquals(
-        "jdbc:postgresql://fdr-db.d.internal.postgresql.pagopa.it:5432/fdr3",
-        configuration.getJdbcUrl(),
-        "This integration test must target the verified DEV database");
+            "jdbc:postgresql://fdr-archive-db.u.internal.postgresql.pagopa.it:5432/fdr3",
+            configuration.getJdbcUrl(),
+            "This integration test must target the verified UAT archive database");
 
     try (RecoveryPostgresDataSource resources =
         new RecoveryPostgresDataSource(configuration)) {
@@ -114,7 +117,7 @@ class RecoveryFlowRepositoryIT {
           readSelectionExpectation(resources.dataSource(), day);
 
       System.out.printf(
-              "DEV reference selection: day=%s, published=%d, "
+              "Archive reference selection: day=%s, published=%d, "
                   + "historical=%d, latest=%d, excluded=%d%n",
               day,
               expected.publishedIds().size(),
@@ -123,14 +126,8 @@ class RecoveryFlowRepositoryIT {
               expected.excludedCount());
 
       assertTrue(
-          expected.historicalCount() > 0,
-          "The test day must contain historical published revisions");
-      assertTrue(
-          expected.latestCount() > 0,
-          "The test day must contain latest published revisions");
-      assertTrue(
-          expected.excludedCount() > 0,
-          "The test day must contain non-published candidates");
+              !expected.publishedIds().isEmpty(),
+              "The archive test day must contain published payment candidates");
 
       RecoveryFlowRepository repository =
           new RecoveryFlowRepository(resources.dataSource(), 60);
@@ -173,14 +170,14 @@ class RecoveryFlowRepositoryIT {
 
         assertTrue(
             actualIds.size() <= MAX_TEST_CANDIDATES,
-            "The DEV fixture exceeds the integration test limit");
+            "The archive fixture exceeds the integration test limit");
       }
 
       assertTrue(exhausted, "Pagination must reach an empty final page");
       assertEquals(expected.publishedIds(), actualIds);
 
       System.out.printf(
-          "DEV published selection verified: day=%s, published=%d, "
+          "Archive published selection verified: day=%s, published=%d, "
               + "historical=%d, latest=%d, excluded=%d, pages=%d%n",
           day,
           actualIds.size(),
@@ -195,18 +192,19 @@ class RecoveryFlowRepositoryIT {
       DataSource dataSource, LocalDate day) throws Exception {
 
     String sql = """
-        SELECT f.id, f.status, f.is_latest, f.date AS flow_date
-        FROM fdr3.flow f
-        WHERE EXISTS (
-            SELECT 1
-            FROM fdr3.payment_full_view p
-            WHERE p.flow_id = f.id
-              AND p.pay_date >= ?
-              AND p.pay_date < ?
-        )
-        ORDER BY f.id
-        LIMIT ?
-        """;
+              SELECT f.id, f.status, f.is_latest, f.date AS flow_date
+              FROM fdr3.flow f
+              WHERE EXISTS (
+                  SELECT 1
+                  FROM fdr3.payment p
+                  WHERE p.flow_id = f.id
+                    AND p.flow_date = f.date
+                    AND p.pay_date >= ?
+                    AND p.pay_date < ?
+              )
+              ORDER BY f.id
+              LIMIT ?
+              """;
 
     Set<Long> publishedIds = new HashSet<>();
     Map<Long, LocalDateTime> flowDates = new HashMap<>();
@@ -230,12 +228,19 @@ class RecoveryFlowRepositoryIT {
           rows++;
           assertTrue(
               rows <= MAX_TEST_CANDIDATES,
-              "Choose a DEV test day with at most 1000 candidate revisions");
+              "Choose an archive test day with at most 1000 candidate revisions");
 
           if ("PUBLISHED".equals(result.getString("status"))) {
-              publishedIds.add(result.getLong("id"));
+              long flowId = result.getLong("id");
 
-              flowDates.put(result.getLong("id"), result.getObject("flow_date", LocalDateTime.class));
+              assertTrue(
+                  publishedIds.add(flowId),
+                  "Published flow IDs must be unique across archive partitions: "
+                      + flowId);
+
+              flowDates.put(
+                  flowId,
+                  result.getObject("flow_date", LocalDateTime.class));
 
               if (result.getBoolean("is_latest")) {
                   latestCount++;

@@ -4,6 +4,8 @@ Il servizio recupera gli eventi di pagamento mancanti in ADX, ripubblicandoli su
 
 L’intervallo si riferisce alla **data dei pagamenti** e comprende entrambe le date.
 
+I candidati vengono letti dal **database storico FDR3 (archive)**, dalle tabelle `payment` e `flow`, incluse le rispettive partizioni. Si considerano i flussi `PUBLISHED`, associando `flow_id` e `flow_date` al flusso.
+
 ## 1. Verificare una giornata
 
 Invocare **POST `/recovery/jobs`** con il body:
@@ -30,6 +32,7 @@ La risposta `202 Accepted` restituisce il `jobId`: indica che la richiesta è st
 La discovery restituisce i candidati esaminati (`candidateCount`), assenti (`absentCandidateCount`), presenti (`presentCandidateCount`) e non risolti (`unresolvedCandidateCount`). `pageCount` e `lastFlowId` permettono di monitorare l’avanzamento.
 
 I conteggi riguardano le pubblicazioni dei flussi per giornata, non il numero di pagamenti.
+La presenza è verificata in `IUV_RENDICONTATI` per giornata di pagamento e identificativo di pubblicazione (`UNIQUE_ID`), con la corrispondenza di flusso, PSP ed ente.
 
 ## 3. Recuperare i dati
 
@@ -44,6 +47,8 @@ Invocare nuovamente **POST `/recovery/jobs`**, con lo stesso intervallo e `dryRu
 ```
 
 Monitorare il **nuovo `jobId`** con le API precedenti. Il completamento, in questo caso, prevede anche l’ingestione di ADX (se necessario).
+
+Dopo il completamento bisogna verificare l’arrivo in ADX. Una possibile opzione è di eseguire un **nuovo dry-run sullo stesso intervallo**: attesi zero assenti e zero unresolved, a parità di candidati.
 
 
 ## 4. Sospendere e riprendere
@@ -93,9 +98,25 @@ Gli item si consultano in `fdrrecoveryitems`, cercando il `jobId` e la giornata 
 | `AMBIGUOUS_MATCH`, `CONFLICTING_ORIGINS`, `ORIGIN_UNDETERMINED` | Controllare le sorgenti candidate, i metadati `elaborate`, `serviceIdentifier`, `sessionId` e la corrispondenza dei pagamenti. |
 | `METADATA_UNRESOLVED` / `INCONSISTENT_REPORT` | Leggere il dettaglio: metadati mancanti/non validi, identità discordante o numero di pagamenti incoerente. Correggere la causa sulla sorgente. |
 | `UNCERTAIN` o `SENDING` persistente | Correlare item di esecuzione e log tramite `jobId`, giornata e `flowId`; controllare tentativo, batch/eventi confermati e pagamenti effettivamente presenti in ADX. |
+| Event Hub `server-busy` / `50002` / `102` | Throttling durante la pubblicazione: controllare capacità e metriche del namespace, traffico concorrente, retry ed esiti degli item. Non avviare job duplicati per accelerare; se serve sospendere, usare pause. Un invio incerto richiede l’analisi prevista per `UNCERTAIN`. |
 | Job fermo o `FAILED` | Verificare log del worker, errori verso PostgreSQL/Storage/ADX/Event Hub, riavvii e consumo CPU/memoria. `updatedAt` da solo non misura l’avanzamento di ogni pagina. |
 | HTTP `400` / `404` | Controllare body, formato date, intervallo, `jobId` e ambiente. La giornata richiesta deve appartenere al job. |
 | HTTP `409` | Transizione non consentita, aggiornamento concorrente o formato job incompatibile. Rileggere lo stato e analizzare il messaggio. |
 | HTTP `503` / `500` | Recupero reale disabilitato / errore del servizio: controllare configurazione e log. |
 
 Un dry-run può terminare con item unresolved; un recupero reale può fallire dopo aver già inviato altri item. Dopo aver corretto la causa, una **nuova discovery** richiede un nuovo job: resume conserva gli item già rilevati. 
+
+## Configurazione operativa
+
+| Parametro | DEV | UAT | PROD |
+|---|---|---|---|
+| `RECOVERY_DISCOVERY_PAGE_SIZE` | 10 | 100 | 100 |
+| `RECOVERY_JOB_PAGE_SIZE` | 10 | 10 | 10 |
+
+`RECOVERY_DISCOVERY_PAGE_SIZE` indica il numero massimo di revisioni di flusso
+candidate estratte dal database storico per ogni pagina della discovery di una
+giornata. Il worker verifica i candidati su ADX, salva gli esiti e il checkpoint,
+quindi prosegue con la pagina successiva.
+
+`RECOVERY_JOB_PAGE_SIZE` indica il numero massimo di identificativi di job
+letti da Azure Table Storage quando la coda interna del dispatcher è vuota.

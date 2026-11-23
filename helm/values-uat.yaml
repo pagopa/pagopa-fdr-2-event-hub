@@ -2,7 +2,7 @@ microservice-chart: &microservice-chart
   namespace: "fdr"
   image:
     repository: ghcr.io/pagopa/pagopa-fdr-2-event-hub
-    tag: "1.1.1-7-PIDM-2543-recovery-lost-events-API"
+    tag: "1.1.1-8-PIDM-2543-recovery-archive-db"
     pullPolicy: Always
   # https://github.com/Azure/azure-functions-host/blob/dev/src/WebJobs.Script.WebHost/Controllers/HostController.cs
   # livenessProbe:
@@ -236,10 +236,10 @@ recovery-jobs:
     enable: false
   resources:
     requests:
-      memory: "512Mi"
+      memory: "256Mi"
       cpu: "250m"
     limits:
-      memory: "1536Mi"
+      memory: "1Gi"
       cpu: "500m"
   serviceMonitor:
     create: false
@@ -269,15 +269,15 @@ recovery-jobs:
     AzureFunctionsJobHost__logging__logLevel__Azure.Core: "Error"
     AzureFunctionsJobHost__functionTimeout: "01:00:00"
     LOG_LEVEL: "INFO"
-    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx768m"
+    JAVA_OPTS: "-XX:+UseContainerSupport -XX:+UseG1GC -Xms128m -Xmx512m"
     RECOVERY_WORKER_ENABLED: "true"
     RECOVERY_EXECUTION_ENABLED: "true"
     RECOVERY_WORKER_SCHEDULE: "0 * * * * *"
     RECOVERY_JOBS_TABLE_NAME: "fdrrecoveryjobs"
     RECOVERY_ITEMS_TABLE_NAME: "fdrrecoveryitems"
-    RECOVERY_DISCOVERY_PAGE_SIZE: "10"
+    RECOVERY_DISCOVERY_PAGE_SIZE: "100"
     RECOVERY_JOB_PAGE_SIZE: "10"
-    RECOVERY_POSTGRES_JDBC_URL: "jdbc:postgresql://fdr-db.u.internal.postgresql.pagopa.it:5432/fdr3"
+    RECOVERY_POSTGRES_JDBC_URL: "jdbc:postgresql://fdr-archive-db.u.internal.postgresql.pagopa.it:5432/fdr3"
     RECOVERY_POSTGRES_USERNAME: "fdr3"
     RECOVERY_POSTGRES_MAX_POOL_SIZE: "2"
     RECOVERY_POSTGRES_QUERY_TIMEOUT_SECONDS: "60"
