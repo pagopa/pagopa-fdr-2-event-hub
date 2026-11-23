@@ -16,3 +16,8 @@ dependencies:
     version: 8.0.2
     repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
     alias: recovery
+  - name: microservice-chart
+    version: 8.0.2
+    repository: "https://pagopa.github.io/aks-microservice-chart-blueprint"
+    alias: recovery-jobs
+    condition: recovery-jobs.enabled
