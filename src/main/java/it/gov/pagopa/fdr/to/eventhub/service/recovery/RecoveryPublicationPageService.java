@@ -8,12 +8,15 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryAdxPublicationQ
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDiscoveryItemRepository;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 public final class RecoveryPublicationPageService {
+
+  public static final int MAX_DISCOVERY_PAGE_SIZE = 500;
 
   private final RecoveryPublicationDiscoveryItemRepository itemRepository;
   private final RecoveryPublicationBatchService batchService;
@@ -41,7 +44,7 @@ public final class RecoveryPublicationPageService {
     Objects.requireNonNull(candidates, "candidates is required");
     Objects.requireNonNull(requireOwnership, "requireOwnership is required");
 
-    if (candidates.size() > RecoveryAdxPublicationQuery.MAX_PUBLICATIONS) {
+    if (candidates.size() > MAX_DISCOVERY_PAGE_SIZE) {
       throw new IllegalArgumentException(
           "Candidate page exceeds the supported size");
     }
@@ -51,6 +54,21 @@ public final class RecoveryPublicationPageService {
     if (page.isEmpty()) {
       return List.of();
     }
+
+    List<RecoveryPublicationDiscoveryItem> results = new ArrayList<>(page.size());
+    for (int start = 0; start < page.size(); start += RecoveryAdxPublicationQuery.MAX_PUBLICATIONS) {
+      int end = Math.min(start + RecoveryAdxPublicationQuery.MAX_PUBLICATIONS, page.size());
+      results.addAll(processBatch(jobId, day, page.subList(start, end), requireOwnership));
+    }
+    return List.copyOf(results);
+  }
+
+  private List<RecoveryPublicationDiscoveryItem> processBatch(
+      UUID jobId,
+      LocalDate day,
+      List<RecoveryFlowCandidate> page,
+      Runnable requireOwnership)
+      throws IOException, DataClientException, DataServiceException {
 
     requireOwnership.run();
 

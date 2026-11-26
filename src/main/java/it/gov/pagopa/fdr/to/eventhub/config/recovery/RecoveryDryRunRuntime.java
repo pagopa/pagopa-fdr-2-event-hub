@@ -7,11 +7,13 @@ import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.microsoft.azure.kusto.data.exceptions.DataClientException;
 import com.microsoft.azure.kusto.data.exceptions.DataServiceException;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryAdxRepository;
+import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryAdxPublicationQuery;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryFlowRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryJobTableMapper;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryRunnableJobRepository;
 import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryWorkerLeaseRepository;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDayWorker;
+import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryPublicationPageService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryDryRunDispatcher;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryJobWorkerStateService;
 import it.gov.pagopa.fdr.to.eventhub.service.recovery.RecoveryWorkerLeaseSession;
@@ -77,7 +79,8 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
     var settings =
         new Settings(
             integerSetting(
-                environment, "RECOVERY_DISCOVERY_PAGE_SIZE", 100, 100),
+                environment, "RECOVERY_DISCOVERY_PAGE_SIZE", 100,
+                RecoveryPublicationPageService.MAX_DISCOVERY_PAGE_SIZE),
             integerSetting(
                 environment, "RECOVERY_JOB_PAGE_SIZE", 10, 100),
             integerSetting(
@@ -255,7 +258,7 @@ public final class RecoveryDryRunRuntime implements AutoCloseable {
               storage,
               adx,
               settings.publication(),
-              settings.discoveryPageSize(),
+              Math.min(settings.discoveryPageSize(), RecoveryAdxPublicationQuery.MAX_PUBLICATIONS),
               components,
               resources.producer());
 

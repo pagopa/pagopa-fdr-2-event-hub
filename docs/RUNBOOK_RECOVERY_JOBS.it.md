@@ -112,7 +112,7 @@ La query di discovery deduplica le coppie `(flow_id, flow_date)` dei pagamenti d
 
 | Parametro | DEV | UAT | PROD |
 |---|---|---|---|
-| `RECOVERY_DISCOVERY_PAGE_SIZE` | 10 | 100 | 100 |
+| `RECOVERY_DISCOVERY_PAGE_SIZE` | 10 | 500 | 100 |
 | `RECOVERY_JOB_PAGE_SIZE` | 10 | 10 | 10 |
 
 `RECOVERY_DISCOVERY_PAGE_SIZE` indica il numero massimo di revisioni di flusso
@@ -122,3 +122,5 @@ quindi prosegue con la pagina successiva.
 
 `RECOVERY_JOB_PAGE_SIZE` indica il numero massimo di identificativi di job
 letti da Azure Table Storage quando la coda interna del dispatcher è vuota.
+
+La discovery ammette fino a 500 candidati per pagina PostgreSQL (default 100). In UAT il valore 500 è in valutazione; PROD resta a 100 fino alla verifica. ADX e le letture degli item rimangono suddivisi in batch da massimo 100; anche la pagina di esecuzione del recupero è limitata a 100. Il checkpoint di discovery avanza dopo il completamento dell’intera pagina PostgreSQL; un retry riutilizza gli item già salvati nei batch precedenti.

@@ -318,8 +318,30 @@ class RecoveryPersistedPublicationDiscoveryServiceTest {
     verifyNoMoreInteractions(checkpoints);
   }
 
+  @Test
+  void shouldCheckpointAll500CandidatesAsOneSqlPage() throws Exception {
+    var largePage = java.util.stream.IntStream.rangeClosed(1, 500)
+        .mapToObj(i -> candidate(i)).toList();
+    var largeSaved = largePage.stream()
+        .map(RecoveryPersistedPublicationDiscoveryServiceTest::item).toList();
+    var next = initial.afterSavedPage(largeSaved);
+    var completed = next.completeDiscovery();
+    when(checkpoints.find(JOB_ID, DAY))
+        .thenReturn(Optional.of(stored(initial, "etag-0")))
+        .thenReturn(Optional.of(stored(next, "etag-1")))
+        .thenReturn(Optional.of(stored(completed, "etag-2")));
+    when(flows.findPage(DAY, 0L, 500)).thenReturn(largePage);
+    when(flows.findPage(DAY, 500L, 500)).thenReturn(List.of());
+    when(pages.process(JOB_ID, DAY, largePage, ownership)).thenReturn(largeSaved);
+    var largeService = new RecoveryPersistedPublicationDiscoveryService(
+        flows, pages, checkpoints, 500);
+    assertEquals(completed, largeService.discover(JOB_ID, DAY, () -> true, ownership));
+    verify(checkpoints).update(next, "etag-0");
+    verify(checkpoints).update(completed, "etag-1");
+  }
+
   @ParameterizedTest
-  @ValueSource(ints = {0, 101})
+  @ValueSource(ints = {0, 501})
   void shouldRejectInvalidPageSize(int pageSize) {
     assertThrows(
         IllegalArgumentException.class,
