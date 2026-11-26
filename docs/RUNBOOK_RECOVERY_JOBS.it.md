@@ -4,7 +4,7 @@ Il servizio recupera gli eventi di pagamento mancanti in ADX, ripubblicandoli su
 
 L’intervallo si riferisce alla **data dei pagamenti** e comprende entrambe le date.
 
-I candidati vengono letti dal **database storico FDR3 (archive)**, dalle tabelle `payment` e `flow`, incluse le rispettive partizioni. Si considerano i flussi `PUBLISHED`, associando `flow_id` e `flow_date` al flusso.
+I candidati vengono letti dal **database storico FDR3 (archive)**, dalle tabelle `payment` e `flow`, incluse le rispettive partizioni. L’archivio contiene esclusivamente flussi pubblicati: la discovery non applica un filtro sullo stato. I pagamenti sono associati ai flussi tramite `flow_id` e `flow_date`.
 
 ## 1. Verificare una giornata
 
@@ -105,6 +105,8 @@ Gli item si consultano in `fdrrecoveryitems`, cercando il `jobId` e la giornata 
 | HTTP `503` / `500` | Recupero reale disabilitato / errore del servizio: controllare configurazione e log. |
 
 Un dry-run può terminare con item unresolved; un recupero reale può fallire dopo aver già inviato altri item. Dopo aver corretto la causa, una **nuova discovery** richiede un nuovo job: resume conserva gli item già rilevati. 
+
+La query di discovery deduplica le coppie `(flow_id, flow_date)` dei pagamenti della giornata, verifica l’esistenza del flusso prima del limite di pagina e legge i dettagli soltanto dei flussi selezionati. La CTE `AS MATERIALIZED` e gli `OFFSET 0` mantengono separate queste fasi. Ogni SELECT ricalcola la pagina usando `lastFlowId`. Il cursore sul solo ID presuppone ID globalmente univoci fra le partizioni.
 
 ## Configurazione operativa
 
