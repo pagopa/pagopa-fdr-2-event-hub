@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -17,9 +20,14 @@ import it.gov.pagopa.fdr.to.eventhub.repository.recovery.RecoveryPublicationDisc
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.HashMap;
+import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class RecoveryPublicationPageServiceTest {
 
@@ -214,6 +222,68 @@ class RecoveryPublicationPageServiceTest {
 
     assertSame(failure, actual);
     verifyNoInteractions(batchService);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {100, 101, 250, 500})
+  void shouldProcessLargeSqlPageInBoundedBatchesAndPreserveOrder(int size) throws Exception {
+    var page = IntStream.rangeClosed(1, size).mapToObj(i -> candidate(i)).toList();
+    when(repository.findForPage(eq(JOB_ID), eq(DAY), anyList())).thenReturn(Map.of());
+    when(batchService.compare(eq(DAY), anyList())).thenAnswer(invocation -> {
+      List<RecoveryFlowCandidate> batch = invocation.getArgument(1);
+      assertTrue(batch.size() <= 100);
+      return batch.stream().<RecoveryPublicationBatchService.Result>map(RecoveryPublicationPageServiceTest::batchResult).toList();
+    });
+    when(repository.createOrRead(any())).thenAnswer(invocation -> created(invocation.getArgument(0)));
+
+    var result = service.process(JOB_ID, DAY, page, ownership);
+
+    assertEquals(page, result.stream().map(RecoveryPublicationDiscoveryItem::candidate).toList());
+    verify(batchService, times((size + 99) / 100)).compare(eq(DAY), anyList());
+    verify(repository, times((size + 99) / 100)).findForPage(eq(JOB_ID), eq(DAY), anyList());
+    verify(repository, times(size)).createOrRead(any());
+  }
+
+  @Test
+  void shouldRejectPageAbove500BeforeAccessingDependencies() {
+    var page = IntStream.rangeClosed(1, 501).mapToObj(i -> candidate(i)).toList();
+    assertThrows(IllegalArgumentException.class,
+        () -> service.process(JOB_ID, DAY, page, ownership));
+    verifyNoInteractions(repository, batchService, ownership);
+  }
+
+  @Test
+  void shouldReuseSavedBatchesWhenRetryingLargeSqlPage() throws Exception {
+    var page = IntStream.rangeClosed(1, 250).mapToObj(i -> candidate(i)).toList();
+    Map<Long, RecoveryPublicationDiscoveryItem> persisted = new HashMap<>();
+    when(repository.findForPage(eq(JOB_ID), eq(DAY), anyList())).thenAnswer(invocation -> {
+      List<RecoveryFlowCandidate> batch = invocation.getArgument(2);
+      assertTrue(batch.size() <= 100);
+      return batch.stream().filter(c -> persisted.containsKey(c.flowId()))
+          .collect(Collectors.toMap(RecoveryFlowCandidate::flowId, c -> persisted.get(c.flowId())));
+    });
+    when(batchService.compare(eq(DAY), anyList())).thenAnswer(invocation -> {
+      List<RecoveryFlowCandidate> batch = invocation.getArgument(1);
+      return batch.stream().<RecoveryPublicationBatchService.Result>map(RecoveryPublicationPageServiceTest::batchResult).toList();
+    });
+    var failure = new IllegalStateException("Failure in second batch");
+    when(batchService.compare(DAY, page.subList(100, 200)))
+        .thenThrow(failure)
+        .thenReturn(page.subList(100, 200).stream()
+            .<RecoveryPublicationBatchService.Result>map(RecoveryPublicationPageServiceTest::batchResult).toList());
+    when(repository.createOrRead(any())).thenAnswer(invocation -> {
+      RecoveryPublicationDiscoveryItem item = invocation.getArgument(0);
+      persisted.put(item.candidate().flowId(), item);
+      return created(item);
+    });
+
+    assertSame(failure, assertThrows(IllegalStateException.class,
+        () -> service.process(JOB_ID, DAY, page, ownership)));
+    assertEquals(100, persisted.size());
+    var result = service.process(JOB_ID, DAY, page, ownership);
+    assertEquals(page, result.stream().map(RecoveryPublicationDiscoveryItem::candidate).toList());
+    verify(batchService, times(1)).compare(DAY, page.subList(0, 100));
+    verify(repository, times(250)).createOrRead(any());
   }
 
   private RecoveryPublicationDiscoveryItem computedItem(

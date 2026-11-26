@@ -38,9 +38,9 @@ public final class RecoveryPublicationComponentsFactory {
     Objects.requireNonNull(adx, "adx is required");
     Objects.requireNonNull(configuration, "configuration is required");
 
-    if (pageSize < 1 || pageSize > 100) {
+    if (pageSize < 1 || pageSize > RecoveryPublicationPageService.MAX_DISCOVERY_PAGE_SIZE) {
       throw new IllegalArgumentException(
-          "pageSize must be between 1 and 100");
+          "pageSize must be between 1 and " + RecoveryPublicationPageService.MAX_DISCOVERY_PAGE_SIZE);
     }
 
     var jsonContainer =

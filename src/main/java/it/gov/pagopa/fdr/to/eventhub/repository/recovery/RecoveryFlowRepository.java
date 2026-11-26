@@ -17,23 +17,51 @@ public final class RecoveryFlowRepository {
   private static final int MAX_PAGE_SIZE = 1000;
 
   private static final String FIND_PAGE_SQL = """
-          SELECT DISTINCT
+          WITH page AS MATERIALIZED (
+              SELECT
+                  k.flow_id,
+                  k.flow_date
+              FROM (
+                  SELECT DISTINCT
+                      p.flow_id,
+                      p.flow_date
+                  FROM fdr3.payment p
+                  WHERE p.pay_date >= ?
+                    AND p.pay_date < ?
+                    AND p.flow_id > ?
+              ) k
+              WHERE EXISTS (
+                  SELECT 1
+                  FROM fdr3.flow fx
+                  WHERE fx.id = k.flow_id
+                    AND fx.date = k.flow_date
+                  OFFSET 0
+              )
+              ORDER BY k.flow_id, k.flow_date
+              LIMIT ?
+          )
+          SELECT
               f.id,
               f.name,
               f.revision,
               f.psp_domain_id,
               f.org_domain_id,
-              f.date AS flow_date
-          FROM fdr3.payment p
-          INNER JOIN fdr3.flow f
-              ON f.id = p.flow_id
-             AND f.date = p.flow_date
-          WHERE p.pay_date >= ?
-            AND p.pay_date < ?
-            AND f.status = 'PUBLISHED'
-            AND f.id > ?
-          ORDER BY f.id
-          LIMIT ?
+              f.flow_date
+          FROM page p
+          CROSS JOIN LATERAL (
+              SELECT
+                  fx.id,
+                  fx.name,
+                  fx.revision,
+                  fx.psp_domain_id,
+                  fx.org_domain_id,
+                  fx.date AS flow_date
+              FROM fdr3.flow fx
+              WHERE fx.id = p.flow_id
+                AND fx.date = p.flow_date
+              OFFSET 0
+          ) f
+          ORDER BY f.id, f.flow_date
           """;
 
   private final DataSource dataSource;

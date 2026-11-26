@@ -118,12 +118,11 @@ class RecoveryFlowRepositoryIT {
 
       System.out.printf(
               "Archive reference selection: day=%s, published=%d, "
-                  + "historical=%d, latest=%d, excluded=%d%n",
+                  + "historical=%d, latest=%d%n",
               day,
               expected.publishedIds().size(),
               expected.historicalCount(),
-              expected.latestCount(),
-              expected.excludedCount());
+              expected.latestCount());
 
       assertTrue(
               !expected.publishedIds().isEmpty(),
@@ -178,12 +177,11 @@ class RecoveryFlowRepositoryIT {
 
       System.out.printf(
           "Archive published selection verified: day=%s, published=%d, "
-              + "historical=%d, latest=%d, excluded=%d, pages=%d%n",
+              + "historical=%d, latest=%d, pages=%d%n",
           day,
           actualIds.size(),
           expected.historicalCount(),
           expected.latestCount(),
-          expected.excludedCount(),
           nonEmptyPages);
     }
   }
@@ -210,7 +208,6 @@ class RecoveryFlowRepositoryIT {
     Map<Long, LocalDateTime> flowDates = new HashMap<>();
     int historicalCount = 0;
     int latestCount = 0;
-    int excludedCount = 0;
     int rows = 0;
 
     try (Connection connection = dataSource.getConnection();
@@ -230,25 +227,24 @@ class RecoveryFlowRepositoryIT {
               rows <= MAX_TEST_CANDIDATES,
               "Choose an archive test day with at most 1000 candidate revisions");
 
-          if ("PUBLISHED".equals(result.getString("status"))) {
-              long flowId = result.getLong("id");
+          // This verifies the archive contract; status is not a discovery filter.
+          assertEquals("PUBLISHED", result.getString("status"),
+              "Archive must contain published flows only");
+          long flowId = result.getLong("id");
 
-              assertTrue(
-                  publishedIds.add(flowId),
-                  "Published flow IDs must be unique across archive partitions: "
-                      + flowId);
+          assertTrue(
+              publishedIds.add(flowId),
+              "Published flow IDs must be unique across archive partitions: "
+                  + flowId);
 
-              flowDates.put(
-                  flowId,
-                  result.getObject("flow_date", LocalDateTime.class));
+          flowDates.put(
+              flowId,
+              result.getObject("flow_date", LocalDateTime.class));
 
-              if (result.getBoolean("is_latest")) {
-                  latestCount++;
-              } else {
-                  historicalCount++;
-              }
+          if (result.getBoolean("is_latest")) {
+              latestCount++;
           } else {
-              excludedCount++;
+              historicalCount++;
           }
         }
       }
@@ -258,11 +254,10 @@ class RecoveryFlowRepositoryIT {
         Set.copyOf(publishedIds),
         historicalCount,
         latestCount,
-        excludedCount,
         Map.copyOf(flowDates));
   }
 
-  private record SelectionExpectation(Set<Long> publishedIds, int historicalCount, int latestCount, int excludedCount,
+  private record SelectionExpectation(Set<Long> publishedIds, int historicalCount, int latestCount,
           Map<Long, LocalDateTime> flowDates) {
   }
 }

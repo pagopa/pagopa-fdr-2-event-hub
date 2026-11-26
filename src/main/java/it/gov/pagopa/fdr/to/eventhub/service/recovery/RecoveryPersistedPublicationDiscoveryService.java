@@ -33,9 +33,9 @@ public final class RecoveryPersistedPublicationDiscoveryService {
     this.pageService = Objects.requireNonNull(pageService);
     this.checkpoints = Objects.requireNonNull(checkpoints);
 
-    if (pageSize < 1 || pageSize > 100) {
+    if (pageSize < 1 || pageSize > RecoveryPublicationPageService.MAX_DISCOVERY_PAGE_SIZE) {
       throw new IllegalArgumentException(
-          "pageSize must be between 1 and 100");
+          "pageSize must be between 1 and " + RecoveryPublicationPageService.MAX_DISCOVERY_PAGE_SIZE);
     }
 
     this.pageSize = pageSize;

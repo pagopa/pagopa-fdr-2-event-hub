@@ -205,10 +205,19 @@ class RecoveryDryRunRuntimeTest {
     }
   }
 
+  @Test
+  void shouldAcceptDiscoveryPage500BeforeValidatingPublicationConfiguration() {
+    Map<String, String> environment = Map.of("RECOVERY_DISCOVERY_PAGE_SIZE", "500");
+
+    var failure = assertThrows(IllegalArgumentException.class,
+        () -> RecoveryDryRunRuntime.fromEnvironment(environment));
+    assertTrue(failure.getMessage().contains("RECOVERY_MAX_COMPRESSED_BLOB_BYTES"));
+  }
+
   @ParameterizedTest
   @CsvSource({
       "RECOVERY_DISCOVERY_PAGE_SIZE, 0",
-      "RECOVERY_DISCOVERY_PAGE_SIZE, 101",
+      "RECOVERY_DISCOVERY_PAGE_SIZE, 501",
       "RECOVERY_JOB_PAGE_SIZE, 0",
       "RECOVERY_JOB_PAGE_SIZE, 101",
       "RECOVERY_POSTGRES_QUERY_TIMEOUT_SECONDS, 0",
