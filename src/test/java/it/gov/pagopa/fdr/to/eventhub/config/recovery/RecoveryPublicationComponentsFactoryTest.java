@@ -17,8 +17,10 @@ class RecoveryPublicationComponentsFactoryTest {
   @Test
   void shouldConstructDiscoveryFor500CandidatesWithoutNetworkCalls() {
     var tables = mock(RecoveryTableClients.class);
-    when(tables.jobs()).thenReturn(mock(TableClient.class));
-    when(tables.items()).thenReturn(mock(TableClient.class));
+    var jobs = mock(TableClient.class);
+    var items = mock(TableClient.class);
+    when(tables.jobs()).thenReturn(jobs);
+    when(tables.items()).thenReturn(items);
     var storage = mock(BlobServiceClient.class);
     when(storage.getBlobContainerClient(anyString())).thenAnswer(invocation -> {
       var container = mock(BlobContainerClient.class);
@@ -34,10 +36,14 @@ class RecoveryPublicationComponentsFactoryTest {
 
   @Test
   void shouldRejectPageAbove500() {
+    var tables = mock(RecoveryTableClients.class);
+    var storage = mock(BlobServiceClient.class);
+    var flows = mock(RecoveryFlowRepository.class);
+    var adx = mock(RecoveryAdxRepository.class);
+    var configuration = new RecoveryPublicationConfiguration(1048576, 8388608, 8388608, 20);
+
     assertThrows(IllegalArgumentException.class,
         () -> RecoveryPublicationComponentsFactory.createComponents(
-            mock(RecoveryTableClients.class), mock(BlobServiceClient.class),
-            mock(RecoveryFlowRepository.class), mock(RecoveryAdxRepository.class),
-            new RecoveryPublicationConfiguration(1048576, 8388608, 8388608, 20), 501));
+            tables, storage, flows, adx, configuration, 501));
   }
 }
